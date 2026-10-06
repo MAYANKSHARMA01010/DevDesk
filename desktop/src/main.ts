@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain } from "electron";
+import { app, BrowserWindow, dialog, ipcMain } from "electron";
 import * as path from "path";
 
 let mainWindow: BrowserWindow | null = null;
@@ -201,6 +201,21 @@ function createWindow(): void {
 function registerIpcHandlers(): void {
   ipcMain.handle("ping", async () => {
     return "pong";
+  });
+
+  ipcMain.handle("dialog:select-directory", async (): Promise<string | null> => {
+    if (!mainWindow) return null;
+
+    const result = await dialog.showOpenDialog(mainWindow, {
+      title: "Select Project Root Directory",
+      properties: ["openDirectory"],
+    });
+
+    if (result.canceled || result.filePaths.length === 0) {
+      return null;
+    }
+
+    return result.filePaths[0];
   });
 }
 

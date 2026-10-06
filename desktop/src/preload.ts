@@ -3,6 +3,8 @@ import type { ElectronAPI } from "./types";
 
 const electronAPI: ElectronAPI = {
   ping: (): Promise<string> => ipcRenderer.invoke("ping"),
+  selectDirectory: (): Promise<string | null> =>
+    ipcRenderer.invoke("dialog:select-directory"),
   platform: process.platform,
   versions: {
     node: process.versions.node,

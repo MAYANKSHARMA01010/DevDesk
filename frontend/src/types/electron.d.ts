@@ -7,12 +7,12 @@ export interface ElectronVersions {
 export interface ElectronAPI {
   ping: () => Promise<string>;
   selectDirectory: () => Promise<string | null>;
-  platform: NodeJS.Platform;
+  platform: string;
   versions: ElectronVersions;
 }
 
 declare global {
   interface Window {
-    electron: ElectronAPI;
+    electron?: ElectronAPI;
   }
 }
