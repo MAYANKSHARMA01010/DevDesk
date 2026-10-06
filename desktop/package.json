@@ -17,5 +17,11 @@
     }
   },
   "packageManager": "pnpm@11.24.0",
-  "type": "module"
+  "type": "module",
+  "dependencies": {
+    "electron": "^44.5.1"
+  },
+  "devDependencies": {
+    "electron-builder": "^26.15.3"
+  }
 }
