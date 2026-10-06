@@ -1,36 +1,68 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
-
-# dependencies
-/node_modules
-/.pnp
+# Dependencies (Root, Frontend, Backend, Desktop)
+node_modules/
+.pnp
 .pnp.js
 
-# testing
-/coverage
+# Testing & Coverage
+coverage/
+.nyc_output/
 
-# next.js
-/.next/
-/out/
+# Next.js
+.next/
+out/
 
-# production
-/build
+# Production & Build Outputs (Electron desktop, frontend, backend)
+build/
+dist/
+dist-electron/
+release/
 
-# misc
-.DS_Store
-*.pem
-
-# debug
+# Debug & Logs
+*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
 
-# local env files
-.env*.local
+# Local Environment & Secrets
 .env
+.env*.local
+.env.local
+.env.development
+.env.test
+.env.production
+!.env.example
+*.pem
+*.key
+*.cert
+*.pfx
+*.p12
 
-# vercel
-.vercel
+# Vercel & Turborepo
+.vercel/
+.turbo/
 
-# typescript
+# TypeScript & Cache
 *.tsbuildinfo
 next-env.d.ts
+.eslintcache
+.cache/
+
+# Operating System Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# IDE & Editor Settings
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+*.swp
+*.swo
