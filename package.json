@@ -4,6 +4,11 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "dev:frontend": "pnpm --filter frontend dev",
+    "dev:backend": "pnpm --filter backend dev",
+    "dev:desktop": "pnpm --filter desktop dev",
+    "build:frontend": "pnpm --filter frontend build",
+    "build:desktop": "pnpm --filter desktop build",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],

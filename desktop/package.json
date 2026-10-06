@@ -1,27 +1,21 @@
 {
   "name": "desktop",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "DevDesk Electron Desktop Shell",
+  "main": "dist/main.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "tsc && electron .",
+    "build": "tsc",
+    "start": "electron .",
+    "typecheck": "tsc --noEmit"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "devEngines": {
-    "packageManager": {
-      "name": "pnpm",
-      "version": "11.24.0",
-      "onFail": "download"
-    }
-  },
-  "packageManager": "pnpm@11.24.0",
-  "type": "module",
-  "dependencies": {
-    "electron": "^44.5.1"
-  },
   "devDependencies": {
-    "electron-builder": "^26.15.3"
+    "@types/node": "^20.17.0",
+    "electron": "44.4.4",
+    "electron-builder": "^26.15.3",
+    "typescript": "^5.0.0"
   }
 }
