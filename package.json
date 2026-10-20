@@ -4,9 +4,11 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "dev": "pnpm -r --parallel dev",
     "dev:frontend": "pnpm --filter frontend dev",
     "dev:backend": "pnpm --filter backend dev",
     "dev:desktop": "pnpm --filter desktop dev",
+    "build": "pnpm -r build",
     "build:frontend": "pnpm --filter frontend build",
     "build:desktop": "pnpm --filter desktop build",
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -14,13 +16,6 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "devEngines": {
-    "packageManager": {
-      "name": "pnpm",
-      "version": "11.24.0",
-      "onFail": "download"
-    }
-  },
   "packageManager": "pnpm@11.24.0",
   "type": "module"
 }

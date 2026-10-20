@@ -203,11 +203,9 @@ function registerIpcHandlers(): void {
     return "pong";
   });
 
-  ipcMain.handle("dialog:select-directory", async (): Promise<string | null> => {
-    if (!mainWindow) return null;
-
-    const result = await dialog.showOpenDialog(mainWindow, {
-      title: "Select Project Root Directory",
+  ipcMain.handle("dialog:select-directory", async () => {
+    console.log("[DevDesk] dialog:select-directory handler invoked");
+    const result = await dialog.showOpenDialog({
       properties: ["openDirectory"],
     });
 
@@ -217,6 +215,8 @@ function registerIpcHandlers(): void {
 
     return result.filePaths[0];
   });
+
+  console.log("[DevDesk] IPC handlers registered");
 }
 
 // App lifecycle
