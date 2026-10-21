@@ -12,7 +12,7 @@ export async function startProcessController(
   res: Response
 ): Promise<void> {
   try {
-    const { projectId, script } = req.body ?? {};
+    const { projectId, script, command } = req.body ?? {};
 
     if (!projectId || typeof projectId !== "string" || projectId.trim().length === 0) {
       res.status(400).json({
@@ -22,7 +22,10 @@ export async function startProcessController(
       return;
     }
 
-    if (!script || typeof script !== "string" || script.trim().length === 0) {
+    if (
+      (!script || typeof script !== "string" || script.trim().length === 0) &&
+      (!command || typeof command !== "string" || command.trim().length === 0)
+    ) {
       res.status(400).json({
         success: false,
         error: "Body field 'script' is required and must be a non-empty string",
@@ -30,7 +33,8 @@ export async function startProcessController(
       return;
     }
 
-    const process = await processManager.startProcess(projectId, script);
+    const scriptName = script || (command ? "custom" : "");
+    const process = await processManager.startProcess(projectId, scriptName, command);
 
     res.status(201).json({
       success: true,

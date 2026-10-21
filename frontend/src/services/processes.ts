@@ -57,7 +57,8 @@ export async function fetchProjectScripts(
  */
 export async function startProcess(
   projectId: string,
-  script: string
+  script?: string,
+  command?: string
 ): Promise<ManagedProcess> {
   const queryUrl = `${BACKEND_BASE_URL}/api/processes/start`;
 
@@ -68,7 +69,11 @@ export async function startProcess(
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ projectId, script }),
+      body: JSON.stringify({
+        projectId,
+        script: script || (command ? "custom" : ""),
+        command: command || undefined,
+      }),
     });
   } catch (err: unknown) {
     const errorMsg = err instanceof Error ? err.message : "Network error";

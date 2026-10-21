@@ -185,8 +185,37 @@ export default function Home() {
       {/* 2. Middle Body: Sidebar + Main Content */}
       <div className="flex flex-1 min-h-0 overflow-hidden">
         <Sidebar activeTab={activeTab} onSelectTab={setActiveTab} />
-        <main className="flex-1 min-w-0 overflow-y-auto bg-zinc-900/40">
-          {renderMainContent()}
+        <main className="flex-1 min-w-0 overflow-y-auto bg-zinc-900/40 relative">
+          <div className={activeTab === "projects" ? "h-full w-full" : "hidden"}>
+            <ProjectsView
+              onNavigateToTerminal={handleNavigateToTerminal}
+              onNavigateToGit={handleNavigateToGit}
+            />
+          </div>
+          <div className={activeTab === "terminal" ? "h-full w-full" : "hidden"}>
+            <TerminalView initialSelection={terminalSelection} />
+          </div>
+          <div className={activeTab === "processes" ? "h-full w-full" : "hidden"}>
+            <ProcessesView
+              onNavigateToTerminal={handleNavigateToTerminal}
+              onNavigateToProjects={() => setActiveTab("projects")}
+            />
+          </div>
+          <div className={activeTab === "git" ? "h-full w-full" : "hidden"}>
+            <GitView initialSelection={gitSelection} />
+          </div>
+          <div className={activeTab === "api-tester" ? "h-full w-full" : "hidden"}>
+            <ApiTesterView />
+          </div>
+          <div className={activeTab === "database" ? "h-full w-full" : "hidden"}>
+            <DatabaseView />
+          </div>
+          <div className={activeTab === "env" ? "h-full w-full" : "hidden"}>
+            <EnvEditorView />
+          </div>
+          <div className={activeTab === "settings" ? "h-full w-full" : "hidden"}>
+            <SettingsView />
+          </div>
         </main>
       </div>
 

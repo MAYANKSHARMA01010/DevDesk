@@ -124,19 +124,24 @@ export class ProcessManager {
   /**
    * Starts a package.json script for a saved project.
    */
-  public async startProcess(
+  public  async startProcess(
     projectId: string,
-    scriptName: string
+    scriptName: string,
+    customCommand?: string
   ): Promise<ManagedProcess> {
     if (!projectId || typeof projectId !== "string" || projectId.trim().length === 0) {
       throw new Error("Project ID is required and must be a valid string");
     }
-    if (!scriptName || typeof scriptName !== "string" || scriptName.trim().length === 0) {
-      throw new Error("Script name is required and must be a valid string");
+    if (
+      (!scriptName || typeof scriptName !== "string" || scriptName.trim().length === 0) &&
+      (!customCommand || typeof customCommand !== "string" || customCommand.trim().length === 0)
+    ) {
+      throw new Error("Script name or custom command is required and must be a valid string");
     }
 
     const cleanProjectId = projectId.trim();
-    const cleanScriptName = scriptName.trim();
+    const cleanScriptName = (scriptName || "").trim();
+    const cleanCustomCommand = (customCommand || "").trim();
 
     // 1. Resolve project from SQLite database
     const project = workspaceRepository.getProjectById(cleanProjectId);
@@ -144,47 +149,86 @@ export class ProcessManager {
       throw new Error(`Project not found in database with ID "${cleanProjectId}"`);
     }
 
-    // 2. Discover and validate script in package.json
+    // 2. Discover and validate script
     const { scripts } = await discoverProjectScripts(cleanProjectId);
-    if (!scripts[cleanScriptName]) {
+    const scriptDef = scripts[cleanScriptName];
+
+    if (!cleanCustomCommand && !scriptDef) {
       throw new Error(
         `Script "${cleanScriptName}" was not found in package.json for project "${project.name}". Available scripts: ${Object.keys(scripts).join(", ") || "(none)"}`
       );
     }
 
+    const scriptLabel = cleanCustomCommand ? (cleanScriptName || cleanCustomCommand.split(" ")[0]) : cleanScriptName;
+
     // 3. Prevent duplicate launches of the same project and script
     for (const internal of this.processes.values()) {
       if (
         internal.process.projectId === cleanProjectId &&
-        internal.process.script === cleanScriptName &&
+        internal.process.script === scriptLabel &&
         (internal.process.status === "running" ||
           internal.process.status === "starting" ||
           internal.process.status === "stopping")
       ) {
         throw new Error(
-          `Script "${cleanScriptName}" is already active for project "${project.name}" (process ID: ${internal.process.id})`
+          `Script "${scriptLabel}" is already active for project "${project.name}" (process ID: ${internal.process.id})`
         );
       }
     }
 
-    // 4. Map package manager executable
+    // 4. Map executable and arguments
     let executable = "npm";
-    if (project.packageManager === "pnpm") {
-      executable = "pnpm";
-    } else if (project.packageManager === "yarn") {
-      executable = "yarn";
+    let spawnArgs: string[] = ["run", cleanScriptName];
+    let fullCommand = `${executable} run ${cleanScriptName}`;
+    let useShell = false;
+
+    const isSpecialRuntime =
+      cleanScriptName.includes(":") ||
+      cleanScriptName.startsWith("python") ||
+      cleanScriptName.startsWith("cargo") ||
+      cleanScriptName.startsWith("go ") ||
+      cleanScriptName.startsWith("make") ||
+      cleanScriptName.startsWith("bash") ||
+      cleanScriptName === "runserver" ||
+      cleanScriptName === "migrate" ||
+      cleanScriptName === "makemigrations" ||
+      cleanScriptName === "app.py" ||
+      cleanScriptName === "main.py";
+
+    if (cleanCustomCommand) {
+      const parts = cleanCustomCommand.split(" ").filter(Boolean);
+      executable = parts[0];
+      spawnArgs = parts.slice(1);
+      fullCommand = cleanCustomCommand;
+      useShell = true;
+    } else if (isSpecialRuntime && scriptDef) {
+      const parts = scriptDef.split(" ").filter(Boolean);
+      executable = parts[0];
+      spawnArgs = parts.slice(1);
+      fullCommand = scriptDef;
+    } else {
+      if (project.packageManager === "pnpm") {
+        executable = "pnpm";
+      } else if (project.packageManager === "yarn") {
+        executable = "yarn";
+      } else if (project.packageManager === "bun") {
+        executable = "bun";
+      } else {
+        executable = "npm";
+      }
+      spawnArgs = ["run", cleanScriptName];
+      fullCommand = `${executable} run ${cleanScriptName}`;
     }
 
     const processId = crypto.randomUUID();
     const now = new Date().toISOString();
-    const fullCommand = `${executable} run ${cleanScriptName}`;
 
     const managedProcess: ManagedProcess = {
       id: processId,
       projectId: project.id,
       workspaceId: project.workspaceId,
       projectName: project.name,
-      script: cleanScriptName,
+      script: scriptLabel,
       command: fullCommand,
       status: "starting",
       exitCode: null,
@@ -208,11 +252,11 @@ export class ProcessManager {
       `[DevDesk] Launching: ${fullCommand} in ${project.path}`
     );
 
-    // 5. Spawn child process safely (shell: false, arguments as separate array)
+    // 5. Spawn child process safely
     try {
-      const child = spawn(executable, ["run", cleanScriptName], {
+      const child = spawn(executable, spawnArgs, {
         cwd: project.path,
-        shell: false,
+        shell: useShell,
         env: this.getEnvironment(),
         stdio: ["ignore", "pipe", "pipe"],
       });
