@@ -243,7 +243,7 @@ export function ApiTesterView() {
   const allowsBody = ["POST", "PUT", "PATCH", "DELETE"].includes(method);
 
   return (
-    <div className="flex flex-col h-full p-6 text-zinc-100 max-w-7xl">
+    <div className="flex flex-col h-full p-6 text-zinc-100 w-full">
       {/* 1. Header Toolbar */}
       <div className="mb-4">
         <h2 className="text-xl font-semibold tracking-tight">API Tester</h2>

@@ -434,7 +434,7 @@ export function GitView({ initialSelection }: GitViewProps = {}) {
   // Loading initial workspaces
   if (loadingWorkspaces) {
     return (
-      <div className="flex flex-col h-full p-6 text-zinc-100 max-w-7xl">
+      <div className="flex flex-col h-full p-6 text-zinc-100 w-full">
         <div className="mb-6">
           <h2 className="text-xl font-semibold tracking-tight">Git Control</h2>
           <p className="text-xs text-zinc-400 mt-1">Connecting to workspace repositories...</p>
@@ -450,7 +450,7 @@ export function GitView({ initialSelection }: GitViewProps = {}) {
   // Empty state: No workspaces configured
   if (workspaces.length === 0) {
     return (
-      <div className="flex flex-col h-full p-6 text-zinc-100 max-w-7xl">
+      <div className="flex flex-col h-full p-6 text-zinc-100 w-full">
         <div className="mb-6">
           <h2 className="text-xl font-semibold tracking-tight">Git Control</h2>
           <p className="text-xs text-zinc-400 mt-1">
@@ -474,7 +474,7 @@ export function GitView({ initialSelection }: GitViewProps = {}) {
   const unstagedCount = (gitStatus?.unstagedFiles.length || 0) + (gitStatus?.untrackedFiles.length || 0);
 
   return (
-    <div className="flex flex-col h-full p-6 text-zinc-100 max-w-7xl">
+    <div className="flex flex-col h-full p-6 text-zinc-100 w-full">
       {/* 1. Header Toolbar */}
       <div className="flex flex-col gap-4 mb-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">

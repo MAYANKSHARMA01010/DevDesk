@@ -297,7 +297,7 @@ export function ProcessesView({
   ).sort((a, b) => a - b);
 
   return (
-    <div className="flex flex-col h-full p-6 text-zinc-100 max-w-7xl">
+    <div className="flex flex-col h-full p-6 text-zinc-100 w-full">
       {/* 1. Header Toolbar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>

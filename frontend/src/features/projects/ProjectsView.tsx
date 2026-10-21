@@ -437,11 +437,7 @@ export function ProjectsView({
           </span>
         );
       case "Git Repository":
-        return (
-          <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-purple-950/70 text-purple-300 border border-purple-800/60">
-            Git Repository
-          </span>
-        );
+        return null;
       case "Node.js":
       case "Generic":
       default:
@@ -525,7 +521,7 @@ export function ProjectsView({
   }
 
   function renderGitBadge(project: DiscoveredProject | SavedProject) {
-    if (project.isGitRepo || project.isRoot) {
+    if (project.isGitRepo || project.isRoot || project.type === "Git Repository") {
       const projId = "id" in project ? project.id : undefined;
       return (
         <span
@@ -540,15 +536,14 @@ export function ProjectsView({
           }}
           title={
             project.gitRemote
-              ? `Git Initialized\nRemote: ${project.gitRemote}\nClick to open Git Control (branches, diffs, commits)`
-              : "Git Initialized\nClick to open Git Control (branches, diffs, commits)"
+              ? `Git Repository (Initialized)\nRemote: ${project.gitRemote}\nClick to open Git Control (branches, diffs, commits)`
+              : "Git Repository (Initialized)\nClick to open Git Control (branches, diffs, commits)"
           }
-          className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-mono font-medium bg-emerald-950/70 text-emerald-300 border border-emerald-800/60 hover:bg-emerald-900/60 hover:border-emerald-700 cursor-pointer transition shadow-xs"
+          className="inline-flex items-center justify-center p-1 rounded text-[11px] font-mono font-medium bg-emerald-950/70 text-emerald-300 border border-emerald-800/60 hover:bg-emerald-900/60 hover:border-emerald-700 cursor-pointer transition shadow-xs"
         >
-          <svg className="w-3 h-3 text-emerald-400 shrink-0" fill="currentColor" viewBox="0 0 16 16">
+          <svg className="w-3.5 h-3.5 text-emerald-400 shrink-0" fill="currentColor" viewBox="0 0 16 16">
             <path fillRule="evenodd" d="M11.75 2.5a.75.75 0 100 1.5.75.75 0 000-1.5zm-2.25.75a2.25 2.25 0 113 2.122V6A2.5 2.5 0 0110 8.5H6a1 1 0 00-1 1v1.128a2.251 2.251 0 11-1.5 0V5.372a2.25 2.25 0 111.5 0v1.836A2.492 2.492 0 016 7h4a1 1 0 001-1v-.628A2.25 2.25 0 019.5 3.25zM4.25 12a.75.75 0 100 1.5.75.75 0 000-1.5zM3.5 3.25a.75.75 0 111.5 0 .75.75 0 01-1.5 0z" />
           </svg>
-          <span>Git</span>
         </span>
       );
     }
@@ -659,7 +654,7 @@ export function ProjectsView({
   // State A: Initial Loading
   if (status === "loading_initial") {
     return (
-      <div className="flex flex-col h-full p-6 text-zinc-100 max-w-5xl">
+      <div className="flex flex-col h-full p-6 text-zinc-100 w-full">
         <div className="flex items-center justify-between gap-4 mb-6">
           <div>
             <h2 className="text-xl font-semibold tracking-tight">Projects</h2>
@@ -675,7 +670,7 @@ export function ProjectsView({
   }
 
   return (
-    <div className="flex flex-col h-full p-6 text-zinc-100 max-w-5xl overflow-y-auto">
+    <div className="flex flex-col h-full p-6 text-zinc-100 w-full overflow-y-auto">
       {/* 1. Header Toolbar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
@@ -995,27 +990,26 @@ export function ProjectsView({
           </div>
 
           {/* Row 3: Legend / Indicator Guide */}
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 px-3 py-2 rounded-lg bg-zinc-900/30 border border-zinc-800/50 text-[11px] text-zinc-400">
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 px-3 py-2 rounded-lg bg-zinc-900/30 border border-zinc-800/50 text-[11px] text-zinc-400">
             <span className="text-zinc-500 font-semibold uppercase text-[10px] tracking-wider">
               Indicators:
             </span>
             <span className="flex items-center gap-1.5">
-              <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded font-mono text-[10px] bg-emerald-950/70 text-emerald-300 border border-emerald-800/60 font-medium">
-                <svg className="w-2.5 h-2.5 text-emerald-400" fill="currentColor" viewBox="0 0 16 16">
+              <span className="inline-flex items-center justify-center p-1 rounded font-mono text-[10px] bg-emerald-950/70 text-emerald-300 border border-emerald-800/60 font-medium shadow-xs">
+                <svg className="w-3 h-3 text-emerald-400 shrink-0" fill="currentColor" viewBox="0 0 16 16">
                   <path fillRule="evenodd" d="M11.75 2.5a.75.75 0 100 1.5.75.75 0 000-1.5zm-2.25.75a2.25 2.25 0 113 2.122V6A2.5 2.5 0 0110 8.5H6a1 1 0 00-1 1v1.128a2.251 2.251 0 11-1.5 0V5.372a2.25 2.25 0 111.5 0v1.836A2.492 2.492 0 016 7h4a1 1 0 001-1v-.628A2.25 2.25 0 019.5 3.25zM4.25 12a.75.75 0 100 1.5.75.75 0 000-1.5zM3.5 3.25a.75.75 0 111.5 0 .75.75 0 01-1.5 0z" />
                 </svg>
-                Git
               </span>
-              <span>Git Initialized (click to view branches, status & diffs)</span>
+              <span>Git Repository (click symbol on project to view branches, status &amp; diffs)</span>
             </span>
             <span className="flex items-center gap-1.5">
-              <span className="px-1.5 py-0.2 rounded font-mono text-[10px] text-cyan-300 bg-cyan-950/60 border border-cyan-800/60 font-medium">
-                &gt;_ Terminal
+              <span className="inline-flex items-center justify-center px-2 py-0.5 rounded font-mono text-xs font-bold text-cyan-300 bg-cyan-950/60 border border-cyan-800/60 shadow-xs">
+                &gt;_
               </span>
-              <span>Runnable project scripts</span>
+              <span>Terminal (click symbol on project to run scripts)</span>
             </span>
             <span className="flex items-center gap-1.5">
-              <span className="px-1.5 py-0.2 rounded font-mono text-[10px] text-violet-300 bg-violet-950/60 border border-violet-800/60 font-semibold uppercase">
+              <span className="px-1.5 py-0.5 rounded font-mono text-[10px] text-violet-300 bg-violet-950/60 border border-violet-800/60 font-semibold uppercase">
                 Workspace Root
               </span>
               <span>Top-level parent directory</span>
@@ -1180,11 +1174,10 @@ export function ProjectsView({
                           projectId: project.id,
                         })
                       }
-                      className="px-2.5 py-1.5 rounded-md text-xs font-medium text-cyan-300 bg-cyan-950/40 border border-cyan-800/50 hover:bg-cyan-900/60 transition-all flex items-center gap-1 cursor-pointer"
+                      className="px-2.5 py-1.5 rounded-md text-xs font-mono font-bold text-cyan-300 bg-cyan-950/40 border border-cyan-800/50 hover:bg-cyan-900/60 transition-all flex items-center justify-center cursor-pointer shadow-xs"
                       title="Run scripts in Terminal"
                     >
-                      <span className="font-mono text-[11px]">&gt;_</span>
-                      <span>Terminal</span>
+                      &gt;_
                     </button>
                   )}
 
