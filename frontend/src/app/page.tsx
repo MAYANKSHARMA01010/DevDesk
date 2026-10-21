@@ -21,6 +21,11 @@ export default function Home() {
     script?: string;
   } | null>(null);
 
+  const [gitSelection, setGitSelection] = useState<{
+    workspaceId?: string;
+    projectId?: string;
+  } | null>(null);
+
   function handleNavigateToTerminal(selection: {
     workspaceId?: string;
     projectId?: string;
@@ -28,6 +33,14 @@ export default function Home() {
   }) {
     setTerminalSelection(selection);
     setActiveTab("terminal");
+  }
+
+  function handleNavigateToGit(selection: {
+    workspaceId?: string;
+    projectId?: string;
+  }) {
+    setGitSelection(selection);
+    setActiveTab("git");
   }
 
   function renderMainContent() {
@@ -44,7 +57,7 @@ export default function Home() {
           />
         );
       case "git":
-        return <GitView />;
+        return <GitView initialSelection={gitSelection} />;
       case "api-tester":
         return <ApiTesterView />;
       case "database":
