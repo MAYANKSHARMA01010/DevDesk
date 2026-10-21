@@ -7,6 +7,8 @@ const electronAPI: ElectronAPI = {
     ipcRenderer.invoke("dialog:select-directory"),
   openInVSCode: (projectPath: string): Promise<ActionResult> =>
     ipcRenderer.invoke("project:open-vscode", projectPath),
+  openInEditor: (projectPath: string, editorId?: string): Promise<ActionResult> =>
+    ipcRenderer.invoke("project:open-editor", projectPath, editorId),
   revealInFinder: (projectPath: string): Promise<ActionResult> =>
     ipcRenderer.invoke("project:reveal-finder", projectPath),
   platform: process.platform,

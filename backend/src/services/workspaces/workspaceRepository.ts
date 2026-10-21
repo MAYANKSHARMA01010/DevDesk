@@ -1,4 +1,5 @@
 import crypto from "crypto";
+import fs from "fs";
 import { getDatabase } from "../../config/database.js";
 import { DiscoveredProject, PackageManager, ProjectType } from "../../types/project.js";
 import { SavedProject, WorkspaceWithProjects } from "../../types/workspace.js";
@@ -79,11 +80,31 @@ export class WorkspaceRepository {
     const projectStmt = db.prepare<[string], ProjectRow>(
       "SELECT * FROM projects WHERE workspace_id = ? ORDER BY name ASC"
     );
+    const deleteWsStmt = db.prepare<[string]>("DELETE FROM workspaces WHERE id = ?");
+    const deleteProjStmt = db.prepare<[string]>("DELETE FROM projects WHERE id = ?");
 
-    return workspaceRows.map((ws) => {
+    const validWorkspaces: WorkspaceWithProjects[] = [];
+
+    for (const ws of workspaceRows) {
+      if (!fs.existsSync(ws.root_path)) {
+        deleteWsStmt.run(ws.id);
+        continue;
+      }
+
       const projects = projectStmt.all(ws.id);
-      return mapWorkspaceRow(ws, projects);
-    });
+      const validProjects: ProjectRow[] = [];
+      for (const p of projects) {
+        if (!fs.existsSync(p.path)) {
+          deleteProjStmt.run(p.id);
+        } else {
+          validProjects.push(p);
+        }
+      }
+
+      validWorkspaces.push(mapWorkspaceRow(ws, validProjects));
+    }
+
+    return validWorkspaces;
   }
 
   /**
@@ -102,13 +123,26 @@ export class WorkspaceRepository {
       return null;
     }
 
+    if (!fs.existsSync(ws.root_path)) {
+      db.prepare("DELETE FROM workspaces WHERE id = ?").run(id);
+      return null;
+    }
+
     const projects = db
       .prepare<[string], ProjectRow>(
         "SELECT * FROM projects WHERE workspace_id = ? ORDER BY name ASC"
       )
       .all(ws.id);
 
-    return mapWorkspaceRow(ws, projects);
+    const validProjects = projects.filter((p) => {
+      if (!fs.existsSync(p.path)) {
+        db.prepare("DELETE FROM projects WHERE id = ?").run(p.id);
+        return false;
+      }
+      return true;
+    });
+
+    return mapWorkspaceRow(ws, validProjects);
   }
 
   /**
@@ -127,13 +161,26 @@ export class WorkspaceRepository {
       return null;
     }
 
+    if (!fs.existsSync(ws.root_path)) {
+      db.prepare("DELETE FROM workspaces WHERE root_path = ?").run(rootPath);
+      return null;
+    }
+
     const projects = db
       .prepare<[string], ProjectRow>(
         "SELECT * FROM projects WHERE workspace_id = ? ORDER BY name ASC"
       )
       .all(ws.id);
 
-    return mapWorkspaceRow(ws, projects);
+    const validProjects = projects.filter((p) => {
+      if (!fs.existsSync(p.path)) {
+        db.prepare("DELETE FROM projects WHERE id = ?").run(p.id);
+        return false;
+      }
+      return true;
+    });
+
+    return mapWorkspaceRow(ws, validProjects);
   }
 
   /**
@@ -278,7 +325,16 @@ export class WorkspaceRepository {
       )
       .get(projectId);
 
-    return row ? mapProjectRow(row) : null;
+    if (!row) {
+      return null;
+    }
+
+    if (!fs.existsSync(row.path)) {
+      db.prepare("DELETE FROM projects WHERE id = ?").run(projectId);
+      return null;
+    }
+
+    return mapProjectRow(row);
   }
 }
 

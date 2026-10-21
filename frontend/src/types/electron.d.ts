@@ -13,6 +13,7 @@ export interface ElectronAPI {
   ping: () => Promise<string>;
   selectDirectory: () => Promise<string | null>;
   openInVSCode: (projectPath: string) => Promise<ActionResult>;
+  openInEditor: (projectPath: string, editorId?: string) => Promise<ActionResult>;
   revealInFinder: (projectPath: string) => Promise<ActionResult>;
   platform: string;
   versions: ElectronVersions;

@@ -113,9 +113,9 @@ export function DatabaseView() {
             ? preferredSelectId
             : selectedProfileId && loaded.some((p) => p.id === selectedProfileId)
             ? selectedProfileId
-            : loaded[0].id;
+            : "";
         setSelectedProfileId(nextId);
-        checkStatus(nextId);
+        if (nextId) checkStatus(nextId);
       } else {
         setSelectedProfileId("");
       }
@@ -517,6 +517,7 @@ export function DatabaseView() {
                   onChange={(e) => setSelectedProfileId(e.target.value)}
                   className="flex-1 px-2.5 py-1.5 bg-zinc-900 border border-zinc-700 rounded text-xs text-zinc-100 focus:outline-none focus:border-zinc-500"
                 >
+                  <option value="">None (Select Connection)</option>
                   {profiles.map((p) => {
                     const status = connectionStatuses[p.id];
                     return (
@@ -585,7 +586,11 @@ export function DatabaseView() {
 
             {/* Schema & Table Explorer */}
             <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
-              {!isConnected ? (
+              {!selectedProfileId ? (
+                <div className="p-6 text-center text-zinc-500 text-xs flex-1 flex flex-col items-center justify-center">
+                  <span>Select a connection profile from above to get started.</span>
+                </div>
+              ) : !isConnected ? (
                 <div className="p-6 text-center text-zinc-500 text-xs flex-1 flex flex-col items-center justify-center">
                   <span>Connect to browse schemas and tables.</span>
                 </div>

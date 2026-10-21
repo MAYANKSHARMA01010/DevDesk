@@ -67,34 +67,30 @@ export function TerminalView({ initialSelection }: TerminalViewProps = {}) {
         if (!mounted) return;
         setWorkspaces(loadedWorkspaces);
 
-        if (loadedWorkspaces.length > 0) {
-          const targetWs =
-            (initialSelection?.workspaceId &&
-              loadedWorkspaces.find((w) => w.id === initialSelection.workspaceId)) ||
-            loadedWorkspaces[0];
-
-          setSelectedWorkspaceId(targetWs.id);
-
-          if (targetWs.projects.length > 0) {
-            const targetProj =
-              (initialSelection?.projectId &&
-                targetWs.projects.find((p) => p.id === initialSelection.projectId)) ||
-              targetWs.projects[0];
-
-            setSelectedProjectId(targetProj.id);
-
-            // Check if there is an active process for this project
-            const existingProc = runningProcesses.find(
-              (p) =>
-                p.projectId === targetProj.id &&
-                (!initialSelection?.script || p.script === initialSelection.script) &&
-                (p.status === "running" || p.status === "starting" || p.status === "stopping")
-            );
-
-            if (existingProc) {
-              setActiveProcess(existingProc);
+        if (initialSelection?.workspaceId) {
+          const targetWs = loadedWorkspaces.find((w) => w.id === initialSelection.workspaceId);
+          if (targetWs) {
+            setSelectedWorkspaceId(targetWs.id);
+            if (initialSelection?.projectId) {
+              const targetProj = targetWs.projects.find((p) => p.id === initialSelection.projectId);
+              if (targetProj) {
+                setSelectedProjectId(targetProj.id);
+                const existingProc = runningProcesses.find(
+                  (p) =>
+                    p.projectId === targetProj.id &&
+                    (!initialSelection?.script || p.script === initialSelection.script) &&
+                    (p.status === "running" || p.status === "starting" || p.status === "stopping")
+                );
+                if (existingProc) {
+                  setActiveProcess(existingProc);
+                }
+              }
             }
           }
+        } else {
+          // Default None
+          setSelectedWorkspaceId("");
+          setSelectedProjectId("");
         }
       } catch (err: unknown) {
         if (!mounted) return;
@@ -139,14 +135,8 @@ export function TerminalView({ initialSelection }: TerminalViewProps = {}) {
         setScripts(discovered);
 
         const scriptKeys = Object.keys(discovered);
-        if (scriptKeys.length > 0) {
-          if (initialSelection?.script && discovered[initialSelection.script]) {
-            setSelectedScript(initialSelection.script);
-          } else if (discovered["dev"]) {
-            setSelectedScript("dev");
-          } else {
-            setSelectedScript(scriptKeys[0]);
-          }
+        if (scriptKeys.length > 0 && initialSelection?.script && discovered[initialSelection.script]) {
+          setSelectedScript(initialSelection.script);
         } else {
           setSelectedScript("");
         }
@@ -508,16 +498,13 @@ export function TerminalView({ initialSelection }: TerminalViewProps = {}) {
                 value={selectedWorkspaceId}
                 onChange={(e) => {
                   setSelectedWorkspaceId(e.target.value);
-                  const ws = workspaces.find((w) => w.id === e.target.value);
-                  if (ws && ws.projects.length > 0) {
-                    setSelectedProjectId(ws.projects[0].id);
-                  } else {
-                    setSelectedProjectId("");
-                  }
+                  setSelectedProjectId("");
+                  setSelectedScript("");
                 }}
                 disabled={actionLoading}
                 className="px-2.5 py-1.5 rounded-md text-xs font-medium text-zinc-200 bg-zinc-950 border border-zinc-800 hover:border-zinc-700 focus:outline-none focus:ring-1 focus:ring-zinc-600 transition-all cursor-pointer max-w-[160px] truncate"
               >
+                <option value="">None (Select Workspace)</option>
                 {workspaces.map((ws) => (
                   <option key={ws.id} value={ws.id}>
                     {getWorkspaceLabel(ws.rootPath)}
@@ -531,10 +518,14 @@ export function TerminalView({ initialSelection }: TerminalViewProps = {}) {
               <span className="text-[11px] text-zinc-500 uppercase font-medium">Project:</span>
               <select
                 value={selectedProjectId}
-                onChange={(e) => setSelectedProjectId(e.target.value)}
+                onChange={(e) => {
+                  setSelectedProjectId(e.target.value);
+                  setSelectedScript("");
+                }}
                 disabled={actionLoading || !activeWorkspace || activeWorkspace.projects.length === 0}
                 className="px-2.5 py-1.5 rounded-md text-xs font-medium text-zinc-200 bg-zinc-950 border border-zinc-800 hover:border-zinc-700 focus:outline-none focus:ring-1 focus:ring-zinc-600 transition-all cursor-pointer max-w-[160px] truncate"
               >
+                <option value="">None (Select Project)</option>
                 {activeWorkspace?.projects.map((proj) => (
                   <option key={proj.id} value={proj.id}>
                     {proj.name}
@@ -549,17 +540,22 @@ export function TerminalView({ initialSelection }: TerminalViewProps = {}) {
               <select
                 value={selectedScript}
                 onChange={(e) => setSelectedScript(e.target.value)}
-                disabled={actionLoading || loadingScripts || scriptKeys.length === 0}
+                disabled={actionLoading || loadingScripts || !selectedProjectId || scriptKeys.length === 0}
                 className="px-2.5 py-1.5 rounded-md text-xs font-medium text-zinc-200 bg-zinc-950 border border-zinc-800 hover:border-zinc-700 focus:outline-none focus:ring-1 focus:ring-zinc-600 transition-all cursor-pointer max-w-[180px] truncate"
               >
-                {loadingScripts ? (
+                {!selectedProjectId ? (
+                  <option value="">None (Select Project first)</option>
+                ) : loadingScripts ? (
                   <option value="">Loading scripts...</option>
                 ) : scriptKeys.length > 0 ? (
-                  scriptKeys.map((name) => (
-                    <option key={name} value={name}>
-                      {name} ({scripts[name]})
-                    </option>
-                  ))
+                  <>
+                    <option value="">None (Select Script)</option>
+                    {scriptKeys.map((name) => (
+                      <option key={name} value={name}>
+                        {name} ({scripts[name]})
+                      </option>
+                    ))}
+                  </>
                 ) : (
                   <option value="">(No scripts found)</option>
                 )}
@@ -667,6 +663,8 @@ export function TerminalView({ initialSelection }: TerminalViewProps = {}) {
                   ? "Waiting for process output..."
                   : selectedScript
                   ? `Click "Start" to run "${selectedScript}"`
+                  : !selectedProjectId
+                  ? "Select a workspace and project to view scripts and start execution"
                   : "Select a project script to run"}
               </p>
             </div>

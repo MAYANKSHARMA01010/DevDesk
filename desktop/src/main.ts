@@ -531,10 +531,97 @@ async function createWindow(): Promise<void> {
   });
 }
 
+interface EditorConfig {
+  id: string;
+  name: string;
+  cliCommands: string[];
+  macAppNames: string[];
+  macBundleIds: string[];
+  winCommands?: string[];
+}
+
+const SUPPORTED_EDITORS: Record<string, EditorConfig> = {
+  vscode: {
+    id: "vscode",
+    name: "Visual Studio Code",
+    cliCommands: ["code"],
+    macAppNames: ["Visual Studio Code"],
+    macBundleIds: ["com.microsoft.VSCode"],
+    winCommands: ["code.cmd"],
+  },
+  cursor: {
+    id: "cursor",
+    name: "Cursor",
+    cliCommands: ["cursor"],
+    macAppNames: ["Cursor"],
+    macBundleIds: ["com.todesktop.230313mzl4w4u92"],
+    winCommands: ["cursor.cmd"],
+  },
+  windsurf: {
+    id: "windsurf",
+    name: "Windsurf",
+    cliCommands: ["windsurf"],
+    macAppNames: ["Windsurf"],
+    macBundleIds: ["com.exafunction.windsurf"],
+  },
+  intellij: {
+    id: "intellij",
+    name: "IntelliJ IDEA",
+    cliCommands: ["idea"],
+    macAppNames: ["IntelliJ IDEA", "IntelliJ IDEA CE", "IntelliJ IDEA Ultimate"],
+    macBundleIds: ["com.jetbrains.intellij", "com.jetbrains.intellij.ce"],
+  },
+  webstorm: {
+    id: "webstorm",
+    name: "WebStorm",
+    cliCommands: ["webstorm"],
+    macAppNames: ["WebStorm"],
+    macBundleIds: ["com.jetbrains.WebStorm"],
+  },
+  pycharm: {
+    id: "pycharm",
+    name: "PyCharm",
+    cliCommands: ["pycharm"],
+    macAppNames: ["PyCharm", "PyCharm CE"],
+    macBundleIds: ["com.jetbrains.pycharm", "com.jetbrains.pycharm.ce"],
+  },
+  sublime: {
+    id: "sublime",
+    name: "Sublime Text",
+    cliCommands: ["subl"],
+    macAppNames: ["Sublime Text"],
+    macBundleIds: ["com.sublimetext.4", "com.sublimetext.3"],
+  },
+  zed: {
+    id: "zed",
+    name: "Zed",
+    cliCommands: ["zed"],
+    macAppNames: ["Zed"],
+    macBundleIds: ["dev.zed.Zed"],
+  },
+  xcode: {
+    id: "xcode",
+    name: "Xcode",
+    cliCommands: ["xcode"],
+    macAppNames: ["Xcode"],
+    macBundleIds: ["com.apple.dt.Xcode"],
+  },
+  fleet: {
+    id: "fleet",
+    name: "Fleet",
+    cliCommands: ["fleet"],
+    macAppNames: ["Fleet"],
+    macBundleIds: ["Fleet"],
+  },
+};
+
 /**
- * Safely launches Visual Studio Code opening the specified directory.
+ * Safely launches any chosen editor opening the specified directory.
  */
-async function openInVSCode(projectPath: string): Promise<ActionResult> {
+async function openInEditor(
+  projectPath: string,
+  editorId: string = "vscode"
+): Promise<ActionResult> {
   if (!projectPath || typeof projectPath !== "string") {
     return { success: false, error: "Invalid project path." };
   }
@@ -550,6 +637,8 @@ async function openInVSCode(projectPath: string): Promise<ActionResult> {
     const error = err as NodeJS.ErrnoException;
     return { success: false, error: `Directory not found or inaccessible: ${error.message}` };
   }
+
+  const config = SUPPORTED_EDITORS[editorId] || SUPPORTED_EDITORS["vscode"];
 
   const trySpawn = (command: string, args: string[]): Promise<boolean> => {
     return new Promise((resolve) => {
@@ -591,34 +680,45 @@ async function openInVSCode(projectPath: string): Promise<ActionResult> {
     });
   };
 
-  const codeSuccess = await trySpawn("code", [resolved]);
-  if (codeSuccess) {
-    return { success: true };
+  // 1. Try CLI commands
+  for (const cmd of config.cliCommands) {
+    const success = await trySpawn(cmd, [resolved]);
+    if (success) return { success: true };
   }
 
+  // 2. Platform-specific fallbacks
   if (process.platform === "darwin") {
-    const bundleSuccess = await trySpawn("open", ["-b", "com.microsoft.VSCode", resolved]);
-    if (bundleSuccess) {
-      return { success: true };
+    // Try bundle IDs
+    for (const bundleId of config.macBundleIds) {
+      const bundleSuccess = await trySpawn("open", ["-b", bundleId, resolved]);
+      if (bundleSuccess) return { success: true };
     }
 
-    const appSuccess = await trySpawn("open", ["-a", "Visual Studio Code", resolved]);
-    if (appSuccess) {
-      return { success: true };
+    // Try app names
+    for (const appName of config.macAppNames) {
+      const appSuccess = await trySpawn("open", ["-a", appName, resolved]);
+      if (appSuccess) return { success: true };
     }
   }
 
-  if (process.platform === "win32") {
-    const winSuccess = await trySpawn("code.cmd", [resolved]);
-    if (winSuccess) {
-      return { success: true };
+  if (process.platform === "win32" && config.winCommands) {
+    for (const cmd of config.winCommands) {
+      const winSuccess = await trySpawn(cmd, [resolved]);
+      if (winSuccess) return { success: true };
     }
   }
 
   return {
     success: false,
-    error: "VS Code command ('code') was not found. Please install VS Code or enable the 'code' command in your PATH.",
+    error: `Could not launch ${config.name}. Please ensure ${config.name} is installed or available in PATH.`,
   };
+}
+
+/**
+ * Backward compatibility wrapper for VS Code.
+ */
+async function openInVSCode(projectPath: string): Promise<ActionResult> {
+  return openInEditor(projectPath, "vscode");
 }
 
 /**
@@ -673,6 +773,19 @@ function registerIpcHandlers(): void {
     console.log("[DevDesk] project:open-vscode invoked for:", projectPath);
     return openInVSCode(projectPath);
   });
+
+  ipcMain.handle(
+    "project:open-editor",
+    async (_event, projectPath: string, editorId?: string) => {
+      console.log(
+        "[DevDesk] project:open-editor invoked for:",
+        projectPath,
+        "editor:",
+        editorId
+      );
+      return openInEditor(projectPath, editorId);
+    }
+  );
 
   ipcMain.handle("project:reveal-finder", async (_event, projectPath: string) => {
     console.log("[DevDesk] project:reveal-finder invoked for:", projectPath);

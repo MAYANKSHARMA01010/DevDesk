@@ -68,7 +68,7 @@ export function ApiTesterView() {
 
   // Request Configuration State
   const [method, setMethod] = useState<HttpMethod>("GET");
-  const [url, setUrl] = useState<string>("http://localhost:5001/health");
+  const [url, setUrl] = useState<string>("");
   const [requestTab, setRequestTab] = useState<"params" | "headers" | "body">(
     "params"
   );

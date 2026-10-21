@@ -108,12 +108,9 @@ export function EnvEditorView({ initialSelection }: EnvEditorViewProps = {}) {
         if (!isMountedRef.current) return;
         setWorkspaces(loaded);
 
-        if (loaded.length > 0) {
-          setSelectedWorkspaceId(loaded[0].id);
-          if (loaded[0].projects.length > 0) {
-            setSelectedProjectId(loaded[0].projects[0].id);
-          }
-        }
+        // Default None
+        setSelectedWorkspaceId("");
+        setSelectedProjectId("");
       } catch (err: unknown) {
         if (!isMountedRef.current) return;
         setErrorMessage(
@@ -140,8 +137,8 @@ export function EnvEditorView({ initialSelection }: EnvEditorViewProps = {}) {
 
   useEffect(() => {
     if (activeWorkspace && activeWorkspace.projects.length > 0) {
-      if (!activeWorkspace.projects.some((p) => p.id === selectedProjectId)) {
-        setSelectedProjectId(activeWorkspace.projects[0].id);
+      if (selectedProjectId && !activeWorkspace.projects.some((p) => p.id === selectedProjectId)) {
+        setSelectedProjectId("");
       }
     } else {
       setSelectedProjectId("");
@@ -467,10 +464,14 @@ export function EnvEditorView({ initialSelection }: EnvEditorViewProps = {}) {
             <select
               id={`${baseId}-ws-select`}
               value={selectedWorkspaceId}
-              onChange={(e) => setSelectedWorkspaceId(e.target.value)}
+              onChange={(e) => {
+                setSelectedWorkspaceId(e.target.value);
+                setSelectedProjectId("");
+              }}
               disabled={loadingWorkspaces || workspaces.length === 0}
               className="px-2.5 py-1.5 bg-zinc-900 border border-zinc-700 rounded-md text-xs text-zinc-200 focus:outline-none focus:border-zinc-500 disabled:opacity-50"
             >
+              <option value="">None (Select Workspace)</option>
               {workspaces.map((ws) => (
                 <option key={ws.id} value={ws.id}>
                   {ws.rootPath.split("/").pop() || ws.rootPath} ({ws.projects.length} projects)
@@ -493,6 +494,7 @@ export function EnvEditorView({ initialSelection }: EnvEditorViewProps = {}) {
               disabled={availableProjects.length === 0}
               className="px-2.5 py-1.5 bg-zinc-900 border border-zinc-700 rounded-md text-xs text-zinc-200 focus:outline-none focus:border-zinc-500 disabled:opacity-50"
             >
+              <option value="">None (Select Project)</option>
               {availableProjects.map((proj) => (
                 <option key={proj.id} value={proj.id}>
                   {proj.name} ({proj.type})

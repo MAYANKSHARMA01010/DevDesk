@@ -83,21 +83,25 @@ export function GitView({ initialSelection }: GitViewProps = {}) {
         setWorkspaces(loaded);
 
         if (loaded.length > 0) {
-          const targetWs =
-            (initialSelection?.workspaceId &&
-              loaded.find((w) => w.id === initialSelection.workspaceId)) ||
-            loaded[0];
-
-          setSelectedWorkspaceId(targetWs.id);
-
-          if (targetWs.projects.length > 0) {
-            const targetProj =
-              (initialSelection?.projectId &&
-                targetWs.projects.find((p) => p.id === initialSelection.projectId)) ||
-              targetWs.projects[0];
-
-            setSelectedProjectId(targetProj.id);
+          if (initialSelection?.workspaceId) {
+            const targetWs = loaded.find((w) => w.id === initialSelection.workspaceId);
+            if (targetWs) {
+              setSelectedWorkspaceId(targetWs.id);
+              if (initialSelection?.projectId) {
+                const targetProj = targetWs.projects.find((p) => p.id === initialSelection.projectId);
+                if (targetProj) {
+                  setSelectedProjectId(targetProj.id);
+                }
+              }
+            }
+          } else {
+            // Default None
+            setSelectedWorkspaceId("");
+            setSelectedProjectId("");
           }
+        } else {
+          setSelectedWorkspaceId("");
+          setSelectedProjectId("");
         }
       } catch (err: unknown) {
         if (!isMountedRef.current) return;
@@ -201,6 +205,9 @@ export function GitView({ initialSelection }: GitViewProps = {}) {
       setGitStatus(null);
       setBranches(null);
       setHistory([]);
+      setSelectedFile(null);
+      setDiffResult(null);
+      setErrorMessage(null);
     }
   }, [selectedProjectId]);
 
@@ -502,16 +509,12 @@ export function GitView({ initialSelection }: GitViewProps = {}) {
                 value={selectedWorkspaceId}
                 onChange={(e) => {
                   setSelectedWorkspaceId(e.target.value);
-                  const ws = workspaces.find((w) => w.id === e.target.value);
-                  if (ws && ws.projects.length > 0) {
-                    setSelectedProjectId(ws.projects[0].id);
-                  } else {
-                    setSelectedProjectId("");
-                  }
+                  setSelectedProjectId("");
                 }}
                 disabled={actionLoading}
                 className="px-2.5 py-1.5 rounded-md text-xs font-medium text-zinc-200 bg-zinc-950 border border-zinc-800 hover:border-zinc-700 focus:outline-none focus:ring-1 focus:ring-zinc-600 transition-all cursor-pointer max-w-[160px] truncate"
               >
+                <option value="">None (Select Workspace)</option>
                 {workspaces.map((ws) => (
                   <option key={ws.id} value={ws.id}>
                     {getWorkspaceLabel(ws.rootPath)}
@@ -529,6 +532,7 @@ export function GitView({ initialSelection }: GitViewProps = {}) {
                 disabled={actionLoading || !activeWorkspace || activeWorkspace.projects.length === 0}
                 className="px-2.5 py-1.5 rounded-md text-xs font-medium text-zinc-200 bg-zinc-950 border border-zinc-800 hover:border-zinc-700 focus:outline-none focus:ring-1 focus:ring-zinc-600 transition-all cursor-pointer max-w-[180px] truncate"
               >
+                <option value="">None (Select Project)</option>
                 {activeWorkspace?.projects.map((proj) => (
                   <option key={proj.id} value={proj.id}>
                     {proj.isRoot ? `[Root] ${proj.name}` : proj.isGitRepo ? `[Git] ${proj.name}` : proj.name}
@@ -663,6 +667,16 @@ export function GitView({ initialSelection }: GitViewProps = {}) {
         <div className="flex-1 flex flex-col items-center justify-center border border-dashed border-zinc-800 rounded-lg p-12 bg-zinc-900/20 text-center">
           <div className="w-8 h-8 rounded-full border-2 border-zinc-700 border-t-zinc-200 animate-spin mb-4" />
           <p className="text-sm font-medium text-zinc-300">Inspecting Git repository...</p>
+        </div>
+      ) : !selectedProjectId ? (
+        <div className="flex-1 flex flex-col items-center justify-center border border-dashed border-zinc-800 rounded-lg p-12 bg-zinc-900/30 text-center">
+          <div className="w-12 h-12 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center text-sm font-mono text-zinc-400 mb-4 shadow-sm">
+            ⎇
+          </div>
+          <p className="text-sm font-semibold text-zinc-200">No Project Selected</p>
+          <p className="text-xs text-zinc-400 mt-1 max-w-md leading-relaxed">
+            Select a workspace and project from the toolbar above to view Git branches, inspect file changes, stage files, and create commits.
+          </p>
         </div>
       ) : !gitStatus ? (
         <div className="flex-1 flex flex-col items-center justify-center border border-dashed border-zinc-800 rounded-lg p-12 bg-zinc-900/30 text-center">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import {
   fetchWorkspaces,
   forgetWorkspace,
@@ -13,6 +13,36 @@ import {
   WorkspaceWithProjects,
 } from "@/types/project";
 
+export interface IdeOption {
+  id: string;
+  name: string;
+  shortName: string;
+  icon: string;
+}
+
+export const AVAILABLE_IDES: IdeOption[] = [
+  { id: "vscode", name: "Visual Studio Code", shortName: "VS Code", icon: "💻" },
+  { id: "cursor", name: "Cursor", shortName: "Cursor", icon: "✨" },
+  { id: "intellij", name: "IntelliJ IDEA", shortName: "IntelliJ", icon: "☕" },
+  { id: "webstorm", name: "WebStorm", shortName: "WebStorm", icon: "🌐" },
+  { id: "pycharm", name: "PyCharm", shortName: "PyCharm", icon: "🐍" },
+  { id: "sublime", name: "Sublime Text", shortName: "Sublime", icon: "📝" },
+  { id: "zed", name: "Zed", shortName: "Zed", icon: "⚡" },
+  { id: "xcode", name: "Xcode", shortName: "Xcode", icon: "🛠️" },
+  { id: "windsurf", name: "Windsurf", shortName: "Windsurf", icon: "🏄" },
+  { id: "fleet", name: "Fleet", shortName: "Fleet", icon: "🚀" },
+];
+
+export type SortOption =
+  | "name-asc"
+  | "name-desc"
+  | "type"
+  | "git-first"
+  | "runnable-first"
+  | "path";
+
+export type FilterMode = "all" | "git" | "runnable" | "nested";
+
 type ViewStatus =
   | "loading_initial"
   | "idle"
@@ -22,7 +52,7 @@ type ViewStatus =
 
 interface RunningAction {
   path: string;
-  action: "vscode" | "finder";
+  action: "editor" | "finder";
 }
 
 interface ActionFeedback {
@@ -41,6 +71,13 @@ interface ProjectsViewProps {
   }) => void;
 }
 
+export function isRunnableProject(p: SavedProject | DiscoveredProject): boolean {
+  return Boolean(
+    (p.packageManager && p.packageManager !== "unknown") ||
+    (p.type && p.type !== "Generic" && p.type !== "Git Repository")
+  );
+}
+
 export function ProjectsView({
   onNavigateToTerminal,
   onNavigateToGit,
@@ -52,9 +89,17 @@ export function ProjectsView({
   const [pathWarning, setPathWarning] = useState<string | null>(null);
   const [showForgetConfirm, setShowForgetConfirm] = useState<boolean>(false);
 
-  // Search & Filter states
+  // Search, Filter & Sort states
   const [searchQuery, setSearchQuery] = useState("");
-  const [filterMode, setFilterMode] = useState<"all" | "git" | "nested">("all");
+  const [filterMode, setFilterMode] = useState<FilterMode>("all");
+  const [filterType, setFilterType] = useState<string>("");
+  const [filterPkg, setFilterPkg] = useState<string>("");
+  const [sortBy, setSortBy] = useState<SortOption>("name-asc");
+
+  // IDE states
+  const [defaultIde, setDefaultIde] = useState<string>("vscode");
+  const [openMenuForPath, setOpenMenuForPath] = useState<string | null>(null);
+  const menuRef = useRef<HTMLDivElement | null>(null);
 
   // Card-level action states
   const [runningAction, setRunningAction] = useState<RunningAction | null>(null);
@@ -78,11 +123,10 @@ export function ProjectsView({
         setWorkspaces(loaded);
         if (loaded.length > 0) {
           setActiveWorkspaceId(loaded[0].id);
-          setStatus("idle");
         } else {
           setActiveWorkspaceId(null);
-          setStatus("idle");
         }
+        setStatus("idle");
       } catch (err: unknown) {
         if (!isMounted) return;
         const msg =
@@ -143,6 +187,14 @@ export function ProjectsView({
   // 3. Switch workspace from dropdown
   async function handleSwitchWorkspace(targetWorkspaceId: string) {
     if (targetWorkspaceId === activeWorkspaceId) return;
+
+    if (!targetWorkspaceId) {
+      setActiveWorkspaceId(null);
+      setPathWarning(null);
+      setActionError(null);
+      setShowForgetConfirm(false);
+      return;
+    }
 
     setActiveWorkspaceId(targetWorkspaceId);
     setPathWarning(null);
@@ -223,37 +275,77 @@ export function ProjectsView({
     }
   }
 
-  // 6. Project Card Actions
-  async function handleOpenInVSCode(projectPath: string) {
-    if (!window.electron?.openInVSCode) {
+  // Load default IDE preference from localStorage
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("devdesk_default_ide");
+      if (saved && AVAILABLE_IDES.some((i) => i.id === saved)) {
+        setDefaultIde(saved);
+      }
+    }
+  }, []);
+
+  function handleSetDefaultIde(ideId: string) {
+    setDefaultIde(ideId);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("devdesk_default_ide", ideId);
+    }
+  }
+
+  // Close IDE dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setOpenMenuForPath(null);
+      }
+    }
+    if (openMenuForPath) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [openMenuForPath]);
+
+  // 6. Project Card Actions: Open in IDE (VS Code, Cursor, IntelliJ, WebStorm, etc.)
+  async function handleOpenInEditor(projectPath: string, targetIde?: string) {
+    const chosenIde = targetIde || defaultIde;
+    const ideConfig =
+      AVAILABLE_IDES.find((i) => i.id === chosenIde) || AVAILABLE_IDES[0];
+
+    if (!window.electron?.openInEditor && !window.electron?.openInVSCode) {
       setActionError({
         path: projectPath,
-        message: "Visual Studio Code integration requires the desktop app.",
+        message: `${ideConfig.name} integration requires the desktop app.`,
       });
       return;
     }
 
-    setRunningAction({ path: projectPath, action: "vscode" });
+    setRunningAction({ path: projectPath, action: "editor" });
     setActionError(null);
 
     try {
-      const result = await window.electron.openInVSCode(projectPath);
+      const result = window.electron.openInEditor
+        ? await window.electron.openInEditor(projectPath, chosenIde)
+        : await window.electron.openInVSCode(projectPath);
+
       if (!result.success) {
         setActionError({
           path: projectPath,
           message:
             result.error ||
-            "Failed to open in VS Code. Ensure 'code' CLI is in your PATH.",
+            `Failed to open in ${ideConfig.name}. Please ensure ${ideConfig.name} is installed on your system.`,
         });
       }
     } catch (err: unknown) {
       const message =
         err instanceof Error
           ? err.message
-          : "Unexpected error launching VS Code.";
+          : `Unexpected error launching ${ideConfig.name}.`;
       setActionError({ path: projectPath, message });
     } finally {
       setRunningAction(null);
+      setOpenMenuForPath(null);
     }
   }
 
@@ -433,11 +525,25 @@ export function ProjectsView({
   }
 
   function renderGitBadge(project: DiscoveredProject | SavedProject) {
-    if (project.isGitRepo) {
+    if (project.isGitRepo || project.isRoot) {
+      const projId = "id" in project ? project.id : undefined;
       return (
         <span
-          title={project.gitRemote ? `Git Repository\nRemote: ${project.gitRemote}` : "Git Repository Root"}
-          className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-mono font-medium bg-emerald-950/60 text-emerald-300 border border-emerald-800/60"
+          onClick={(e) => {
+            e.stopPropagation();
+            if (activeWorkspace && onNavigateToGit) {
+              onNavigateToGit({
+                workspaceId: activeWorkspace.id,
+                projectId: projId,
+              });
+            }
+          }}
+          title={
+            project.gitRemote
+              ? `Git Initialized\nRemote: ${project.gitRemote}\nClick to open Git Control (branches, diffs, commits)`
+              : "Git Initialized\nClick to open Git Control (branches, diffs, commits)"
+          }
+          className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-mono font-medium bg-emerald-950/70 text-emerald-300 border border-emerald-800/60 hover:bg-emerald-900/60 hover:border-emerald-700 cursor-pointer transition shadow-xs"
         >
           <svg className="w-3 h-3 text-emerald-400 shrink-0" fill="currentColor" viewBox="0 0 16 16">
             <path fillRule="evenodd" d="M11.75 2.5a.75.75 0 100 1.5.75.75 0 000-1.5zm-2.25.75a2.25 2.25 0 113 2.122V6A2.5 2.5 0 0110 8.5H6a1 1 0 00-1 1v1.128a2.251 2.251 0 11-1.5 0V5.372a2.25 2.25 0 111.5 0v1.836A2.492 2.492 0 016 7h4a1 1 0 001-1v-.628A2.25 2.25 0 019.5 3.25zM4.25 12a.75.75 0 100 1.5.75.75 0 000-1.5zM3.5 3.25a.75.75 0 111.5 0 .75.75 0 01-1.5 0z" />
@@ -464,28 +570,89 @@ export function ProjectsView({
     return parts.length > 0 ? parts[parts.length - 1] : rootPath;
   }
 
-  // Derived filtered projects
+  // Derived filtered & sorted projects
   const allProjects = activeWorkspace?.projects || [];
   const gitCount = allProjects.filter((p) => p.isGitRepo || p.isRoot).length;
+  const runnableCount = allProjects.filter(isRunnableProject).length;
   const nestedCount = allProjects.filter((p) => p.relativePath && p.relativePath !== ".").length;
 
-  const displayedProjects = allProjects.filter((p) => {
-    if (filterMode === "git" && !p.isGitRepo && !p.isRoot) {
-      return false;
-    }
-    if (filterMode === "nested" && (!p.relativePath || p.relativePath === ".")) {
-      return false;
-    }
-    if (searchQuery.trim().length > 0) {
-      const q = searchQuery.toLowerCase().trim();
-      const matchName = p.name.toLowerCase().includes(q);
-      const matchPath = p.path.toLowerCase().includes(q);
-      const matchRel = (p.relativePath || "").toLowerCase().includes(q);
-      const matchType = p.type.toLowerCase().includes(q);
-      return matchName || matchPath || matchRel || matchType;
-    }
-    return true;
-  });
+  const availableTypes = Array.from(
+    new Set(allProjects.map((p) => p.type).filter(Boolean))
+  ).sort();
+
+  const availablePkgs = Array.from(
+    new Set(
+      allProjects
+        .map((p) => p.packageManager)
+        .filter((pm) => pm && pm !== "unknown")
+    )
+  ).sort();
+
+  const currentIdeConfig =
+    AVAILABLE_IDES.find((i) => i.id === defaultIde) || AVAILABLE_IDES[0];
+
+  const hasActiveFilters =
+    filterMode !== "all" ||
+    Boolean(filterType) ||
+    Boolean(filterPkg) ||
+    Boolean(searchQuery.trim());
+
+  const displayedProjects = allProjects
+    .filter((p) => {
+      if (filterMode === "git" && !p.isGitRepo && !p.isRoot) {
+        return false;
+      }
+      if (filterMode === "runnable" && !isRunnableProject(p)) {
+        return false;
+      }
+      if (filterMode === "nested" && (!p.relativePath || p.relativePath === ".")) {
+        return false;
+      }
+      if (filterType && p.type !== filterType) {
+        return false;
+      }
+      if (filterPkg && p.packageManager !== filterPkg) {
+        return false;
+      }
+      if (searchQuery.trim().length > 0) {
+        const q = searchQuery.toLowerCase().trim();
+        const matchName = p.name.toLowerCase().includes(q);
+        const matchPath = p.path.toLowerCase().includes(q);
+        const matchRel = (p.relativePath || "").toLowerCase().includes(q);
+        const matchType = p.type.toLowerCase().includes(q);
+        const matchPkg = (p.packageManager || "").toLowerCase().includes(q);
+        return matchName || matchPath || matchRel || matchType || matchPkg;
+      }
+      return true;
+    })
+    .sort((a, b) => {
+      switch (sortBy) {
+        case "name-desc":
+          return b.name.localeCompare(a.name);
+        case "type":
+          return a.type.localeCompare(b.type) || a.name.localeCompare(b.name);
+        case "git-first": {
+          const aGit = a.isGitRepo || a.isRoot ? 1 : 0;
+          const bGit = b.isGitRepo || b.isRoot ? 1 : 0;
+          if (aGit !== bGit) return bGit - aGit;
+          return a.name.localeCompare(b.name);
+        }
+        case "runnable-first": {
+          const aRun = isRunnableProject(a) ? 1 : 0;
+          const bRun = isRunnableProject(b) ? 1 : 0;
+          if (aRun !== bRun) return bRun - aRun;
+          return a.name.localeCompare(b.name);
+        }
+        case "path":
+          return (
+            (a.relativePath || "").localeCompare(b.relativePath || "") ||
+            a.name.localeCompare(b.name)
+          );
+        case "name-asc":
+        default:
+          return a.name.localeCompare(b.name);
+      }
+    });
 
   // --- Render Views ---
 
@@ -520,8 +687,8 @@ export function ProjectsView({
 
         {/* Action Controls */}
         <div className="flex items-center flex-wrap gap-2">
-          {/* Workspace Switcher dropdown if multiple workspaces exist */}
-          {workspaces.length > 1 && (
+          {/* Workspace Switcher dropdown if workspaces exist */}
+          {workspaces.length > 0 && (
             <div className="flex items-center gap-1.5">
               <span className="text-[11px] text-zinc-500 uppercase font-medium">Workspace:</span>
               <select
@@ -530,6 +697,7 @@ export function ProjectsView({
                 disabled={status === "scanning" || status === "deleting"}
                 className="px-2.5 py-1.5 rounded-md text-xs font-medium text-zinc-200 bg-zinc-900 border border-zinc-800 hover:border-zinc-700 focus:outline-none focus:ring-1 focus:ring-zinc-600 transition-all cursor-pointer max-w-[200px] truncate"
               >
+                <option value="">None (Select Workspace)</option>
                 {workspaces.map((ws) => (
                   <option key={ws.id} value={ws.id}>
                     {getWorkspaceLabel(ws.rootPath)}
@@ -657,58 +825,201 @@ export function ProjectsView({
         </div>
       )}
 
-      {/* 5. Search & Filter Bar (when projects exist) */}
+      {/* 5. Search, Filter, Sort & Legend Bar */}
       {activeWorkspace && allProjects.length > 0 && (
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 mb-4">
-          <div className="relative flex-1">
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Filter projects by name, relative path, or framework..."
-              className="w-full px-3 py-1.5 rounded-md text-xs bg-zinc-900 border border-zinc-800 hover:border-zinc-700 focus:border-zinc-600 focus:outline-none text-zinc-200 placeholder-zinc-500 transition"
-            />
-            {searchQuery && (
+        <div className="space-y-2.5 mb-5">
+          {/* Row 1: Search & Filter Pills */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
+            <div className="relative flex-1">
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Filter projects by name, relative path, framework, or package manager..."
+                className="w-full px-3 py-1.5 rounded-md text-xs bg-zinc-900 border border-zinc-800 hover:border-zinc-700 focus:border-zinc-600 focus:outline-none text-zinc-200 placeholder-zinc-500 transition"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-zinc-400 hover:text-zinc-200 cursor-pointer"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+
+            {/* Filter Pills */}
+            <div className="flex items-center gap-1.5 shrink-0 text-xs flex-wrap">
               <button
-                onClick={() => setSearchQuery("")}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-zinc-400 hover:text-zinc-200"
+                onClick={() => setFilterMode("all")}
+                className={`px-2.5 py-1 rounded-md transition cursor-pointer ${
+                  filterMode === "all"
+                    ? "bg-zinc-800 text-zinc-100 font-medium border border-zinc-700"
+                    : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900"
+                }`}
               >
-                ✕
+                All ({allProjects.length})
               </button>
-            )}
+              <button
+                onClick={() => setFilterMode("git")}
+                className={`px-2.5 py-1 rounded-md transition cursor-pointer flex items-center gap-1 ${
+                  filterMode === "git"
+                    ? "bg-emerald-950/70 text-emerald-200 font-medium border border-emerald-800/80"
+                    : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900"
+                }`}
+              >
+                <span>⎇</span>
+                <span>Git Repos ({gitCount})</span>
+              </button>
+              <button
+                onClick={() => setFilterMode("runnable")}
+                className={`px-2.5 py-1 rounded-md transition cursor-pointer flex items-center gap-1 ${
+                  filterMode === "runnable"
+                    ? "bg-cyan-950/70 text-cyan-200 font-medium border border-cyan-800/80"
+                    : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900"
+                }`}
+              >
+                <span>&gt;_</span>
+                <span>Runnable ({runnableCount})</span>
+              </button>
+              <button
+                onClick={() => setFilterMode("nested")}
+                className={`px-2.5 py-1 rounded-md transition cursor-pointer ${
+                  filterMode === "nested"
+                    ? "bg-zinc-800 text-zinc-100 font-medium border border-zinc-700"
+                    : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900"
+                }`}
+              >
+                Nested ({nestedCount})
+              </button>
+            </div>
           </div>
 
-          <div className="flex items-center gap-1.5 shrink-0 text-xs">
-            <button
-              onClick={() => setFilterMode("all")}
-              className={`px-2.5 py-1 rounded-md transition ${
-                filterMode === "all"
-                  ? "bg-zinc-800 text-zinc-100 font-medium border border-zinc-700"
-                  : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900"
-              }`}
-            >
-              All ({allProjects.length})
-            </button>
-            <button
-              onClick={() => setFilterMode("git")}
-              className={`px-2.5 py-1 rounded-md transition ${
-                filterMode === "git"
-                  ? "bg-zinc-800 text-zinc-100 font-medium border border-zinc-700"
-                  : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900"
-              }`}
-            >
-              Git Repos ({gitCount})
-            </button>
-            <button
-              onClick={() => setFilterMode("nested")}
-              className={`px-2.5 py-1 rounded-md transition ${
-                filterMode === "nested"
-                  ? "bg-zinc-800 text-zinc-100 font-medium border border-zinc-700"
-                  : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900"
-              }`}
-            >
-              Nested ({nestedCount})
-            </button>
+          {/* Row 2: Sort Selector, Type Filter, Package Manager Filter & Default IDE */}
+          <div className="flex flex-wrap items-center justify-between gap-2.5 p-2 rounded-lg bg-zinc-900/40 border border-zinc-800/60 text-xs">
+            <div className="flex flex-wrap items-center gap-2">
+              {/* Sort By Dropdown */}
+              <div className="flex items-center gap-1.5">
+                <span className="text-[11px] text-zinc-500 uppercase font-medium">Sort:</span>
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value as SortOption)}
+                  className="px-2 py-1 rounded bg-zinc-900 border border-zinc-800 text-zinc-200 hover:border-zinc-700 focus:outline-none cursor-pointer text-xs"
+                >
+                  <option value="name-asc">Name (A → Z)</option>
+                  <option value="name-desc">Name (Z → A)</option>
+                  <option value="type">Framework / Type</option>
+                  <option value="git-first">Git Repos First</option>
+                  <option value="runnable-first">Runnable First</option>
+                  <option value="path">Folder Path</option>
+                </select>
+              </div>
+
+              {/* Type Filter Dropdown */}
+              {availableTypes.length > 0 && (
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[11px] text-zinc-500 uppercase font-medium">Type:</span>
+                  <select
+                    value={filterType}
+                    onChange={(e) => setFilterType(e.target.value)}
+                    className="px-2 py-1 rounded bg-zinc-900 border border-zinc-800 text-zinc-200 hover:border-zinc-700 focus:outline-none cursor-pointer text-xs"
+                  >
+                    <option value="">All Types ({allProjects.length})</option>
+                    {availableTypes.map((t) => {
+                      const count = allProjects.filter((p) => p.type === t).length;
+                      return (
+                        <option key={t} value={t}>
+                          {t} ({count})
+                        </option>
+                      );
+                    })}
+                  </select>
+                </div>
+              )}
+
+              {/* Package Manager Dropdown */}
+              {availablePkgs.length > 0 && (
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[11px] text-zinc-500 uppercase font-medium">Pkg:</span>
+                  <select
+                    value={filterPkg}
+                    onChange={(e) => setFilterPkg(e.target.value)}
+                    className="px-2 py-1 rounded bg-zinc-900 border border-zinc-800 text-zinc-200 hover:border-zinc-700 focus:outline-none cursor-pointer text-xs"
+                  >
+                    <option value="">All Managers</option>
+                    {availablePkgs.map((pm) => {
+                      const count = allProjects.filter((p) => p.packageManager === pm).length;
+                      return (
+                        <option key={pm} value={pm}>
+                          {pm} ({count})
+                        </option>
+                      );
+                    })}
+                  </select>
+                </div>
+              )}
+
+              {/* Reset Filters Button */}
+              {hasActiveFilters && (
+                <button
+                  onClick={() => {
+                    setSearchQuery("");
+                    setFilterMode("all");
+                    setFilterType("");
+                    setFilterPkg("");
+                  }}
+                  className="px-2 py-1 rounded text-[11px] text-amber-400 hover:text-amber-300 bg-amber-950/30 border border-amber-900/50 hover:bg-amber-950/50 transition cursor-pointer"
+                  title="Reset all filters and search"
+                >
+                  ✕ Reset Filters
+                </button>
+              )}
+            </div>
+
+            {/* Default IDE Selector */}
+            <div className="flex items-center gap-1.5 ml-auto">
+              <span className="text-[11px] text-zinc-500 uppercase font-medium">Default IDE:</span>
+              <select
+                value={defaultIde}
+                onChange={(e) => handleSetDefaultIde(e.target.value)}
+                className="px-2 py-1 rounded bg-zinc-900 border border-zinc-800 text-zinc-200 hover:border-zinc-700 focus:outline-none cursor-pointer text-xs"
+                title="Select default IDE for opening projects"
+              >
+                {AVAILABLE_IDES.map((ide) => (
+                  <option key={ide.id} value={ide.id}>
+                    {ide.icon} {ide.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Row 3: Legend / Indicator Guide */}
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 px-3 py-2 rounded-lg bg-zinc-900/30 border border-zinc-800/50 text-[11px] text-zinc-400">
+            <span className="text-zinc-500 font-semibold uppercase text-[10px] tracking-wider">
+              Indicators:
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded font-mono text-[10px] bg-emerald-950/70 text-emerald-300 border border-emerald-800/60 font-medium">
+                <svg className="w-2.5 h-2.5 text-emerald-400" fill="currentColor" viewBox="0 0 16 16">
+                  <path fillRule="evenodd" d="M11.75 2.5a.75.75 0 100 1.5.75.75 0 000-1.5zm-2.25.75a2.25 2.25 0 113 2.122V6A2.5 2.5 0 0110 8.5H6a1 1 0 00-1 1v1.128a2.251 2.251 0 11-1.5 0V5.372a2.25 2.25 0 111.5 0v1.836A2.492 2.492 0 016 7h4a1 1 0 001-1v-.628A2.25 2.25 0 019.5 3.25zM4.25 12a.75.75 0 100 1.5.75.75 0 000-1.5zM3.5 3.25a.75.75 0 111.5 0 .75.75 0 01-1.5 0z" />
+                </svg>
+                Git
+              </span>
+              <span>Git Initialized (click to view branches, status & diffs)</span>
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="px-1.5 py-0.2 rounded font-mono text-[10px] text-cyan-300 bg-cyan-950/60 border border-cyan-800/60 font-medium">
+                &gt;_ Terminal
+              </span>
+              <span>Runnable project scripts</span>
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="px-1.5 py-0.2 rounded font-mono text-[10px] text-violet-300 bg-violet-950/60 border border-violet-800/60 font-semibold uppercase">
+                Workspace Root
+              </span>
+              <span>Top-level parent directory</span>
+            </span>
           </div>
         </div>
       )}
@@ -745,21 +1056,25 @@ export function ProjectsView({
         </div>
       )}
 
-      {/* State C: No Workspaces at all (Idle, 0 workspaces) */}
+      {/* State C: No Workspace Selected or 0 Workspaces Configured */}
       {status === "idle" && !activeWorkspace && (
         <div className="flex-1 flex flex-col items-center justify-center border border-dashed border-zinc-800 rounded-lg p-10 bg-zinc-900/30 text-center">
           <div className="w-12 h-12 rounded-lg bg-zinc-800 border border-zinc-700 flex items-center justify-center text-base font-mono text-zinc-400 mb-4 shadow-sm">
             📁
           </div>
-          <p className="text-sm font-semibold text-zinc-200">No Workspaces Configured</p>
+          <p className="text-sm font-semibold text-zinc-200">
+            {workspaces.length === 0 ? "No Workspaces Configured" : "No Workspace Selected"}
+          </p>
           <p className="text-xs text-zinc-400 mt-1 max-w-md leading-relaxed">
-            Select a project root directory to automatically discover React, Next.js, Node.js, Python, Rust, and Go projects, along with nested Git repositories.
+            {workspaces.length === 0
+              ? "Select a project root directory to automatically discover React, Next.js, Node.js, Python, Rust, and Go projects, along with nested Git repositories."
+              : "Select an existing workspace from the dropdown above, or choose a new directory."}
           </p>
           <button
             onClick={handleSelectNewDirectory}
             className="mt-6 px-4 py-2 rounded-md text-xs font-semibold bg-zinc-100 text-zinc-900 hover:bg-zinc-200 transition-all shadow-sm cursor-pointer"
           >
-            Select Project Root
+            + Open Root Directory
           </button>
         </div>
       )}
@@ -855,9 +1170,9 @@ export function ProjectsView({
                   )}
                 </div>
 
-                {/* Actions: Open in VS Code, Reveal in Finder, Terminal, Git */}
+                {/* Actions: Terminal (runnable only), Open in IDE, Reveal in Finder */}
                 <div className="flex items-center flex-wrap gap-2 shrink-0">
-                  {onNavigateToTerminal && (
+                  {isRunnableProject(project) && onNavigateToTerminal && (
                     <button
                       onClick={() =>
                         onNavigateToTerminal({
@@ -873,38 +1188,71 @@ export function ProjectsView({
                     </button>
                   )}
 
-                  {(project.isGitRepo || project.isRoot) && onNavigateToGit && (
+                  {/* IDE Split Button: Open in Default IDE or pick another */}
+                  <div className="relative inline-flex rounded-md shadow-sm">
+                    <button
+                      onClick={() => handleOpenInEditor(project.path)}
+                      disabled={runningAction !== null}
+                      className="px-2.5 py-1.5 rounded-l-md text-xs font-medium text-zinc-200 bg-zinc-800 border border-zinc-700 hover:bg-zinc-700 hover:text-white disabled:opacity-50 transition-all flex items-center gap-1.5 cursor-pointer"
+                      title={`Open in ${currentIdeConfig.name}`}
+                    >
+                      {runningAction?.path === project.path &&
+                      runningAction.action === "editor" ? (
+                        <span className="w-3 h-3 rounded-full border border-zinc-400 border-t-white animate-spin" />
+                      ) : (
+                        <span className="text-xs">{currentIdeConfig.icon}</span>
+                      )}
+                      <span>Open in {currentIdeConfig.shortName}</span>
+                    </button>
+
                     <button
                       onClick={() =>
-                        onNavigateToGit({
-                          workspaceId: activeWorkspace.id,
-                          projectId: project.id,
-                        })
+                        setOpenMenuForPath(
+                          openMenuForPath === project.path ? null : project.path
+                        )
                       }
-                      className="px-2.5 py-1.5 rounded-md text-xs font-medium text-emerald-300 bg-emerald-950/40 border border-emerald-800/50 hover:bg-emerald-900/60 transition-all flex items-center gap-1 cursor-pointer"
-                      title="Inspect Git repository status, diffs, and commits"
+                      disabled={runningAction !== null}
+                      className="px-2 py-1.5 rounded-r-md text-xs font-medium text-zinc-400 bg-zinc-800 border-y border-r border-zinc-700 hover:bg-zinc-700 hover:text-white disabled:opacity-50 transition-all cursor-pointer"
+                      title="Choose IDE or change default"
                     >
-                      <svg className="w-3 h-3 text-emerald-400" viewBox="0 0 16 16" fill="currentColor">
-                        <path fillRule="evenodd" d="M11.75 2.5a.75.75 0 100 1.5.75.75 0 000-1.5zm-2.25.75a2.25 2.25 0 113 2.122V6A2.5 2.5 0 0110 8.5H6a1 1 0 00-1 1v1.128a2.251 2.251 0 11-1.5 0V5.372a2.25 2.25 0 111.5 0v1.836A2.492 2.492 0 016 7h4a1 1 0 001-1v-.628A2.25 2.25 0 019.5 3.25zM4.25 12a.75.75 0 100 1.5.75.75 0 000-1.5zM3.5 3.25a.75.75 0 111.5 0 .75.75 0 01-1.5 0z" />
-                      </svg>
-                      <span>Git</span>
+                      ▾
                     </button>
-                  )}
 
-                  <button
-                    onClick={() => handleOpenInVSCode(project.path)}
-                    disabled={runningAction !== null}
-                    className="px-2.5 py-1.5 rounded-md text-xs font-medium text-zinc-200 bg-zinc-800 border border-zinc-700 hover:bg-zinc-700 hover:text-white disabled:opacity-50 transition-all flex items-center gap-1.5 cursor-pointer"
-                    title="Open project folder in Visual Studio Code"
-                  >
-                    {runningAction?.path === project.path &&
-                    runningAction.action === "vscode" ? (
-                      <span className="w-3 h-3 rounded-full border border-zinc-400 border-t-white animate-spin" />
-                    ) : (
-                      <span className="text-[11px] font-mono">&lt;/&gt;</span>
+                    {openMenuForPath === project.path && (
+                      <div
+                        ref={menuRef}
+                        className="absolute right-0 top-full mt-1 w-52 bg-zinc-900 border border-zinc-700 rounded-md shadow-xl py-1 z-30 animate-in fade-in zoom-in-95 duration-100"
+                      >
+                        <div className="px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-zinc-500 border-b border-zinc-800 flex items-center justify-between">
+                          <span>Open with IDE</span>
+                        </div>
+                        <div className="max-h-56 overflow-y-auto py-1">
+                          {AVAILABLE_IDES.map((ide) => (
+                            <button
+                              key={ide.id}
+                              onClick={() => handleOpenInEditor(project.path, ide.id)}
+                              className="w-full text-left px-2.5 py-1.5 text-xs text-zinc-200 hover:bg-zinc-800 flex items-center justify-between cursor-pointer transition-colors"
+                            >
+                              <span className="flex items-center gap-2">
+                                <span>{ide.icon}</span>
+                                <span>{ide.name}</span>
+                              </span>
+                              {ide.id === defaultIde && (
+                                <span className="text-[10px] font-mono text-emerald-400 font-semibold">
+                                  Default
+                                </span>
+                              )}
+                            </button>
+                          ))}
+                        </div>
+                        <div className="border-t border-zinc-800 pt-1 px-1">
+                          <div className="px-2 py-1 text-[10px] text-zinc-500">
+                            Default: <strong className="text-zinc-200">{currentIdeConfig.name}</strong>
+                          </div>
+                        </div>
+                      </div>
                     )}
-                    <span>Open in VS Code</span>
-                  </button>
+                  </div>
 
                   <button
                     onClick={() => handleRevealInFinder(project.path)}
