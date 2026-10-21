@@ -32,6 +32,32 @@ exports.default = async function (context) {
       fs.rmSync(targetModules, { recursive: true, force: true });
     }
     fs.cpSync(sourceModules, targetModules, { recursive: true });
+
+    // Remove .bin directory since CLI wrapper symlinks point to build-time transient directories
+    const binDir = path.join(targetModules, ".bin");
+    if (fs.existsSync(binDir)) {
+      fs.rmSync(binDir, { recursive: true, force: true });
+    }
+
+    // Clean any remaining dangling symlinks defensively
+    function cleanDangling(dir) {
+      if (!fs.existsSync(dir)) return;
+      const entries = fs.readdirSync(dir, { withFileTypes: true });
+      for (const entry of entries) {
+        const full = path.join(dir, entry.name);
+        if (entry.isSymbolicLink()) {
+          try {
+            fs.realpathSync(full);
+          } catch {
+            fs.unlinkSync(full);
+          }
+        } else if (entry.isDirectory()) {
+          cleanDangling(full);
+        }
+      }
+    }
+    cleanDangling(targetModules);
+
     console.log("[DevDesk afterPack] Successfully bundled backend node_modules!");
   } else {
     console.warn("[DevDesk afterPack] WARNING: backend node_modules not found in candidates:", candidates);

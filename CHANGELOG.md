@@ -72,3 +72,15 @@ This milestone marks the first production release of **DevDesk**, providing a co
   - Bundled multi-resolution application icon (`icon.icns`).
   - Automatic backend startup using the bundled Electron executable with `ELECTRON_RUN_AS_NODE: "1"`.
   - Port conflict detection with graceful error reporting and clean shutdown handlers.
+
+- **Recursive Discovery & Multi-Repository Git (Phase 14)**:
+  - Recursive scanning up to 4 directory levels deep, discovering nested projects, monorepo packages, and nested repositories.
+  - Root project (`isRoot: true`) and relative path tracking for nested components.
+  - Sibling and child repository isolation ensuring Git operations cannot accidentally mutate parent workspace roots.
+  - Automatic sanitization and credential redaction for Git remote URLs (`https://***:***@...`).
+
+- **Test Reliability & Release Gating (Phases 15 & 16)**:
+  - Migrated all test suites (Phases 5–9, 14–15) from `console.assert` to strict Node.js `assert` methods that exit with non-zero status on failures.
+  - Transparent dual-driver SQLite implementation (`better-sqlite3` + `node:sqlite` fallback) guaranteeing zero native addon ABI crashes in Electron 44.
+  - Automated dangling symlink pruning in packaging pipeline (`after-pack.cjs`).
+  - Cryptographically verified final release distribution packages with freshly calculated SHA-256 checksums.

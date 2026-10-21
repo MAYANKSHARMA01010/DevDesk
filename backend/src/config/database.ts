@@ -1,9 +1,29 @@
-import Database, { Database as DatabaseType } from "better-sqlite3";
+import Database from "better-sqlite3";
 import * as path from "path";
 import * as fs from "fs";
 import * as os from "os";
+import { createRequire } from "module";
 
-let dbInstance: DatabaseType | null = null;
+const require = createRequire(import.meta.url);
+
+export interface SqliteStatement<BindParameters extends unknown[] = unknown[], ResultType = any> {
+  run(...params: BindParameters | unknown[]): { changes: number; lastInsertRowid: number | bigint };
+  get(...params: BindParameters | unknown[]): ResultType | undefined;
+  all(...params: BindParameters | unknown[]): ResultType[];
+}
+
+export interface SqliteDatabase {
+  exec(sql: string): unknown;
+  pragma(pragma: string): unknown;
+  prepare<BindParameters extends unknown[] = unknown[], ResultType = any>(
+    sql: string
+  ): SqliteStatement<BindParameters, ResultType>;
+  transaction<T extends (...args: any[]) => any>(fn: T): T;
+  close(): void;
+  open: boolean;
+}
+
+let dbInstance: SqliteDatabase | null = null;
 
 /**
  * Resolves the OS-appropriate storage directory for DevDesk application data.
@@ -39,9 +59,58 @@ export function getDatabasePath(): string {
 }
 
 /**
+ * Creates a database instance, trying better-sqlite3 first and falling back
+ * to built-in node:sqlite if native addon loading or ABI mismatches occur.
+ */
+function createDatabaseInstance(dbPath: string): SqliteDatabase {
+  try {
+    const db = new Database(dbPath);
+    return db as unknown as SqliteDatabase;
+  } catch (betterErr) {
+    console.warn(
+      "[Database] better-sqlite3 driver could not be loaded, activating node:sqlite fallback:",
+      (betterErr as Error).message
+    );
+
+    const { DatabaseSync } = require("node:sqlite");
+    const rawDb = new DatabaseSync(dbPath);
+
+    return {
+      exec: (sql: string) => rawDb.exec(sql),
+      pragma: (sql: string) => rawDb.exec(`PRAGMA ${sql};`),
+      prepare: (sql: string) => {
+        const stmt = rawDb.prepare(sql);
+        return {
+          run: (...params: unknown[]) => stmt.run(...params),
+          get: (...params: unknown[]) => stmt.get(...params),
+          all: (...params: unknown[]) => stmt.all(...params),
+        };
+      },
+      transaction: <T extends (...args: any[]) => any>(fn: T): T => {
+        return ((...args: any[]) => {
+          rawDb.exec("BEGIN");
+          try {
+            const res = fn(...args);
+            rawDb.exec("COMMIT");
+            return res;
+          } catch (err) {
+            rawDb.exec("ROLLBACK");
+            throw err;
+          }
+        }) as T;
+      },
+      close: () => {
+        rawDb.close();
+      },
+      open: true,
+    };
+  }
+}
+
+/**
  * Initializes the SQLite database and executes migrations/table setup.
  */
-export function initializeDatabase(): DatabaseType {
+export function initializeDatabase(): SqliteDatabase {
   if (dbInstance) {
     return dbInstance;
   }
@@ -54,7 +123,7 @@ export function initializeDatabase(): DatabaseType {
   }
 
   const dbPath = getDatabasePath();
-  const db = new Database(dbPath);
+  const db = createDatabaseInstance(dbPath);
 
   // Enable foreign keys and WAL mode for reliability and performance
   db.pragma("foreign_keys = ON");
@@ -139,7 +208,7 @@ export function initializeDatabase(): DatabaseType {
 /**
  * Returns the active database instance, initializing it if needed.
  */
-export function getDatabase(): DatabaseType {
+export function getDatabase(): SqliteDatabase {
   if (!dbInstance) {
     return initializeDatabase();
   }

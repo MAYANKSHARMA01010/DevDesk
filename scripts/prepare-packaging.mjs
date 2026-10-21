@@ -11,7 +11,7 @@ console.log("Root directory:", rootDir);
 
 // 0. Install workspace dependencies
 console.log("\n[0/5] Syncing workspace dependencies...");
-execSync("pnpm install -y", { cwd: rootDir, stdio: "inherit" });
+execSync("pnpm install -y --config.confirmModulesPurge=false", { cwd: rootDir, stdio: "inherit" });
 
 // 1. Build Frontend static export
 console.log("\n[1/5] Building Frontend static export (Next.js)...");

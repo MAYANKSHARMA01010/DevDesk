@@ -71,8 +71,8 @@ Instead of keeping dozens of separate terminal tabs, Postman, database clients, 
 
 | File | Target Arch | Size | SHA-256 Checksum |
 | :--- | :---: | :---: | :--- |
-| **`DevDesk-1.0.0-arm64.dmg`** | Apple Silicon (`arm64`) | `152,588,960 B (~145.5 MB)` | `facc6071a1a17a22598fcd2fd3b9c170cc99d04977f02e01880ad9e95d9dd5eb` |
-| **`DevDesk-1.0.0-arm64-mac.zip`** | Apple Silicon (`arm64`) | `153,412,267 B (~146.3 MB)` | `e80c6857342237627fd648df87d6026c76e18cbe50c4b7ee06e4acc9f5c8f238` |
+| **`DevDesk-1.0.0-arm64.dmg`** | Apple Silicon (`arm64`) | `145,016,363 B (~138.3 MB)` | `2a096aebc868618a2355c7f6f191dacb6e288fd099cd343e54911b7aa69c31f2` |
+| **`DevDesk-1.0.0-arm64-mac.zip`** | Apple Silicon (`arm64`) | `145,971,762 B (~139.2 MB)` | `d4ed29dfdabbc406cce49d5b046380702bc9a8152358811c57891e8111f8d2c1` |
 
 ---
 
@@ -84,11 +84,12 @@ Instead of keeping dozens of separate terminal tabs, Postman, database clients, 
    Because this initial release is signed ad-hoc without a commercial Apple Developer ID, macOS Gatekeeper may present a notice on first launch (*"developer cannot be verified"*).
    
    To approve the application:
-   - **Method A (Recommended)**: Right-click `DevDesk.app` in Finder, select **Open**, and click **Open** in the confirmation prompt.
-   - **Method B (Terminal)**: Run:
+   - **Method A (Standard macOS UI)**: Right-click `DevDesk.app` in Finder, select **Open**, and click **Open** in the confirmation prompt.
+   - **Method B (Local Developer Testing Quarantine Removal)**: Run:
      ```bash
      xattr -cr /Applications/DevDesk.app
      ```
+     *(Note: Clearing the quarantine attribute via `xattr -cr` is a developer convenience for local testing and is not a substitute for proper commercial Apple Developer code signing and official notarization).*
 4. **Launch DevDesk** from Launchpad or Applications.
 
 ---
