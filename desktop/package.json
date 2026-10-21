@@ -7,7 +7,8 @@
     "dev": "tsc && electron .",
     "build": "tsc",
     "start": "electron .",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "package:mac": "electron-builder --config electron-builder.yml --mac --arm64"
   },
   "keywords": [],
   "author": "",

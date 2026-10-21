@@ -1,16 +1,19 @@
 {
   "name": "DevDesk",
   "version": "1.0.0",
-  "description": "",
+  "description": "Desktop Developer Command Center built with Electron, Next.js, React, TypeScript, Node.js, Express, and SQLite",
   "main": "index.js",
   "scripts": {
     "dev": "pnpm -r --parallel dev",
     "dev:frontend": "pnpm --filter frontend dev",
     "dev:backend": "pnpm --filter backend dev",
     "dev:desktop": "pnpm --filter desktop dev",
-    "build": "pnpm -r build",
-    "build:frontend": "pnpm --filter frontend build",
-    "build:desktop": "pnpm --filter desktop build",
+    "build": "pnpm install -y && pnpm --filter frontend run build && pnpm --filter backend run build && pnpm --filter desktop run build",
+    "build:frontend": "pnpm --filter frontend run build",
+    "build:backend": "pnpm --filter backend run build",
+    "build:desktop": "pnpm --filter desktop run build",
+    "prepare:package": "node scripts/prepare-packaging.mjs",
+    "package:mac": "node scripts/prepare-packaging.mjs && ./desktop/node_modules/.bin/electron-builder --project desktop --config electron-builder.yml --mac --arm64 && rm -rf .packaging",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],

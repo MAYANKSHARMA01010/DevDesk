@@ -1,6 +1,4 @@
-from pathlib import Path
-
-content = """# DevDesk — Developer Command Center
+# DevDesk — Developer Command Center
 
 ## 💻 What is DevDesk?
 
@@ -111,9 +109,3 @@ DevDesk may require:
 - Database connection access
 - Access to project `.env` files
 - Optional SSH key access
-"""
-
-path = Path("/mnt/data/DevDesk_Project_Overview.md")
-path.write_text(content, encoding="utf-8")
-
-print(path)

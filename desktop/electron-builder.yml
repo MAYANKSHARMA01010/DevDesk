@@ -1,0 +1,54 @@
+appId: com.devdesk.app
+productName: DevDesk
+copyright: Copyright © 2026 DevDesk Contributors
+electronVersion: 44.4.4
+npmRebuild: false
+
+directories:
+  output: ../release
+  buildResources: build-resources
+
+files:
+  - dist/**/*
+  - package.json
+
+extraResources:
+  - from: ../.packaging/backend
+    to: backend
+    filter:
+      - "**/*"
+      - "!src"
+      - "!src/**/*"
+      - "!tsconfig.json"
+  - from: ../frontend/out
+    to: frontend
+    filter:
+      - "**/*"
+
+asar: true
+asarUnpack:
+  - "**/*.node"
+afterPack: desktop/scripts/after-pack.cjs
+
+mac:
+  target:
+    - target: dmg
+      arch:
+        - arm64
+    - target: zip
+      arch:
+        - arm64
+  category: public.app-category.developer-tools
+  icon: build-resources/icon.icns
+  identity: null
+  hardenedRuntime: false
+
+dmg:
+  title: DevDesk Installer
+  contents:
+    - x: 130
+      y: 220
+    - x: 410
+      y: 220
+      type: link
+      path: /Applications

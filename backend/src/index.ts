@@ -23,9 +23,22 @@ app.use("/api", apiRouter);
 import { processManager } from "./services/processes/processManager.js";
 import { databaseService } from "./services/database/databaseService.js";
 
+const HOST = process.env.HOST || "127.0.0.1";
+
 // Start server
-const server = app.listen(PORT, () => {
-  console.log(`[DevDesk Backend] Server running at http://localhost:${PORT}`);
+const server = app.listen(Number(PORT), HOST, () => {
+  console.log(`[DevDesk Backend] Server running at http://${HOST}:${PORT}`);
+});
+
+server.on("error", (err: NodeJS.ErrnoException) => {
+  if (err.code === "EADDRINUSE") {
+    console.error(`[DevDesk Backend] FATAL: Port ${PORT} is already occupied by another process.`);
+    console.error(`[DevDesk Backend] DevDesk requires port ${PORT} for its local API. Please free port ${PORT} before running.`);
+    process.exit(98);
+  } else {
+    console.error("[DevDesk Backend] Server failed to start:", err);
+    process.exit(1);
+  }
 });
 
 function handleShutdown(signal: string) {

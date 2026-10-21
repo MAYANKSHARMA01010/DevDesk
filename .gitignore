@@ -16,6 +16,9 @@ build/
 dist/
 dist-electron/
 release/
+build-resources/
+desktop/build-resources/
+.packaging/
 
 # Debug & Logs
 *.log
