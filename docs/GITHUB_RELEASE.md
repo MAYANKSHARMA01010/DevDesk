@@ -12,11 +12,14 @@ Instead of keeping dozens of separate terminal tabs, Postman, database clients, 
 
 ## 🚀 Key Modules & Highlights
 
-### 📁 Workspace & Project Discovery
-- **Native macOS Directory Selection**: Point DevDesk to your workspace folders.
-- **Deep Project Scanning**: Automatically detects Node.js, Next.js, Express, Vite, and other project types with package manager identification (`pnpm`, `npm`, `yarn`).
+### 📁 Recursive Workspace & Project Discovery
+- **Native macOS Directory Selection**: Point DevDesk to any workspace root or multi-project parent folder.
+- **Recursive Multi-Level Scanning**: Discovers projects nested up to 4 directory levels deep, including nested Git repositories and standalone components.
+- **Root & Nested Distinction**: Explicitly flags root projects (`isRoot: true`) and tracks relative paths for nested projects (e.g., `ELECTRON/app`, `MOBILE/app`, `contest/ProcessDesk-...`).
+- **Deep Tech Detection**: Automatically detects Node.js, Next.js, Express, Vite, Rust, Go, Python, and other project types with package manager identification (`pnpm`, `npm`, `yarn`).
+- **Interactive Filtering**: Real-time project search bar with instantaneous "Git Repo" and "Nested" filter toggles.
 - **One-Click Actions**: Open projects directly in **Visual Studio Code** (`code <path>`) or **Reveal in Finder** (`showItemInFolder`).
-- **Persistent Metadata**: Remembers workspaces across reboots using local SQLite.
+- **Persistent Metadata**: Remembers workspaces across reboots using local SQLite with guaranteed stable IDs and deletion pruning.
 
 ### ⚡ Project Runner & Live Terminal
 - **Script Discovery**: Reads and lists executable scripts directly from project `package.json` files.
@@ -28,7 +31,10 @@ Instead of keeping dozens of separate terminal tabs, Postman, database clients, 
 - **Process Isolation**: Strictly displays and controls processes launched by DevDesk, protecting unrelated system services from disruption.
 - **Lifecycle Safety**: Cleanly terminates background processes and releases allocated ports when DevDesk closes.
 
-### 🌿 Git Integration
+### 🌿 Multi-Repository Git Integration
+- **Independent Repository Targeting**: Resolves each project's exact Git root independently—operations on nested repositories never pollute or mutate parent workspaces.
+- **Safe Boundary Protection**: Prevents arbitrary non-Git subdirectories from accidentally mutating parent workspace repositories.
+- **Credential Redaction**: Automatically redacts embedded tokens and passwords from remote URLs in UI and persistent storage (`https://***:***@github.com/...`).
 - **Status Dashboard**: Inspect current branch, remote tracking, ahead/behind counters, and uncommitted change summaries.
 - **Interactive Staging**: Stage and unstage individual files or entire trees with support for unborn branches (empty repositories).
 - **Commit Workflow**: Commit directly from DevDesk with safety validation preventing empty messages or staging anomalies.
@@ -65,8 +71,8 @@ Instead of keeping dozens of separate terminal tabs, Postman, database clients, 
 
 | File | Target Arch | Size | SHA-256 Checksum |
 | :--- | :---: | :---: | :--- |
-| **`DevDesk-1.0.0-arm64.dmg`** | Apple Silicon (`arm64`) | `138 MB` | `ce5d228fae8001464e95e62f26f57e6befab82d6d7d6ae1f2101c1692c6172ba` |
-| **`DevDesk-1.0.0-arm64-mac.zip`** | Apple Silicon (`arm64`) | `140 MB` | `41db6ef09ebec9b093fae71386b81064872f63bd3edcda76dda0f150260d4b29` |
+| **`DevDesk-1.0.0-arm64.dmg`** | Apple Silicon (`arm64`) | `152,588,960 B (~145.5 MB)` | `facc6071a1a17a22598fcd2fd3b9c170cc99d04977f02e01880ad9e95d9dd5eb` |
+| **`DevDesk-1.0.0-arm64-mac.zip`** | Apple Silicon (`arm64`) | `153,412,267 B (~146.3 MB)` | `e80c6857342237627fd648df87d6026c76e18cbe50c4b7ee06e4acc9f5c8f238` |
 
 ---
 

@@ -78,8 +78,13 @@ export function initializeDatabase(): DatabaseType {
       workspace_id TEXT NOT NULL,
       name TEXT NOT NULL,
       path TEXT NOT NULL,
+      relative_path TEXT,
       type TEXT NOT NULL,
       package_manager TEXT NOT NULL,
+      is_git_repo INTEGER NOT NULL DEFAULT 0,
+      git_root TEXT,
+      git_remote TEXT,
+      is_root INTEGER NOT NULL DEFAULT 0,
       updated_at TEXT NOT NULL,
       FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE,
       UNIQUE(workspace_id, path)
@@ -102,6 +107,30 @@ export function initializeDatabase(): DatabaseType {
 
     CREATE INDEX IF NOT EXISTS idx_database_connections_name ON database_connections(name);
   `);
+
+  // Safe incremental migrations for existing installations
+  try {
+    const projectCols = db.prepare("PRAGMA table_info(projects)").all() as Array<{ name: string }>;
+    const colSet = new Set(projectCols.map((c) => c.name));
+
+    if (!colSet.has("relative_path")) {
+      db.exec("ALTER TABLE projects ADD COLUMN relative_path TEXT");
+    }
+    if (!colSet.has("is_git_repo")) {
+      db.exec("ALTER TABLE projects ADD COLUMN is_git_repo INTEGER NOT NULL DEFAULT 0");
+    }
+    if (!colSet.has("git_root")) {
+      db.exec("ALTER TABLE projects ADD COLUMN git_root TEXT");
+    }
+    if (!colSet.has("git_remote")) {
+      db.exec("ALTER TABLE projects ADD COLUMN git_remote TEXT");
+    }
+    if (!colSet.has("is_root")) {
+      db.exec("ALTER TABLE projects ADD COLUMN is_root INTEGER NOT NULL DEFAULT 0");
+    }
+  } catch (migErr) {
+    console.error("[Database] Migration warning:", migErr);
+  }
 
   dbInstance = db;
   return dbInstance;

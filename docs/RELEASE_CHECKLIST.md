@@ -28,8 +28,8 @@ Confirm that both distribution archives exist in `release/` and match their comp
 
 | Artifact | Architecture | File Size | SHA-256 Checksum |
 | :--- | :---: | :---: | :--- |
-| **`DevDesk-1.0.0-arm64.dmg`** | `arm64` | `~138 MB` | `ce5d228fae8001464e95e62f26f57e6befab82d6d7d6ae1f2101c1692c6172ba` |
-| **`DevDesk-1.0.0-arm64-mac.zip`** | `arm64` | `~140 MB` | `41db6ef09ebec9b093fae71386b81064872f63bd3edcda76dda0f150260d4b29` |
+| **`DevDesk-1.0.0-arm64.dmg`** | `arm64` | `152,588,960 B (~145.5 MB)` | `facc6071a1a17a22598fcd2fd3b9c170cc99d04977f02e01880ad9e95d9dd5eb` |
+| **`DevDesk-1.0.0-arm64-mac.zip`** | `arm64` | `153,412,267 B (~146.3 MB)` | `e80c6857342237627fd648df87d6026c76e18cbe50c4b7ee06e4acc9f5c8f238` |
 | **`DevDesk.app`** | `arm64` | App Bundle | Located in `release/mac-arm64/DevDesk.app` |
 
 ---
@@ -88,9 +88,12 @@ Verify SQLite database operations:
 
 Each core view must operate inside the packaged application:
 
-- [x] **Projects & Workspaces**:
+- [x] **Projects & Workspaces (Recursive Discovery & Multi-Project)**:
   - Native directory picker opens and returns valid directory path.
-  - Projects are scanned and displayed with correct types and package managers.
+  - Recursive project discovery up to 4 levels deep finds nested projects and repositories across monorepos and multi-project directories (verified 23 projects in `APP_DEV`).
+  - Distinguishes workspace root projects from nested child projects with `isRoot` and relative path metadata.
+  - Ignores structural-only directories, build outputs (`dist/`, `.next/`, `node_modules/`), and prevents symlink recursion loops.
+  - Interactive search bar, Git Repo filter, and Nested filter isolate projects instantly.
   - Open in VS Code (`code <path>`) and Reveal in Finder work.
 - [x] **Terminal & Script Runner**:
   - Discovers package.json scripts (`start`, `dev`, `build`, `test`).
@@ -99,11 +102,14 @@ Each core view must operate inside the packaged application:
 - [x] **Process & Port Manager**:
   - Identifies active DevDesk-managed processes and their bound TCP ports.
   - Foreign system processes are never listed or controllable.
-- [x] **Git Integration**:
-  - Displays current branch, ahead/behind tracking, and modified files.
-  - Stages/unstages files cleanly.
+- [x] **Git Integration & Multi-Repository Isolation**:
+  - Displays current branch, ahead/behind tracking, and modified files for individual repositories.
+  - Resolves each project's distinct Git root independently without cross-contaminating parent repositories.
+  - Disallows Git mutation operations on non-Git subdirectories from accidentally staging or committing in the parent workspace root.
+  - Stages/unstages files cleanly per repository.
   - Diff viewer renders line additions and deletions.
-  - Commits changes with non-empty message validation.
+  - Commits changes with non-empty message validation and maintains isolated commit histories.
+  - Automatically redacts passwords, tokens, and basic auth credentials from remote URLs in UI and persistence.
 - [x] **HTTP API Tester**:
   - Sends `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `HEAD`, `OPTIONS`.
   - Parses JSON response bodies and displays status, duration, and size.

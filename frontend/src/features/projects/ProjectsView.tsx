@@ -30,13 +30,31 @@ interface ActionFeedback {
   message: string;
 }
 
-export function ProjectsView() {
+interface ProjectsViewProps {
+  onNavigateToTerminal?: (selection: {
+    workspaceId?: string;
+    projectId?: string;
+  }) => void;
+  onNavigateToGit?: (selection: {
+    workspaceId?: string;
+    projectId?: string;
+  }) => void;
+}
+
+export function ProjectsView({
+  onNavigateToTerminal,
+  onNavigateToGit,
+}: ProjectsViewProps = {}) {
   const [workspaces, setWorkspaces] = useState<WorkspaceWithProjects[]>([]);
   const [activeWorkspaceId, setActiveWorkspaceId] = useState<string | null>(null);
   const [status, setStatus] = useState<ViewStatus>("loading_initial");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [pathWarning, setPathWarning] = useState<string | null>(null);
   const [showForgetConfirm, setShowForgetConfirm] = useState<boolean>(false);
+
+  // Search & Filter states
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterMode, setFilterMode] = useState<"all" | "git" | "nested">("all");
 
   // Card-level action states
   const [runningAction, setRunningAction] = useState<RunningAction | null>(null);
@@ -59,7 +77,6 @@ export function ProjectsView() {
 
         setWorkspaces(loaded);
         if (loaded.length > 0) {
-          // Restore most recently opened workspace
           setActiveWorkspaceId(loaded[0].id);
           setStatus("idle");
         } else {
@@ -123,7 +140,29 @@ export function ProjectsView() {
     }
   }
 
-  // 3. Rescan current workspace
+  // 3. Switch workspace from dropdown
+  async function handleSwitchWorkspace(targetWorkspaceId: string) {
+    if (targetWorkspaceId === activeWorkspaceId) return;
+
+    setActiveWorkspaceId(targetWorkspaceId);
+    setPathWarning(null);
+    setActionError(null);
+    setShowForgetConfirm(false);
+
+    try {
+      const updated = await markWorkspaceOpened(targetWorkspaceId);
+      startTransition(() => {
+        setWorkspaces((prev) => {
+          const filtered = prev.filter((w) => w.id !== targetWorkspaceId);
+          return [updated, ...filtered];
+        });
+      });
+    } catch {
+      // Non-critical timestamp update error
+    }
+  }
+
+  // 4. Rescan current workspace
   async function handleRescan() {
     if (!activeWorkspace) return;
 
@@ -133,22 +172,25 @@ export function ProjectsView() {
     setActionError(null);
 
     try {
-      const updated = await scanAndSaveWorkspace(activeWorkspace.rootPath);
+      const rescanned = await scanAndSaveWorkspace(activeWorkspace.rootPath);
       startTransition(() => {
         setWorkspaces((prev) =>
-          prev.map((w) => (w.id === updated.id ? updated : w))
+          prev.map((w) => (w.id === rescanned.id ? rescanned : w))
         );
         setStatus("idle");
       });
     } catch (err: unknown) {
       const errorMsg =
-        err instanceof Error ? err.message : "Failed to rescan workspace";
+        err instanceof Error ? err.message : "Failed to rescan workspace.";
 
-      if (errorMsg.includes("Directory not found") || errorMsg.includes("not found")) {
-        setPathWarning(
-          `Directory "${activeWorkspace.rootPath}" could not be found on disk. It may have been moved, renamed, or deleted.`
-        );
+      if (
+        errorMsg.includes("Directory not found") ||
+        errorMsg.includes("ENOENT")
+      ) {
         setStatus("idle");
+        setPathWarning(
+          `Workspace directory "${activeWorkspace.rootPath}" is no longer accessible on disk.`
+        );
       } else {
         setStatus("error");
         setErrorMessage(errorMsg);
@@ -156,58 +198,37 @@ export function ProjectsView() {
     }
   }
 
-  // 4. Switch active workspace
-  async function handleSwitchWorkspace(workspaceId: string) {
-    if (workspaceId === activeWorkspaceId) return;
-
-    setActiveWorkspaceId(workspaceId);
-    setErrorMessage(null);
-    setPathWarning(null);
-    setActionError(null);
-    setShowForgetConfirm(false);
-
-    try {
-      const updated = await markWorkspaceOpened(workspaceId);
-      // Re-order active workspace to the top
-      setWorkspaces((prev) => {
-        const remaining = prev.filter((w) => w.id !== workspaceId);
-        return [updated, ...remaining];
-      });
-    } catch {
-      // Non-fatal if mark-opened fails; the UI still switches
-    }
-  }
-
-  // 5. Forget Workspace (Removes database record only)
+  // 5. Forget workspace
   async function handleForgetWorkspace() {
     if (!activeWorkspace) return;
 
+    const targetId = activeWorkspace.id;
     setStatus("deleting");
-    setErrorMessage(null);
     setShowForgetConfirm(false);
 
     try {
-      await forgetWorkspace(activeWorkspace.id);
+      await forgetWorkspace(targetId);
 
-      const remaining = workspaces.filter((w) => w.id !== activeWorkspace.id);
-      setWorkspaces(remaining);
-      setActiveWorkspaceId(remaining.length > 0 ? remaining[0].id : null);
-      setPathWarning(null);
-      setStatus("idle");
+      startTransition(() => {
+        const remaining = workspaces.filter((w) => w.id !== targetId);
+        setWorkspaces(remaining);
+        setActiveWorkspaceId(remaining.length > 0 ? remaining[0].id : null);
+        setStatus("idle");
+      });
     } catch (err: unknown) {
       const errorMsg =
-        err instanceof Error ? err.message : "Failed to forget workspace";
+        err instanceof Error ? err.message : "Failed to forget workspace.";
       setStatus("error");
       setErrorMessage(errorMsg);
     }
   }
 
-  // 6. Action: Open in VS Code
+  // 6. Project Card Actions
   async function handleOpenInVSCode(projectPath: string) {
     if (!window.electron?.openInVSCode) {
       setActionError({
         path: projectPath,
-        message: "VS Code action is only supported inside the DevDesk desktop app.",
+        message: "Visual Studio Code integration requires the desktop app.",
       });
       return;
     }
@@ -220,7 +241,9 @@ export function ProjectsView() {
       if (!result.success) {
         setActionError({
           path: projectPath,
-          message: result.error || "Failed to launch Visual Studio Code.",
+          message:
+            result.error ||
+            "Failed to open in VS Code. Ensure 'code' CLI is in your PATH.",
         });
       }
     } catch (err: unknown) {
@@ -234,12 +257,11 @@ export function ProjectsView() {
     }
   }
 
-  // 7. Action: Reveal in Finder
   async function handleRevealInFinder(projectPath: string) {
     if (!window.electron?.revealInFinder) {
       setActionError({
         path: projectPath,
-        message: "Reveal action is only supported inside the DevDesk desktop app.",
+        message: "Reveal in Finder requires the desktop app.",
       });
       return;
     }
@@ -286,11 +308,54 @@ export function ProjectsView() {
             Express
           </span>
         );
+      case "Python":
+        return (
+          <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-amber-950/70 text-amber-300 border border-amber-800/60">
+            Python
+          </span>
+        );
+      case "Rust":
+        return (
+          <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-orange-950/70 text-orange-300 border border-orange-800/60">
+            Rust
+          </span>
+        );
+      case "Go":
+        return (
+          <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-cyan-950/70 text-cyan-300 border border-cyan-800/60">
+            Go
+          </span>
+        );
+      case "Java":
+        return (
+          <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-red-950/70 text-red-300 border border-red-800/60">
+            Java
+          </span>
+        );
+      case "Ruby":
+        return (
+          <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-rose-950/70 text-rose-300 border border-rose-800/60">
+            Ruby
+          </span>
+        );
+      case "PHP":
+        return (
+          <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-indigo-950/70 text-indigo-300 border border-indigo-800/60">
+            PHP
+          </span>
+        );
+      case "Git Repository":
+        return (
+          <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-purple-950/70 text-purple-300 border border-purple-800/60">
+            Git Repository
+          </span>
+        );
       case "Node.js":
+      case "Generic":
       default:
         return (
           <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-zinc-800/80 text-zinc-300 border border-zinc-700/60">
-            Node.js
+            {type || "Node.js"}
           </span>
         );
     }
@@ -316,14 +381,72 @@ export function ProjectsView() {
             yarn
           </span>
         );
-      case "unknown":
-      default:
+      case "bun":
         return (
-          <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-mono text-zinc-400 bg-zinc-800/60 border border-zinc-700/50">
-            unknown
+          <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-mono font-medium bg-pink-950/60 text-pink-300 border border-pink-800/50">
+            bun
           </span>
         );
+      case "cargo":
+        return (
+          <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-mono font-medium bg-orange-950/60 text-orange-300 border border-orange-800/50">
+            cargo
+          </span>
+        );
+      case "go":
+        return (
+          <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-mono font-medium bg-cyan-950/60 text-cyan-300 border border-cyan-800/50">
+            go
+          </span>
+        );
+      case "pip":
+      case "poetry":
+      case "pipenv":
+        return (
+          <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-mono font-medium bg-green-950/60 text-green-300 border border-green-800/50">
+            {pm}
+          </span>
+        );
+      case "maven":
+      case "gradle":
+        return (
+          <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-mono font-medium bg-amber-950/60 text-amber-300 border border-amber-800/50">
+            {pm}
+          </span>
+        );
+      case "gem":
+        return (
+          <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-mono font-medium bg-rose-950/60 text-rose-300 border border-rose-800/50">
+            gem
+          </span>
+        );
+      case "composer":
+        return (
+          <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-mono font-medium bg-indigo-950/60 text-indigo-300 border border-indigo-800/50">
+            composer
+          </span>
+        );
+      case "unknown":
+      default:
+        return null;
     }
+  }
+
+  function renderGitBadge(project: DiscoveredProject | SavedProject) {
+    if (project.isGitRepo) {
+      return (
+        <span
+          title={project.gitRemote ? `Git Repository\nRemote: ${project.gitRemote}` : "Git Repository Root"}
+          className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-mono font-medium bg-emerald-950/60 text-emerald-300 border border-emerald-800/60"
+        >
+          <svg className="w-3 h-3 text-emerald-400 shrink-0" fill="currentColor" viewBox="0 0 16 16">
+            <path fillRule="evenodd" d="M11.75 2.5a.75.75 0 100 1.5.75.75 0 000-1.5zm-2.25.75a2.25 2.25 0 113 2.122V6A2.5 2.5 0 0110 8.5H6a1 1 0 00-1 1v1.128a2.251 2.251 0 11-1.5 0V5.372a2.25 2.25 0 111.5 0v1.836A2.492 2.492 0 016 7h4a1 1 0 001-1v-.628A2.25 2.25 0 019.5 3.25zM4.25 12a.75.75 0 100 1.5.75.75 0 000-1.5zM3.5 3.25a.75.75 0 111.5 0 .75.75 0 01-1.5 0z" />
+          </svg>
+          <span>Git</span>
+        </span>
+      );
+    }
+    return null;
   }
 
   function formatTime(isoString?: string): string {
@@ -340,6 +463,29 @@ export function ProjectsView() {
     const parts = rootPath.split(/[/\\]/).filter(Boolean);
     return parts.length > 0 ? parts[parts.length - 1] : rootPath;
   }
+
+  // Derived filtered projects
+  const allProjects = activeWorkspace?.projects || [];
+  const gitCount = allProjects.filter((p) => p.isGitRepo || p.isRoot).length;
+  const nestedCount = allProjects.filter((p) => p.relativePath && p.relativePath !== ".").length;
+
+  const displayedProjects = allProjects.filter((p) => {
+    if (filterMode === "git" && !p.isGitRepo && !p.isRoot) {
+      return false;
+    }
+    if (filterMode === "nested" && (!p.relativePath || p.relativePath === ".")) {
+      return false;
+    }
+    if (searchQuery.trim().length > 0) {
+      const q = searchQuery.toLowerCase().trim();
+      const matchName = p.name.toLowerCase().includes(q);
+      const matchPath = p.path.toLowerCase().includes(q);
+      const matchRel = (p.relativePath || "").toLowerCase().includes(q);
+      const matchType = p.type.toLowerCase().includes(q);
+      return matchName || matchPath || matchRel || matchType;
+    }
+    return true;
+  });
 
   // --- Render Views ---
 
@@ -362,13 +508,13 @@ export function ProjectsView() {
   }
 
   return (
-    <div className="flex flex-col h-full p-6 text-zinc-100 max-w-5xl">
+    <div className="flex flex-col h-full p-6 text-zinc-100 max-w-5xl overflow-y-auto">
       {/* 1. Header Toolbar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
           <h2 className="text-xl font-semibold tracking-tight">Projects</h2>
           <p className="text-xs text-zinc-400 mt-1">
-            Scan workspace directories and manage discovered projects.
+            Recursive multi-repository and nested project discovery.
           </p>
         </div>
 
@@ -399,7 +545,7 @@ export function ProjectsView() {
                 onClick={handleRescan}
                 disabled={status === "scanning" || status === "deleting" || runningAction !== null}
                 className="px-3 py-1.5 rounded-md text-xs font-medium text-zinc-300 bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 hover:text-zinc-100 disabled:opacity-50 transition-all flex items-center gap-1.5 cursor-pointer"
-                title="Rescan current workspace projects"
+                title="Rescan current workspace recursively"
               >
                 {status === "scanning" && (
                   <span className="w-3 h-3 rounded-full border border-zinc-500 border-t-zinc-200 animate-spin" />
@@ -484,35 +630,96 @@ export function ProjectsView() {
 
       {/* 4. Active Workspace Root Monospace Bar */}
       {activeWorkspace && (
-        <div className="mb-6 p-3 rounded-lg bg-zinc-900/60 border border-zinc-800 flex items-center justify-between gap-4">
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2">
-              <span className="text-[11px] font-medium uppercase tracking-wider text-zinc-500 block">
-                Project Root
-              </span>
-              {activeWorkspace.lastScannedAt && (
-                <span className="text-[10px] text-zinc-500 font-mono">
-                  • Last scanned: {formatTime(activeWorkspace.lastScannedAt)}
+        <div className="mb-4 p-3 rounded-lg bg-zinc-900/60 border border-zinc-800 space-y-2">
+          <div className="flex items-center justify-between gap-4">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] font-medium uppercase tracking-wider text-zinc-500 block">
+                  Workspace Root
                 </span>
-              )}
+                {activeWorkspace.lastScannedAt && (
+                  <span className="text-[10px] text-zinc-500 font-mono">
+                    • Last scanned: {formatTime(activeWorkspace.lastScannedAt)}
+                  </span>
+                )}
+              </div>
+              <span className="text-xs font-mono text-zinc-300 truncate block mt-0.5 select-all">
+                {activeWorkspace.rootPath}
+              </span>
             </div>
-            <span className="text-xs font-mono text-zinc-300 truncate block mt-0.5">
-              {activeWorkspace.rootPath}
+            <span className="shrink-0 text-xs text-zinc-300 px-2.5 py-1 rounded-full bg-zinc-800 border border-zinc-700 font-medium">
+              {allProjects.length} {allProjects.length === 1 ? "Project Discovered" : "Projects Discovered"}
             </span>
           </div>
-          <span className="shrink-0 text-xs text-zinc-400 px-2 py-1 rounded bg-zinc-800/80 border border-zinc-700/60 font-medium">
-            {activeWorkspace.projects.length} {activeWorkspace.projects.length === 1 ? "Project" : "Projects"}
-          </span>
+          <p className="text-[10px] text-zinc-500">
+            Recursive scan up to 5 levels deep. Excluded node_modules, build caches, and .git internals.
+          </p>
         </div>
       )}
 
-      {/* 5. View States */}
+      {/* 5. Search & Filter Bar (when projects exist) */}
+      {activeWorkspace && allProjects.length > 0 && (
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 mb-4">
+          <div className="relative flex-1">
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Filter projects by name, relative path, or framework..."
+              className="w-full px-3 py-1.5 rounded-md text-xs bg-zinc-900 border border-zinc-800 hover:border-zinc-700 focus:border-zinc-600 focus:outline-none text-zinc-200 placeholder-zinc-500 transition"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery("")}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-zinc-400 hover:text-zinc-200"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+
+          <div className="flex items-center gap-1.5 shrink-0 text-xs">
+            <button
+              onClick={() => setFilterMode("all")}
+              className={`px-2.5 py-1 rounded-md transition ${
+                filterMode === "all"
+                  ? "bg-zinc-800 text-zinc-100 font-medium border border-zinc-700"
+                  : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900"
+              }`}
+            >
+              All ({allProjects.length})
+            </button>
+            <button
+              onClick={() => setFilterMode("git")}
+              className={`px-2.5 py-1 rounded-md transition ${
+                filterMode === "git"
+                  ? "bg-zinc-800 text-zinc-100 font-medium border border-zinc-700"
+                  : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900"
+              }`}
+            >
+              Git Repos ({gitCount})
+            </button>
+            <button
+              onClick={() => setFilterMode("nested")}
+              className={`px-2.5 py-1 rounded-md transition ${
+                filterMode === "nested"
+                  ? "bg-zinc-800 text-zinc-100 font-medium border border-zinc-700"
+                  : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900"
+              }`}
+            >
+              Nested ({nestedCount})
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 6. View States */}
 
       {/* State A: Scanning Active Workspace */}
       {status === "scanning" && (
         <div className="flex-1 flex flex-col items-center justify-center border border-dashed border-zinc-800 rounded-lg p-10 bg-zinc-900/20 text-center">
           <div className="w-8 h-8 rounded-full border-2 border-zinc-700 border-t-zinc-200 animate-spin mb-4" />
-          <p className="text-sm font-medium text-zinc-200">Scanning workspace directories...</p>
+          <p className="text-sm font-medium text-zinc-200">Scanning workspace directories recursively...</p>
           <p className="text-xs text-zinc-500 mt-1 max-w-sm font-mono truncate">
             {activeWorkspace?.rootPath}
           </p>
@@ -546,7 +753,7 @@ export function ProjectsView() {
           </div>
           <p className="text-sm font-semibold text-zinc-200">No Workspaces Configured</p>
           <p className="text-xs text-zinc-400 mt-1 max-w-md leading-relaxed">
-            Select a project root directory to automatically discover React, Next.js, and Node.js workspaces. DevDesk will persist them locally.
+            Select a project root directory to automatically discover React, Next.js, Node.js, Python, Rust, and Go projects, along with nested Git repositories.
           </p>
           <button
             onClick={handleSelectNewDirectory}
@@ -558,14 +765,14 @@ export function ProjectsView() {
       )}
 
       {/* State D: Empty scan result (Workspace exists, but 0 projects discovered) */}
-      {status === "idle" && activeWorkspace && activeWorkspace.projects.length === 0 && (
+      {status === "idle" && activeWorkspace && allProjects.length === 0 && (
         <div className="flex-1 flex flex-col items-center justify-center border border-dashed border-zinc-800 rounded-lg p-10 bg-zinc-900/30 text-center">
           <div className="w-10 h-10 rounded-md bg-zinc-800 border border-zinc-700 flex items-center justify-center text-sm text-zinc-400 mb-3">
             📂
           </div>
           <p className="text-sm font-medium text-zinc-200">No projects found in this workspace.</p>
           <p className="text-xs text-zinc-500 mt-1 max-w-sm leading-relaxed">
-            None of the immediate subdirectories contained a valid package.json file.
+            None of the examined directories contained supported project markers or Git repositories.
           </p>
           <div className="flex items-center gap-2 mt-5">
             <button
@@ -584,32 +791,106 @@ export function ProjectsView() {
         </div>
       )}
 
-      {/* State E: Projects List */}
-      {status === "idle" && activeWorkspace && activeWorkspace.projects.length > 0 && (
-        <div className="space-y-3 overflow-y-auto">
-          {activeWorkspace.projects.map((project) => (
+      {/* State E: Filter returned 0 results */}
+      {status === "idle" && activeWorkspace && allProjects.length > 0 && displayedProjects.length === 0 && (
+        <div className="p-8 text-center border border-dashed border-zinc-800 rounded-lg bg-zinc-900/20">
+          <p className="text-xs text-zinc-400">No projects match the current search or filter.</p>
+          <button
+            onClick={() => {
+              setSearchQuery("");
+              setFilterMode("all");
+            }}
+            className="mt-3 px-3 py-1 rounded text-xs bg-zinc-800 text-zinc-200 hover:bg-zinc-700"
+          >
+            Clear Filters
+          </button>
+        </div>
+      )}
+
+      {/* State F: Projects List */}
+      {status === "idle" && activeWorkspace && displayedProjects.length > 0 && (
+        <div className="space-y-3">
+          {displayedProjects.map((project) => (
             <div
               key={project.path}
               className="p-4 rounded-lg bg-zinc-900/60 border border-zinc-800/80 hover:border-zinc-700/80 transition-all flex flex-col gap-3"
             >
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2.5">
-                    <h3 className="text-sm font-semibold text-zinc-100 tracking-tight truncate">
+                  <div className="flex items-center flex-wrap gap-2">
+                    <h3 className="text-sm font-semibold text-zinc-100 tracking-tight">
                       {project.name}
                     </h3>
+
+                    {project.isRoot && (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-mono font-semibold uppercase tracking-wider bg-violet-950/80 text-violet-300 border border-violet-800/70">
+                        Workspace Root
+                      </span>
+                    )}
+
+                    {project.relativePath && project.relativePath !== "." && (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-mono text-zinc-400 px-2 py-0.5 rounded bg-zinc-800/80 border border-zinc-700/60">
+                        <span>📁</span>
+                        <span>{project.relativePath}</span>
+                      </span>
+                    )}
+
                     <div className="flex items-center gap-1.5 shrink-0">
                       {renderBadgeType(project.type)}
                       {renderBadgePkg(project.packageManager)}
+                      {renderGitBadge(project)}
                     </div>
                   </div>
-                  <p className="text-xs font-mono text-zinc-400 mt-1.5 truncate">
+
+                  <p className="text-xs font-mono text-zinc-400 mt-1.5 truncate select-all">
                     {project.path}
                   </p>
+
+                  {project.gitRemote && (
+                    <p className="text-[11px] font-mono text-zinc-500 mt-0.5 truncate flex items-center gap-1">
+                      <span>↳</span>
+                      <span className="text-zinc-400">Remote:</span>
+                      <span className="truncate">{project.gitRemote}</span>
+                    </p>
+                  )}
                 </div>
 
-                {/* Actions: Open in VS Code & Reveal in Finder */}
-                <div className="flex items-center gap-2 shrink-0">
+                {/* Actions: Open in VS Code, Reveal in Finder, Terminal, Git */}
+                <div className="flex items-center flex-wrap gap-2 shrink-0">
+                  {onNavigateToTerminal && (
+                    <button
+                      onClick={() =>
+                        onNavigateToTerminal({
+                          workspaceId: activeWorkspace.id,
+                          projectId: project.id,
+                        })
+                      }
+                      className="px-2.5 py-1.5 rounded-md text-xs font-medium text-cyan-300 bg-cyan-950/40 border border-cyan-800/50 hover:bg-cyan-900/60 transition-all flex items-center gap-1 cursor-pointer"
+                      title="Run scripts in Terminal"
+                    >
+                      <span className="font-mono text-[11px]">&gt;_</span>
+                      <span>Terminal</span>
+                    </button>
+                  )}
+
+                  {(project.isGitRepo || project.isRoot) && onNavigateToGit && (
+                    <button
+                      onClick={() =>
+                        onNavigateToGit({
+                          workspaceId: activeWorkspace.id,
+                          projectId: project.id,
+                        })
+                      }
+                      className="px-2.5 py-1.5 rounded-md text-xs font-medium text-emerald-300 bg-emerald-950/40 border border-emerald-800/50 hover:bg-emerald-900/60 transition-all flex items-center gap-1 cursor-pointer"
+                      title="Inspect Git repository status, diffs, and commits"
+                    >
+                      <svg className="w-3 h-3 text-emerald-400" viewBox="0 0 16 16" fill="currentColor">
+                        <path fillRule="evenodd" d="M11.75 2.5a.75.75 0 100 1.5.75.75 0 000-1.5zm-2.25.75a2.25 2.25 0 113 2.122V6A2.5 2.5 0 0110 8.5H6a1 1 0 00-1 1v1.128a2.251 2.251 0 11-1.5 0V5.372a2.25 2.25 0 111.5 0v1.836A2.492 2.492 0 016 7h4a1 1 0 001-1v-.628A2.25 2.25 0 019.5 3.25zM4.25 12a.75.75 0 100 1.5.75.75 0 000-1.5zM3.5 3.25a.75.75 0 111.5 0 .75.75 0 01-1.5 0z" />
+                      </svg>
+                      <span>Git</span>
+                    </button>
+                  )}
+
                   <button
                     onClick={() => handleOpenInVSCode(project.path)}
                     disabled={runningAction !== null}

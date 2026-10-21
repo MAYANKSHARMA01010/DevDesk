@@ -187,7 +187,39 @@ export async function resolveProjectRepository(projectId: string): Promise<{
     );
   }
 
-  return { project, repositoryRoot };
+  function toRealPath(p: string): string {
+    try {
+      return fs.realpathSync(path.resolve(p));
+    } catch {
+      return path.resolve(p);
+    }
+  }
+
+  // Ensure Git operations target the selected project/repository and not the parent by mistake
+  const resolvedProjectPath = toRealPath(project.path);
+  const resolvedRepoRoot = toRealPath(repositoryRoot);
+
+  const workspace = workspaceRepository.getById(project.workspaceId);
+  if (workspace) {
+    const resolvedWorkspaceRoot = toRealPath(workspace.rootPath);
+    if (
+      resolvedProjectPath !== resolvedWorkspaceRoot &&
+      resolvedRepoRoot === resolvedWorkspaceRoot &&
+      !project.isRoot &&
+      !fs.existsSync(path.join(project.path, ".git"))
+    ) {
+      const rootProjectExists = workspace.projects.some(
+        (p) => p.isRoot || toRealPath(p.path) === resolvedWorkspaceRoot
+      );
+      if (rootProjectExists) {
+        throw new Error(
+          `Project "${project.name}" is not an independent Git repository (it is inside parent repository "${path.basename(resolvedWorkspaceRoot)}"). To manage that repository, select the workspace root project.`
+        );
+      }
+    }
+  }
+
+  return { project, repositoryRoot: resolvedRepoRoot };
 }
 
 /**

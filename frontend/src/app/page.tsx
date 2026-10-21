@@ -143,7 +143,12 @@ export default function Home() {
   function renderMainContent() {
     switch (activeTab) {
       case "projects":
-        return <ProjectsView />;
+        return (
+          <ProjectsView
+            onNavigateToTerminal={handleNavigateToTerminal}
+            onNavigateToGit={handleNavigateToGit}
+          />
+        );
       case "terminal":
         return <TerminalView initialSelection={terminalSelection} />;
       case "processes":

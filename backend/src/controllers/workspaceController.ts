@@ -88,8 +88,14 @@ export async function scanWorkspaceController(
       return;
     }
 
+    const includeRoot = req.body?.includeRoot !== undefined ? Boolean(req.body.includeRoot) : true;
+    const maxDepth = typeof req.body?.maxDepth === "number" ? req.body.maxDepth : 5;
+
     // Reuse existing project scanner service
-    const discoveredProjects = await scanProjectsDirectory(resolvedPath);
+    const discoveredProjects = await scanProjectsDirectory(resolvedPath, {
+      includeRoot,
+      maxDepth,
+    });
 
     // Save or update workspace in SQLite transaction
     const savedWorkspace = workspaceRepository.upsertWithProjects(

@@ -54,7 +54,7 @@ if (fs.existsSync(backendDeployDir)) {
 }
 fs.mkdirSync(backendDeployDir, { recursive: true });
 
-execSync(`pnpm --filter=backend deploy "${backendDeployDir}" --prod --legacy`, {
+execSync(`pnpm --filter=backend deploy "${backendDeployDir}" --prod --legacy --node-linker=hoisted`, {
   cwd: rootDir,
   stdio: "inherit",
 });

@@ -17,8 +17,13 @@ interface ProjectRow {
   workspace_id: string;
   name: string;
   path: string;
+  relative_path?: string | null;
   type: string;
   package_manager: string;
+  is_git_repo?: number | null;
+  git_root?: string | null;
+  git_remote?: string | null;
+  is_root?: number | null;
   updated_at: string;
 }
 
@@ -28,8 +33,13 @@ function mapProjectRow(row: ProjectRow): SavedProject {
     workspaceId: row.workspace_id,
     name: row.name,
     path: row.path,
+    relativePath: row.relative_path || undefined,
     type: row.type as ProjectType,
     packageManager: row.package_manager as PackageManager,
+    isGitRepo: Boolean(row.is_git_repo),
+    gitRoot: row.git_root || undefined,
+    gitRemote: row.git_remote || undefined,
+    isRoot: Boolean(row.is_root),
     updatedAt: row.updated_at,
   };
 }
@@ -164,23 +174,40 @@ export class WorkspaceRepository {
         ).run(workspaceId, rootPath, now, now, createdAt, now);
       }
 
-      // 2. Remove previous projects for this workspace
+      // 2. Fetch existing projects for this workspace to preserve stable IDs across rescans
+      const existingProjects = db
+        .prepare<[string], { id: string; path: string }>(
+          "SELECT id, path FROM projects WHERE workspace_id = ?"
+        )
+        .all(workspaceId);
+
+      const existingPathToId = new Map(existingProjects.map((p) => [p.path, p.id]));
+
+      // 3. Remove previous projects for this workspace
       db.prepare("DELETE FROM projects WHERE workspace_id = ?").run(workspaceId);
 
-      // 3. Insert newly discovered projects
+      // 4. Insert newly discovered projects preserving stable IDs
       const insertProjectStmt = db.prepare(
-        `INSERT INTO projects (id, workspace_id, name, path, type, package_manager, updated_at) 
-         VALUES (?, ?, ?, ?, ?, ?, ?)`
+        `INSERT INTO projects (
+          id, workspace_id, name, path, relative_path, type, package_manager, 
+          is_git_repo, git_root, git_remote, is_root, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       );
 
       for (const project of discoveredProjects) {
+        const stableId = existingPathToId.get(project.path) || crypto.randomUUID();
         insertProjectStmt.run(
-          crypto.randomUUID(),
+          stableId,
           workspaceId,
           project.name,
           project.path,
+          project.relativePath || null,
           project.type,
           project.packageManager,
+          project.isGitRepo ? 1 : 0,
+          project.gitRoot || null,
+          project.gitRemote || null,
+          project.isRoot ? 1 : 0,
           now
         );
       }

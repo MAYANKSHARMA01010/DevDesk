@@ -5,8 +5,13 @@ export interface SavedProject {
   workspaceId: string;
   name: string;
   path: string;
+  relativePath?: string;
   type: ProjectType;
   packageManager: PackageManager;
+  isGitRepo?: boolean;
+  gitRoot?: string;
+  gitRemote?: string;
+  isRoot?: boolean;
   updatedAt: string;
 }
 

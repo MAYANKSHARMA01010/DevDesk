@@ -19,7 +19,13 @@ export async function scanProjectsController(
       return;
     }
 
-    const projects = await scanProjectsDirectory(rawPath.trim());
+    const includeRoot = req.query.includeRoot !== undefined ? req.query.includeRoot !== "false" : true;
+    const maxDepth = typeof req.query.maxDepth === "string" ? parseInt(req.query.maxDepth, 10) : 5;
+
+    const projects = await scanProjectsDirectory(rawPath.trim(), {
+      includeRoot,
+      maxDepth: Number.isNaN(maxDepth) ? 5 : maxDepth,
+    });
 
     res.status(200).json({
       success: true,

@@ -531,7 +531,8 @@ export function GitView({ initialSelection }: GitViewProps = {}) {
               >
                 {activeWorkspace?.projects.map((proj) => (
                   <option key={proj.id} value={proj.id}>
-                    {proj.name}
+                    {proj.isRoot ? `[Root] ${proj.name}` : proj.isGitRepo ? `[Git] ${proj.name}` : proj.name}
+                    {proj.relativePath && proj.relativePath !== "." ? ` (${proj.relativePath})` : ""}
                   </option>
                 ))}
               </select>

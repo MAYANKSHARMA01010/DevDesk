@@ -44,12 +44,18 @@ export async function fetchWorkspaces(): Promise<WorkspaceWithProjects[]> {
   return json.data || [];
 }
 
+export interface ScanWorkspaceOptions {
+  includeRoot?: boolean;
+  maxDepth?: number;
+}
+
 /**
  * Scans a workspace root directory and persists the workspace and its projects in SQLite.
  * Calls POST http://localhost:5001/api/workspaces/scan
  */
 export async function scanAndSaveWorkspace(
-  directoryPath: string
+  directoryPath: string,
+  options?: ScanWorkspaceOptions
 ): Promise<WorkspaceWithProjects> {
   if (!directoryPath || typeof directoryPath !== "string" || directoryPath.trim().length === 0) {
     throw new Error("A valid directory path is required to scan workspace.");
@@ -64,7 +70,11 @@ export async function scanAndSaveWorkspace(
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ path: directoryPath.trim() }),
+      body: JSON.stringify({
+        path: directoryPath.trim(),
+        includeRoot: options?.includeRoot,
+        maxDepth: options?.maxDepth,
+      }),
     });
   } catch (err: unknown) {
     const errorMsg = err instanceof Error ? err.message : "Network error";
