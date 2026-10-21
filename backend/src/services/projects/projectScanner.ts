@@ -40,6 +40,18 @@ export const DEFAULT_IGNORED_DIRS = new Set([
   ".idea",
   ".vscode",
   ".expo",
+  "generated",
+  "__generated__",
+  ".prisma",
+  "site-packages",
+  ".nyc_output",
+  "fixtures",
+  "__fixtures__",
+  ".changeset",
+  ".manifests",
+  "scratch",
+  ".parcel-cache",
+  ".yarn",
 ]);
 
 /**
@@ -93,9 +105,66 @@ export function sanitizeGitRemoteUrl(rawUrl: string): string {
 }
 
 /**
+ * Checks whether a package.json represents purely tooling configuration (e.g., eslint/prettier configs)
+ * or auto-generated internal stubs (e.g. prisma generated client), which should not be shown as standalone projects.
+ */
+export function isConfigOnlyPackage(
+  pkg: PackageJsonStructure,
+  directoryPath: string
+): boolean {
+  const name = pkg.name || "";
+  const scripts = (pkg as Record<string, unknown>).scripts as
+    | Record<string, string>
+    | undefined;
+
+  // Prisma generated clients
+  if (name.startsWith("prisma-client-") || directoryPath.includes("/generated/")) {
+    return true;
+  }
+
+  // Config packages like @shopsmart/config-eslint, eslint-config-*, tsconfig-*, etc.
+  const isConfigName =
+    name.includes("/config-") ||
+    name.includes("eslint-config") ||
+    name.includes("prettier-config") ||
+    name.includes("tsconfig") ||
+    directoryPath.includes("/packages/config/") ||
+    directoryPath.endsWith("/packages/config");
+
+  if (isConfigName) {
+    const hasRunnableScript =
+      scripts &&
+      Boolean(
+        scripts.dev ||
+          scripts.start ||
+          scripts.build ||
+          scripts.test ||
+          scripts.serve
+      );
+    if (!hasRunnableScript) {
+      return true;
+    }
+  }
+
+  // Empty or stub package.json with no scripts and no dependencies
+  const hasDeps =
+    (pkg.dependencies && Object.keys(pkg.dependencies).length > 0) ||
+    (pkg.devDependencies && Object.keys(pkg.devDependencies).length > 0);
+  const hasScripts = scripts && Object.keys(scripts).length > 0;
+  if (!name && !hasDeps && !hasScripts) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
  * Detects project type based on package.json dependencies and devDependencies.
  */
-export function detectProjectType(pkg: PackageJsonStructure): ProjectType {
+export function detectProjectType(
+  pkg: PackageJsonStructure,
+  directoryPath?: string
+): ProjectType {
   const deps = pkg.dependencies ?? {};
   const devDeps = pkg.devDependencies ?? {};
 
@@ -105,14 +174,52 @@ export function detectProjectType(pkg: PackageJsonStructure): ProjectType {
         Object.prototype.hasOwnProperty.call(devDeps, name)
     );
 
+  // 1. AI / ML / Deep Learning / LLM packages in Node
+  const aiDeps = [
+    "@tensorflow/tfjs",
+    "brain.js",
+    "openai",
+    "@langchain/core",
+    "langchain",
+    "@xenova/transformers",
+    "onnxruntime-web",
+    "onnxruntime-node",
+    "@google/genai",
+    "@google/generative-ai",
+    "chromadb",
+    "replicate",
+  ];
+  if (aiDeps.some((pkgName) => has(pkgName))) {
+    return "AI / ML / Deep Learning";
+  }
+
+  // 2. Desktop apps
+  if (has("electron") || has("electron-builder") || has("@tauri-apps/api")) {
+    return "Desktop";
+  }
+
+  // 3. Mobile apps
+  if (has("react-native") || has("expo")) {
+    return "Mobile";
+  }
+
+  // 4. Web frameworks
   if (has("next")) {
     return "Next.js";
   }
-  if (has("react") || has("react-dom") || has("react-native") || has("expo")) {
+  if (has("react") || has("react-dom")) {
     return "React";
   }
   if (has("express")) {
     return "Node.js / Express";
+  }
+
+  // 5. Monorepo internal package (inside packages/ or libs/ of a monorepo)
+  if (
+    directoryPath &&
+    (directoryPath.includes("/packages/") || directoryPath.includes("/libs/"))
+  ) {
+    return "Monorepo Package";
   }
 
   return "Node.js";
@@ -179,11 +286,17 @@ export async function detectProjectMarker(directoryPath: string): Promise<{
   try {
     const content = await fs.readFile(packageJsonPath, "utf-8");
     const parsed: PackageJsonStructure = JSON.parse(content);
+
+    // Filter out config-only bundles or auto-generated internal stubs
+    if (isConfigOnlyPackage(parsed, directoryPath)) {
+      return null;
+    }
+
     const projectName =
       typeof parsed.name === "string" && parsed.name.trim().length > 0
         ? parsed.name.trim()
         : path.basename(directoryPath);
-    const projectType = detectProjectType(parsed);
+    const projectType = detectProjectType(parsed, directoryPath);
     const pm = await detectPackageManager(directoryPath, parsed);
     return {
       isProject: true,
@@ -193,6 +306,38 @@ export async function detectProjectMarker(directoryPath: string): Promise<{
     };
   } catch {
     // Not a valid package.json
+  }
+
+  // 1b. Check Browser Extension: manifest.json with manifest_version
+  const manifestPath = path.join(directoryPath, "manifest.json");
+  if (fsSync.existsSync(manifestPath)) {
+    try {
+      const manifestContent = await fs.readFile(manifestPath, "utf-8");
+      const parsedManifest = JSON.parse(manifestContent);
+      if (parsedManifest.manifest_version) {
+        return {
+          isProject: true,
+          name: parsedManifest.name || path.basename(directoryPath),
+          type: "Browser Extension",
+          packageManager: "unknown",
+        };
+      }
+    } catch {
+      // Ignore invalid manifest
+    }
+  }
+
+  // 1c. Check Desktop Tauri: src-tauri or tauri.conf.json
+  if (
+    fsSync.existsSync(path.join(directoryPath, "src-tauri", "Cargo.toml")) ||
+    fsSync.existsSync(path.join(directoryPath, "tauri.conf.json"))
+  ) {
+    return {
+      isProject: true,
+      name: path.basename(directoryPath),
+      type: "Desktop",
+      packageManager: "cargo",
+    };
   }
 
   // 2. Rust ecosystem (Cargo.toml)
@@ -238,17 +383,19 @@ export async function detectProjectMarker(directoryPath: string): Promise<{
     };
   }
 
-  // 4. Python ecosystem (pyproject.toml, requirements.txt, Pipfile, setup.py)
+  // 4. Python ecosystem (pyproject.toml, requirements.txt, Pipfile, setup.py, environment.yml)
   const pyprojectPath = path.join(directoryPath, "pyproject.toml");
   const reqsPath = path.join(directoryPath, "requirements.txt");
   const pipfilePath = path.join(directoryPath, "Pipfile");
   const setupPyPath = path.join(directoryPath, "setup.py");
+  const envYmlPath = path.join(directoryPath, "environment.yml");
 
   if (
     fsSync.existsSync(pyprojectPath) ||
     fsSync.existsSync(reqsPath) ||
     fsSync.existsSync(pipfilePath) ||
-    fsSync.existsSync(setupPyPath)
+    fsSync.existsSync(setupPyPath) ||
+    fsSync.existsSync(envYmlPath)
   ) {
     let name = path.basename(directoryPath);
     let pm: PackageManager = "pip";
@@ -259,10 +406,18 @@ export async function detectProjectMarker(directoryPath: string): Promise<{
       pm = "poetry";
     }
 
+    let combinedText = "";
+    for (const f of [reqsPath, pyprojectPath, pipfilePath, setupPyPath, envYmlPath]) {
+      try {
+        if (fsSync.existsSync(f)) {
+          combinedText += " " + (await fs.readFile(f, "utf-8"));
+        }
+      } catch {}
+    }
+
     if (fsSync.existsSync(pyprojectPath)) {
       try {
-        const pyContent = await fs.readFile(pyprojectPath, "utf-8");
-        const nameMatch = pyContent.match(/name\s*=\s*"([^"]+)"/);
+        const nameMatch = combinedText.match(/name\s*=\s*"([^"]+)"/);
         if (nameMatch && nameMatch[1]) {
           name = nameMatch[1].trim();
         }
@@ -271,10 +426,27 @@ export async function detectProjectMarker(directoryPath: string): Promise<{
       }
     }
 
+    // Determine type: AI / ML / Deep Learning vs Web Framework vs Python
+    let type: ProjectType = "Python";
+
+    const hasDeepLearning = /\b(torch|pytorch|tensorflow|keras|jax|flax|onnx|tensorrt|cuda|diffusers|transformers)\b/i.test(combinedText);
+    const hasMLDataScience = /\b(scikit-learn|sklearn|xgboost|lightgbm|catboost|pandas|numpy|scipy|matplotlib|seaborn|jupyter|ipykernel|polars|optuna|langchain|llamaindex|openai|anthropic|chromadb|pinecone|weaviate|qdrant|vllm|ollama)\b/i.test(combinedText);
+    const hasNotebooks = fsSync.existsSync(path.join(directoryPath, "notebooks")) || fsSync.existsSync(path.join(directoryPath, "nootbooks"));
+
+    if (hasDeepLearning || hasMLDataScience || hasNotebooks) {
+      type = "AI / ML / Deep Learning";
+    } else if (/\bfastapi\b/i.test(combinedText)) {
+      type = "Python / FastAPI";
+    } else if (/\bdjango\b/i.test(combinedText)) {
+      type = "Python / Django";
+    } else if (/\bflask\b/i.test(combinedText)) {
+      type = "Python / Flask";
+    }
+
     return {
       isProject: true,
       name,
-      type: "Python",
+      type,
       packageManager: pm,
     };
   }
@@ -546,12 +718,84 @@ export async function scanProjectsDirectory(
       }
 
       // Continue recursing deeper up to maxDepth
+      let shouldRecurse = false;
       if (current.depth + 1 < maxDepth) {
+        if (current.depth === 0) {
+          // At workspace root level: inspect children
+          shouldRecurse = true;
+        } else if (!marker && !gitInfo.isGitRepo) {
+          // If this directory is not a standalone project itself (e.g. org/dept, contest/, Kaggle-Hackathons/), recurse
+          shouldRecurse = true;
+        } else {
+          // This directory IS already a detected project or repo.
+          // Only recurse into recognized multi-app / subproject container directories:
+          const SUBPROJECT_CONTAINERS = new Set([
+            "apps",
+            "packages",
+            "services",
+            "libs",
+            "modules",
+            "frontend",
+            "backend",
+            "client",
+            "server",
+            "desktop",
+            "python",
+            "src-tauri",
+          ]);
+          const childHasGit = fsSync.existsSync(path.join(childPath, ".git"));
+          if (childHasGit || SUBPROJECT_CONTAINERS.has(entry.name.toLowerCase())) {
+            shouldRecurse = true;
+          }
+        }
+      }
+
+      if (shouldRecurse) {
         queue.push({
           dirPath: childPath,
           depth: current.depth + 1,
         });
       }
+    }
+  }
+
+  // 3. Post-processing: Detect Fullstack projects
+  for (const proj of discoveredProjects) {
+    if (proj.type === "Fullstack") continue;
+
+    // Check if project has child projects containing both a frontend and a backend
+    const childProjects = discoveredProjects.filter(
+      (other) => other.path !== proj.path && other.path.startsWith(proj.path + "/")
+    );
+
+    const hasFrontendChild = childProjects.some(
+      (cp) =>
+        cp.name.toLowerCase() === "frontend" ||
+        cp.name.toLowerCase() === "client" ||
+        cp.name.toLowerCase() === "web" ||
+        cp.name.toLowerCase() === "ui" ||
+        cp.relativePath?.toLowerCase().includes("/frontend") ||
+        cp.relativePath?.toLowerCase().includes("/client") ||
+        cp.relativePath?.toLowerCase().includes("/web") ||
+        cp.type === "Next.js" ||
+        cp.type === "React"
+    );
+
+    const hasBackendChild = childProjects.some(
+      (cp) =>
+        cp.name.toLowerCase() === "backend" ||
+        cp.name.toLowerCase() === "server" ||
+        cp.name.toLowerCase() === "api" ||
+        cp.relativePath?.toLowerCase().includes("/backend") ||
+        cp.relativePath?.toLowerCase().includes("/server") ||
+        cp.relativePath?.toLowerCase().includes("/api") ||
+        cp.type === "Node.js / Express" ||
+        cp.type === "Python" ||
+        cp.type.startsWith("Python")
+    );
+
+    if (hasFrontendChild && hasBackendChild) {
+      proj.type = "Fullstack";
     }
   }
 

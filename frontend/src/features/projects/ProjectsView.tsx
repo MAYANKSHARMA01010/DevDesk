@@ -41,7 +41,7 @@ export type SortOption =
   | "runnable-first"
   | "path";
 
-export type FilterMode = "all" | "git" | "runnable" | "nested";
+export type FilterMode = "all" | "fullstack" | "aiml" | "git" | "runnable" | "nested";
 
 type ViewStatus =
   | "loading_initial"
@@ -94,7 +94,32 @@ export function ProjectsView({
   const [filterMode, setFilterMode] = useState<FilterMode>("all");
   const [filterType, setFilterType] = useState<string>("");
   const [filterPkg, setFilterPkg] = useState<string>("");
-  const [sortBy, setSortBy] = useState<SortOption>("name-asc");
+  const [sortBy, setSortBy] = useState<SortOption>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("devdesk_projects_sort_by");
+      if (
+        saved &&
+        [
+          "git-first",
+          "name-asc",
+          "name-desc",
+          "type",
+          "runnable-first",
+          "path",
+        ].includes(saved)
+      ) {
+        return saved as SortOption;
+      }
+    }
+    return "git-first";
+  });
+
+  const handleSetSortBy = (val: SortOption) => {
+    setSortBy(val);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("devdesk_projects_sort_by", val);
+    }
+  };
 
   // IDE states
   const [defaultIde, setDefaultIde] = useState<string>("vscode");
@@ -382,6 +407,60 @@ export function ProjectsView({
 
   function renderBadgeType(type: DiscoveredProject["type"] | SavedProject["type"]) {
     switch (type) {
+      case "Fullstack":
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-gradient-to-r from-indigo-950/90 to-purple-950/90 text-indigo-300 border border-indigo-700/60 shadow-xs">
+            <span className="text-[10px]">⚡</span> Fullstack
+          </span>
+        );
+      case "AI / ML / Deep Learning":
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-gradient-to-r from-emerald-950/90 to-teal-950/90 text-emerald-300 border border-emerald-700/60 shadow-xs">
+            <span className="text-[10px]">🧠</span> AI / ML / DL
+          </span>
+        );
+      case "Python / FastAPI":
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium bg-teal-950/80 text-teal-300 border border-teal-800/60 shadow-xs">
+            <span className="text-[10px]">⚡</span> FastAPI
+          </span>
+        );
+      case "Python / Django":
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium bg-emerald-950/80 text-emerald-300 border border-emerald-800/60 shadow-xs">
+            <span className="text-[10px]">🐍</span> Django
+          </span>
+        );
+      case "Python / Flask":
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium bg-zinc-800 text-zinc-300 border border-zinc-700 shadow-xs">
+            <span className="text-[10px]">🌶️</span> Flask
+          </span>
+        );
+      case "Browser Extension":
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium bg-sky-950/80 text-sky-300 border border-sky-800/60 shadow-xs">
+            <span className="text-[10px]">🧩</span> Extension
+          </span>
+        );
+      case "Mobile":
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium bg-fuchsia-950/80 text-fuchsia-300 border border-fuchsia-800/60 shadow-xs">
+            <span className="text-[10px]">📱</span> Mobile
+          </span>
+        );
+      case "Desktop":
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium bg-amber-950/80 text-amber-300 border border-amber-800/60 shadow-xs">
+            <span className="text-[10px]">🖥️</span> Desktop
+          </span>
+        );
+      case "Monorepo Package":
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium bg-zinc-800/80 text-zinc-400 border border-zinc-700/60 shadow-xs">
+            <span className="text-[10px]">📦</span> Package
+          </span>
+        );
       case "Next.js":
         return (
           <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-zinc-800 text-zinc-200 border border-zinc-700">
@@ -567,6 +646,8 @@ export function ProjectsView({
 
   // Derived filtered & sorted projects
   const allProjects = activeWorkspace?.projects || [];
+  const fullstackCount = allProjects.filter((p) => p.type === "Fullstack").length;
+  const aimlCount = allProjects.filter((p) => p.type === "AI / ML / Deep Learning").length;
   const gitCount = allProjects.filter((p) => p.isGitRepo || p.isRoot).length;
   const runnableCount = allProjects.filter(isRunnableProject).length;
   const nestedCount = allProjects.filter((p) => p.relativePath && p.relativePath !== ".").length;
@@ -594,6 +675,12 @@ export function ProjectsView({
 
   const displayedProjects = allProjects
     .filter((p) => {
+      if (filterMode === "fullstack" && p.type !== "Fullstack") {
+        return false;
+      }
+      if (filterMode === "aiml" && p.type !== "AI / ML / Deep Learning") {
+        return false;
+      }
       if (filterMode === "git" && !p.isGitRepo && !p.isRoot) {
         return false;
       }
@@ -627,8 +714,10 @@ export function ProjectsView({
         case "type":
           return a.type.localeCompare(b.type) || a.name.localeCompare(b.name);
         case "git-first": {
-          const aGit = a.isGitRepo || a.isRoot ? 1 : 0;
-          const bGit = b.isGitRepo || b.isRoot ? 1 : 0;
+          if (a.isRoot && !b.isRoot) return -1;
+          if (!a.isRoot && b.isRoot) return 1;
+          const aGit = a.isGitRepo ? 1 : 0;
+          const bGit = b.isGitRepo ? 1 : 0;
           if (aGit !== bGit) return bGit - aGit;
           return a.name.localeCompare(b.name);
         }
@@ -855,6 +944,32 @@ export function ProjectsView({
               >
                 All ({allProjects.length})
               </button>
+              {fullstackCount > 0 && (
+                <button
+                  onClick={() => setFilterMode("fullstack")}
+                  className={`px-2.5 py-1 rounded-md transition cursor-pointer flex items-center gap-1 ${
+                    filterMode === "fullstack"
+                      ? "bg-indigo-950/70 text-indigo-200 font-medium border border-indigo-700/80"
+                      : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900"
+                  }`}
+                >
+                  <span>⚡</span>
+                  <span>Fullstack ({fullstackCount})</span>
+                </button>
+              )}
+              {aimlCount > 0 && (
+                <button
+                  onClick={() => setFilterMode("aiml")}
+                  className={`px-2.5 py-1 rounded-md transition cursor-pointer flex items-center gap-1 ${
+                    filterMode === "aiml"
+                      ? "bg-emerald-950/70 text-emerald-200 font-medium border border-emerald-700/80"
+                      : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900"
+                  }`}
+                >
+                  <span>🧠</span>
+                  <span>AI / ML / DL ({aimlCount})</span>
+                </button>
+              )}
               <button
                 onClick={() => setFilterMode("git")}
                 className={`px-2.5 py-1 rounded-md transition cursor-pointer flex items-center gap-1 ${
@@ -898,13 +1013,13 @@ export function ProjectsView({
                 <span className="text-[11px] text-zinc-500 uppercase font-medium">Sort:</span>
                 <select
                   value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value as SortOption)}
+                  onChange={(e) => handleSetSortBy(e.target.value as SortOption)}
                   className="px-2 py-1 rounded bg-zinc-900 border border-zinc-800 text-zinc-200 hover:border-zinc-700 focus:outline-none cursor-pointer text-xs"
                 >
+                  <option value="git-first">Git Repos First</option>
                   <option value="name-asc">Name (A → Z)</option>
                   <option value="name-desc">Name (Z → A)</option>
                   <option value="type">Framework / Type</option>
-                  <option value="git-first">Git Repos First</option>
                   <option value="runnable-first">Runnable First</option>
                   <option value="path">Folder Path</option>
                 </select>
@@ -962,6 +1077,7 @@ export function ProjectsView({
                     setFilterMode("all");
                     setFilterType("");
                     setFilterPkg("");
+                    handleSetSortBy("git-first");
                   }}
                   className="px-2 py-1 rounded text-[11px] text-amber-400 hover:text-amber-300 bg-amber-950/30 border border-amber-900/50 hover:bg-amber-950/50 transition cursor-pointer"
                   title="Reset all filters and search"
@@ -1000,13 +1116,27 @@ export function ProjectsView({
                   <path fillRule="evenodd" d="M11.75 2.5a.75.75 0 100 1.5.75.75 0 000-1.5zm-2.25.75a2.25 2.25 0 113 2.122V6A2.5 2.5 0 0110 8.5H6a1 1 0 00-1 1v1.128a2.251 2.251 0 11-1.5 0V5.372a2.25 2.25 0 111.5 0v1.836A2.492 2.492 0 016 7h4a1 1 0 001-1v-.628A2.25 2.25 0 019.5 3.25zM4.25 12a.75.75 0 100 1.5.75.75 0 000-1.5zM3.5 3.25a.75.75 0 111.5 0 .75.75 0 01-1.5 0z" />
                 </svg>
               </span>
-              <span>Git Repository (click symbol on project to view branches, status &amp; diffs)</span>
+              <span>Git Repository (click symbol to view Git Control)</span>
             </span>
             <span className="flex items-center gap-1.5">
               <span className="inline-flex items-center justify-center px-2 py-0.5 rounded font-mono text-xs font-bold text-cyan-300 bg-cyan-950/60 border border-cyan-800/60 shadow-xs">
                 &gt;_
               </span>
-              <span>Terminal (click symbol on project to run scripts)</span>
+              <span>Terminal (click symbol to run scripts)</span>
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="inline-flex items-center justify-center px-1.5 py-0.5 rounded text-xs bg-zinc-800 border border-zinc-700 shadow-xs">
+                {currentIdeConfig.icon}
+              </span>
+              <span>Open in {currentIdeConfig.name} (Default IDE - change in toolbar above)</span>
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="inline-flex items-center justify-center p-1 rounded bg-zinc-800 border border-zinc-700 shadow-xs">
+                <svg className="w-3 h-3 text-zinc-300 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                </svg>
+              </span>
+              <span>Reveal in Finder</span>
             </span>
             <span className="flex items-center gap-1.5">
               <span className="px-1.5 py-0.5 rounded font-mono text-[10px] text-violet-300 bg-violet-950/60 border border-violet-800/60 font-semibold uppercase">
@@ -1181,21 +1311,20 @@ export function ProjectsView({
                     </button>
                   )}
 
-                  {/* IDE Split Button: Open in Default IDE or pick another */}
-                  <div className="relative inline-flex rounded-md shadow-sm">
+                  {/* IDE Split Button: Open in Default IDE or pick another (Symbol Only) */}
+                  <div className="relative inline-flex rounded-md shadow-xs">
                     <button
                       onClick={() => handleOpenInEditor(project.path)}
                       disabled={runningAction !== null}
-                      className="px-2.5 py-1.5 rounded-l-md text-xs font-medium text-zinc-200 bg-zinc-800 border border-zinc-700 hover:bg-zinc-700 hover:text-white disabled:opacity-50 transition-all flex items-center gap-1.5 cursor-pointer"
-                      title={`Open in ${currentIdeConfig.name}`}
+                      className="px-2.5 py-1.5 rounded-l-md text-xs font-medium text-zinc-200 bg-zinc-800 border border-zinc-700 hover:bg-zinc-700 hover:text-white disabled:opacity-50 transition-all flex items-center justify-center cursor-pointer shadow-xs"
+                      title={`Open in ${currentIdeConfig.name} (Default IDE)`}
                     >
                       {runningAction?.path === project.path &&
                       runningAction.action === "editor" ? (
-                        <span className="w-3 h-3 rounded-full border border-zinc-400 border-t-white animate-spin" />
+                        <span className="w-3.5 h-3.5 rounded-full border border-zinc-400 border-t-white animate-spin" />
                       ) : (
                         <span className="text-xs">{currentIdeConfig.icon}</span>
                       )}
-                      <span>Open in {currentIdeConfig.shortName}</span>
                     </button>
 
                     <button
@@ -1205,7 +1334,7 @@ export function ProjectsView({
                         )
                       }
                       disabled={runningAction !== null}
-                      className="px-2 py-1.5 rounded-r-md text-xs font-medium text-zinc-400 bg-zinc-800 border-y border-r border-zinc-700 hover:bg-zinc-700 hover:text-white disabled:opacity-50 transition-all cursor-pointer"
+                      className="px-1.5 py-1.5 rounded-r-md text-xs font-medium text-zinc-400 bg-zinc-800 border-y border-r border-zinc-700 hover:bg-zinc-700 hover:text-white disabled:opacity-50 transition-all cursor-pointer"
                       title="Choose IDE or change default"
                     >
                       ▾
@@ -1214,52 +1343,69 @@ export function ProjectsView({
                     {openMenuForPath === project.path && (
                       <div
                         ref={menuRef}
-                        className="absolute right-0 top-full mt-1 w-52 bg-zinc-900 border border-zinc-700 rounded-md shadow-xl py-1 z-30 animate-in fade-in zoom-in-95 duration-100"
+                        className="absolute right-0 top-full mt-1 w-56 bg-zinc-900 border border-zinc-700 rounded-md shadow-xl py-1 z-30 animate-in fade-in zoom-in-95 duration-100"
                       >
                         <div className="px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-zinc-500 border-b border-zinc-800 flex items-center justify-between">
                           <span>Open with IDE</span>
+                          <span className="text-[9px] text-zinc-500 font-normal">Click to launch</span>
                         </div>
                         <div className="max-h-56 overflow-y-auto py-1">
                           {AVAILABLE_IDES.map((ide) => (
                             <button
                               key={ide.id}
-                              onClick={() => handleOpenInEditor(project.path, ide.id)}
+                              onClick={() => {
+                                handleOpenInEditor(project.path, ide.id);
+                                setOpenMenuForPath(null);
+                              }}
                               className="w-full text-left px-2.5 py-1.5 text-xs text-zinc-200 hover:bg-zinc-800 flex items-center justify-between cursor-pointer transition-colors"
                             >
                               <span className="flex items-center gap-2">
                                 <span>{ide.icon}</span>
                                 <span>{ide.name}</span>
                               </span>
-                              {ide.id === defaultIde && (
+                              {ide.id === defaultIde ? (
                                 <span className="text-[10px] font-mono text-emerald-400 font-semibold">
                                   Default
+                                </span>
+                              ) : (
+                                <span
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleSetDefaultIde(ide.id);
+                                  }}
+                                  className="text-[9px] text-zinc-500 hover:text-zinc-200 px-1 py-0.5 rounded hover:bg-zinc-700 transition"
+                                  title={`Set ${ide.name} as default`}
+                                >
+                                  Make Default
                                 </span>
                               )}
                             </button>
                           ))}
                         </div>
-                        <div className="border-t border-zinc-800 pt-1 px-1">
-                          <div className="px-2 py-1 text-[10px] text-zinc-500">
-                            Default: <strong className="text-zinc-200">{currentIdeConfig.name}</strong>
+                        <div className="border-t border-zinc-800 pt-1 px-2.5 pb-1">
+                          <div className="text-[10px] text-zinc-500">
+                            Current Default: <strong className="text-zinc-200">{currentIdeConfig.name}</strong>
                           </div>
                         </div>
                       </div>
                     )}
                   </div>
 
+                  {/* Reveal in Finder (Symbol Only) */}
                   <button
                     onClick={() => handleRevealInFinder(project.path)}
                     disabled={runningAction !== null}
-                    className="px-2.5 py-1.5 rounded-md text-xs font-medium text-zinc-300 bg-zinc-900/90 border border-zinc-800 hover:bg-zinc-800 hover:text-zinc-100 disabled:opacity-50 transition-all flex items-center gap-1.5 cursor-pointer"
+                    className="px-2.5 py-1.5 rounded-md text-xs font-medium text-zinc-300 bg-zinc-800/80 border border-zinc-700 hover:bg-zinc-700 hover:text-zinc-100 disabled:opacity-50 transition-all flex items-center justify-center cursor-pointer shadow-xs"
                     title="Reveal directory in Finder"
                   >
                     {runningAction?.path === project.path &&
                     runningAction.action === "finder" ? (
-                      <span className="w-3 h-3 rounded-full border border-zinc-400 border-t-white animate-spin" />
+                      <span className="w-3.5 h-3.5 rounded-full border border-zinc-400 border-t-white animate-spin" />
                     ) : (
-                      <span className="text-xs">↗</span>
+                      <svg className="w-3.5 h-3.5 text-zinc-300 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                      </svg>
                     )}
-                    <span>Reveal in Finder</span>
                   </button>
                 </div>
               </div>

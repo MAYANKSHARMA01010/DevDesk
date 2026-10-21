@@ -1,4 +1,12 @@
 export type ProjectType =
+  | "Fullstack"
+  | "AI / ML / Deep Learning"
+  | "Python / FastAPI"
+  | "Python / Flask"
+  | "Python / Django"
+  | "Browser Extension"
+  | "Mobile"
+  | "Desktop"
   | "Next.js"
   | "React"
   | "Node.js / Express"
@@ -9,6 +17,7 @@ export type ProjectType =
   | "Java"
   | "Ruby"
   | "PHP"
+  | "Monorepo Package"
   | "Git Repository"
   | "Generic";
 
