@@ -456,6 +456,7 @@ async function createWindow(): Promise<void> {
     minHeight: 640,
     title: "DevDesk",
     backgroundColor: "#09090b",
+    fullscreen: true,
     show: false,
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
@@ -468,7 +469,30 @@ async function createWindow(): Promise<void> {
 
   mainWindow.once("ready-to-show", () => {
     if (mainWindow) {
+      mainWindow.setFullScreen(true);
       mainWindow.show();
+    }
+  });
+
+  mainWindow.webContents.on("before-input-event", (event, input) => {
+    if (input.key === "F11") {
+      if (mainWindow) {
+        mainWindow.setFullScreen(!mainWindow.isFullScreen());
+      }
+      event.preventDefault();
+      return;
+    }
+
+    if (
+      isDev &&
+      ((input.meta && input.alt && input.key.toLowerCase() === "i") ||
+        (input.control && input.shift && input.key.toLowerCase() === "i") ||
+        input.key === "F12")
+    ) {
+      if (mainWindow) {
+        mainWindow.webContents.toggleDevTools();
+      }
+      event.preventDefault();
     }
   });
 
@@ -492,19 +516,6 @@ async function createWindow(): Promise<void> {
         }
       }
     );
-
-    mainWindow.webContents.on("before-input-event", (event, input) => {
-      if (
-        (input.meta && input.alt && input.key.toLowerCase() === "i") ||
-        (input.control && input.shift && input.key.toLowerCase() === "i") ||
-        input.key === "F12"
-      ) {
-        if (mainWindow) {
-          mainWindow.webContents.toggleDevTools();
-        }
-        event.preventDefault();
-      }
-    });
   } else {
     // Production mode: Start backend and load frontend via app:// protocol
     const backendResult = await startProductionBackend();
