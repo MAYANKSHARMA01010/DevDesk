@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useState } from "react";
+
 interface HeaderProps {
   backendConnected?: boolean;
   runningProcessesCount?: number;
@@ -11,7 +13,11 @@ export function Header({
   runningProcessesCount = 0,
   onOpenSettings,
 }: HeaderProps) {
-  const isDesktop = typeof window !== "undefined" && Boolean(window.electron);
+  const [isDesktop, setIsDesktop] = useState(false);
+
+  useEffect(() => {
+    setIsDesktop(typeof window !== "undefined" && Boolean(window.electron));
+  }, []);
 
   return (
     <header className="h-12 border-b border-zinc-800 bg-zinc-950 px-4 flex items-center justify-between select-none shrink-0">

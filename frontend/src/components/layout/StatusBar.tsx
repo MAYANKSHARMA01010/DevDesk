@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useState } from "react";
+
 interface StatusBarProps {
   statusText?: string;
   backendConnected?: boolean;
@@ -13,7 +15,11 @@ export function StatusBar({
   runningProcessesCount = 0,
   port = 3000,
 }: StatusBarProps) {
-  const isDesktop = typeof window !== "undefined" && Boolean(window.electron);
+  const [isDesktop, setIsDesktop] = useState(false);
+
+  useEffect(() => {
+    setIsDesktop(typeof window !== "undefined" && Boolean(window.electron));
+  }, []);
 
   const displayStatus =
     statusText ||

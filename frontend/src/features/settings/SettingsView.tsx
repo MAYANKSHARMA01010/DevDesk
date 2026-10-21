@@ -9,12 +9,25 @@ export function SettingsView() {
   const [error, setError] = useState<string | null>(null);
   const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
 
-  const isDesktop = typeof window !== "undefined" && Boolean(window.electron);
-  const electronVersions = isDesktop ? window.electron?.versions : undefined;
-  const isMac =
-    typeof window !== "undefined" &&
-    (window.electron?.platform === "darwin" ||
-      navigator.platform.toUpperCase().indexOf("MAC") >= 0);
+  const [isDesktop, setIsDesktop] = useState(false);
+  const [electronVersions, setElectronVersions] = useState<
+    { node: string; chrome: string; electron: string } | undefined
+  >(undefined);
+  const [isMac, setIsMac] = useState(false);
+
+  useEffect(() => {
+    const desktop = typeof window !== "undefined" && Boolean(window.electron);
+    setIsDesktop(desktop);
+    if (desktop && window.electron?.versions) {
+      setElectronVersions(window.electron.versions);
+    }
+    const mac =
+      typeof window !== "undefined" &&
+      (window.electron?.platform === "darwin" ||
+        (typeof navigator !== "undefined" &&
+          navigator.platform.toUpperCase().indexOf("MAC") >= 0));
+    setIsMac(mac);
+  }, []);
 
   const modKey = isMac ? "⌘" : "Ctrl+";
 
