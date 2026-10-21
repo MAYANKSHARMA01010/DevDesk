@@ -4,9 +4,16 @@ export interface ElectronVersions {
   electron: string;
 }
 
+export interface ActionResult {
+  success: boolean;
+  error?: string;
+}
+
 export interface ElectronAPI {
   ping: () => Promise<string>;
   selectDirectory: () => Promise<string | null>;
+  openInVSCode: (projectPath: string) => Promise<ActionResult>;
+  revealInFinder: (projectPath: string) => Promise<ActionResult>;
   platform: NodeJS.Platform;
   versions: ElectronVersions;
 }

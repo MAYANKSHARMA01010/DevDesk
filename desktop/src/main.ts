@@ -1,5 +1,8 @@
-import { app, BrowserWindow, dialog, ipcMain } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, shell } from "electron";
 import * as path from "path";
+import * as fs from "fs/promises";
+import { spawn } from "child_process";
+import type { ActionResult } from "./types";
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -197,6 +200,133 @@ function createWindow(): void {
   });
 }
 
+/**
+ * Safely launches Visual Studio Code opening the specified directory.
+ * Uses safe OS-level process launch without shell interpolation (shell: false).
+ */
+async function openInVSCode(projectPath: string): Promise<ActionResult> {
+  if (!projectPath || typeof projectPath !== "string") {
+    return { success: false, error: "Invalid project path." };
+  }
+
+  const resolved = path.resolve(projectPath);
+
+  // Validate that the target exists and is a directory
+  try {
+    const stats = await fs.stat(resolved);
+    if (!stats.isDirectory()) {
+      return { success: false, error: `Path is not a directory: "${resolved}"` };
+    }
+  } catch (err: unknown) {
+    const error = err as NodeJS.ErrnoException;
+    return { success: false, error: `Directory not found or inaccessible: ${error.message}` };
+  }
+
+  // Safe process launch without shell interpolation
+  const trySpawn = (command: string, args: string[]): Promise<boolean> => {
+    return new Promise((resolve) => {
+      try {
+        const child = spawn(command, args, {
+          shell: false,
+          detached: true,
+          stdio: "ignore",
+        });
+
+        let settled = false;
+        const finish = (result: boolean) => {
+          if (!settled) {
+            settled = true;
+            resolve(result);
+          }
+        };
+
+        child.on("error", () => {
+          finish(false);
+        });
+
+        child.on("exit", (code) => {
+          if (code !== 0 && code !== null) {
+            finish(false);
+          } else {
+            finish(true);
+          }
+        });
+
+        child.unref();
+
+        // Give immediate spawn errors (like ENOENT) time to trigger if child doesn't exit immediately
+        setTimeout(() => {
+          finish(true);
+        }, 150);
+      } catch {
+        resolve(false);
+      }
+    });
+  };
+
+  // 1. Try standard CLI command `code`
+  const codeSuccess = await trySpawn("code", [resolved]);
+  if (codeSuccess) {
+    return { success: true };
+  }
+
+  // 2. On macOS fallback: try launch by bundle identifier or app name
+  if (process.platform === "darwin") {
+    const bundleSuccess = await trySpawn("open", ["-b", "com.microsoft.VSCode", resolved]);
+    if (bundleSuccess) {
+      return { success: true };
+    }
+
+    const appSuccess = await trySpawn("open", ["-a", "Visual Studio Code", resolved]);
+    if (appSuccess) {
+      return { success: true };
+    }
+  }
+
+  // 3. On Windows fallback: try `code.cmd`
+  if (process.platform === "win32") {
+    const winSuccess = await trySpawn("code.cmd", [resolved]);
+    if (winSuccess) {
+      return { success: true };
+    }
+  }
+
+  return {
+    success: false,
+    error: "VS Code command ('code') was not found. Please install VS Code or enable the 'code' command in your PATH.",
+  };
+}
+
+/**
+ * Safely reveals the project directory in the OS file manager (Finder on macOS).
+ */
+async function revealInFinder(projectPath: string): Promise<ActionResult> {
+  if (!projectPath || typeof projectPath !== "string") {
+    return { success: false, error: "Invalid project path." };
+  }
+
+  const resolved = path.resolve(projectPath);
+
+  // Validate that the target exists and is a directory
+  try {
+    const stats = await fs.stat(resolved);
+    if (!stats.isDirectory()) {
+      return { success: false, error: `Path is not a directory: "${resolved}"` };
+    }
+  } catch (err: unknown) {
+    const error = err as NodeJS.ErrnoException;
+    return { success: false, error: `Directory not found or inaccessible: ${error.message}` };
+  }
+
+  try {
+    shell.showItemInFolder(resolved);
+    return { success: true };
+  } catch (err: unknown) {
+    const error = err as Error;
+    return { success: false, error: `Failed to reveal in Finder: ${error.message}` };
+  }
+}
+
 // Basic IPC handlers
 function registerIpcHandlers(): void {
   ipcMain.handle("ping", async () => {
@@ -214,6 +344,16 @@ function registerIpcHandlers(): void {
     }
 
     return result.filePaths[0];
+  });
+
+  ipcMain.handle("project:open-vscode", async (_event, projectPath: string) => {
+    console.log("[DevDesk] project:open-vscode invoked for:", projectPath);
+    return openInVSCode(projectPath);
+  });
+
+  ipcMain.handle("project:reveal-finder", async (_event, projectPath: string) => {
+    console.log("[DevDesk] project:reveal-finder invoked for:", projectPath);
+    return revealInFinder(projectPath);
   });
 
   console.log("[DevDesk] IPC handlers registered");

@@ -15,15 +15,34 @@ import { EnvEditorView } from "@/features/env-editor/EnvEditorView";
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState<NavItemId>("projects");
+  const [terminalSelection, setTerminalSelection] = useState<{
+    workspaceId?: string;
+    projectId?: string;
+    script?: string;
+  } | null>(null);
+
+  function handleNavigateToTerminal(selection: {
+    workspaceId?: string;
+    projectId?: string;
+    script?: string;
+  }) {
+    setTerminalSelection(selection);
+    setActiveTab("terminal");
+  }
 
   function renderMainContent() {
     switch (activeTab) {
       case "projects":
         return <ProjectsView />;
       case "terminal":
-        return <TerminalView />;
+        return <TerminalView initialSelection={terminalSelection} />;
       case "processes":
-        return <ProcessesView />;
+        return (
+          <ProcessesView
+            onNavigateToTerminal={handleNavigateToTerminal}
+            onNavigateToProjects={() => setActiveTab("projects")}
+          />
+        );
       case "git":
         return <GitView />;
       case "api-tester":

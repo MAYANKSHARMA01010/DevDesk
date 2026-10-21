@@ -20,9 +20,22 @@ app.get("/health", (_req, res) => {
 // API Routes
 app.use("/api", apiRouter);
 
+import { processManager } from "./services/processes/processManager.js";
+
 // Start server
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`[DevDesk Backend] Server running at http://localhost:${PORT}`);
 });
+
+function handleShutdown(signal: string) {
+  console.log(`[DevDesk Backend] Received ${signal}. Shutting down gracefully...`);
+  processManager.cleanupAll();
+  server.close(() => {
+    process.exit(0);
+  });
+}
+
+process.on("SIGINT", () => handleShutdown("SIGINT"));
+process.on("SIGTERM", () => handleShutdown("SIGTERM"));
 
 export default app;

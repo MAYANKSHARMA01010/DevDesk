@@ -54,3 +54,60 @@ export async function scanProjectsController(
     });
   }
 }
+
+/**
+ * Controller to handle GET /api/projects/:projectId/scripts
+ * Discovers available scripts from package.json for a saved project.
+ */
+export async function getProjectScriptsController(
+  req: Request,
+  res: Response
+): Promise<void> {
+  try {
+    const { projectId } = req.params;
+
+    if (!projectId || typeof projectId !== "string" || projectId.trim().length === 0) {
+      res.status(400).json({
+        success: false,
+        error: "Project ID is required and must be a non-empty string",
+      });
+      return;
+    }
+
+    const { discoverProjectScripts } = await import(
+      "../services/projects/scriptDiscovery.js"
+    );
+
+    const result = await discoverProjectScripts(projectId.trim());
+
+    res.status(200).json({
+      success: true,
+      data: result,
+    });
+  } catch (err: unknown) {
+    const error = err as Error;
+    const message = error.message || "Failed to discover project scripts";
+
+    if (message.includes("Project not found") || message.includes("not found on disk")) {
+      res.status(404).json({
+        success: false,
+        error: message,
+      });
+      return;
+    }
+
+    if (message.includes("is not a directory") || message.includes("is required")) {
+      res.status(400).json({
+        success: false,
+        error: message,
+      });
+      return;
+    }
+
+    res.status(500).json({
+      success: false,
+      error: message,
+    });
+  }
+}
+
