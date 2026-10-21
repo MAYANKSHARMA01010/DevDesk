@@ -86,6 +86,21 @@ export function initializeDatabase(): DatabaseType {
     );
 
     CREATE INDEX IF NOT EXISTS idx_projects_workspace_id ON projects(workspace_id);
+
+    CREATE TABLE IF NOT EXISTS database_connections (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      type TEXT NOT NULL,
+      host TEXT NOT NULL,
+      port INTEGER NOT NULL,
+      username TEXT NOT NULL,
+      database TEXT NOT NULL,
+      ssl INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_database_connections_name ON database_connections(name);
   `);
 
   dbInstance = db;

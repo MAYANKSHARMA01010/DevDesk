@@ -38,7 +38,8 @@ export function TerminalView({ initialSelection }: TerminalViewProps = {}) {
   // Process and logs state
   const [activeProcess, setActiveProcess] = useState<ManagedProcess | null>(null);
   const [logs, setLogs] = useState<ProcessLogEntry[]>([]);
-  const [latestSeqId, setLatestSeqId] = useState<number>(0);
+  const latestSeqIdRef = useRef<number>(0);
+  const isPollingLogsRef = useRef<boolean>(false);
 
   // Loading and error states
   const [loadingWorkspaces, setLoadingWorkspaces] = useState<boolean>(true);
@@ -191,7 +192,7 @@ export function TerminalView({ initialSelection }: TerminalViewProps = {}) {
         } else {
           setActiveProcess(null);
           setLogs([]);
-          setLatestSeqId(0);
+          latestSeqIdRef.current = 0;
         }
       } catch {
         // Non-fatal
@@ -207,7 +208,11 @@ export function TerminalView({ initialSelection }: TerminalViewProps = {}) {
 
   // 4. Polling loop for active process logs
   useEffect(() => {
-    if (!activeProcess?.id) return;
+    if (!activeProcess?.id) {
+      setLogs([]);
+      latestSeqIdRef.current = 0;
+      return;
+    }
 
     let mounted = true;
     const processId = activeProcess.id;
@@ -217,13 +222,15 @@ export function TerminalView({ initialSelection }: TerminalViewProps = {}) {
       activeProcess.status === "stopping";
 
     async function pollLogs() {
+      if (isPollingLogsRef.current) return;
+      isPollingLogsRef.current = true;
       try {
-        const result = await fetchProcessLogs(processId, latestSeqId);
+        const result = await fetchProcessLogs(processId, latestSeqIdRef.current);
         if (!mounted) return;
 
         if (result.logs.length > 0) {
           setLogs((prev) => [...prev, ...result.logs]);
-          setLatestSeqId(result.latestSequenceId);
+          latestSeqIdRef.current = result.latestSequenceId;
         }
 
         // Update status if process transitioned
@@ -240,6 +247,8 @@ export function TerminalView({ initialSelection }: TerminalViewProps = {}) {
         }
       } catch {
         // Non-fatal logging fetch error
+      } finally {
+        isPollingLogsRef.current = false;
       }
     }
 
@@ -255,7 +264,7 @@ export function TerminalView({ initialSelection }: TerminalViewProps = {}) {
       mounted = false;
       clearInterval(interval);
     };
-  }, [activeProcess?.id, activeProcess?.status, latestSeqId]);
+  }, [activeProcess?.id, activeProcess?.status]);
 
   // 5. Smart auto-scroll to bottom
   useEffect(() => {
@@ -292,7 +301,7 @@ export function TerminalView({ initialSelection }: TerminalViewProps = {}) {
 
       // Clear logs display for clean session
       setLogs([]);
-      setLatestSeqId(0);
+      latestSeqIdRef.current = 0;
 
       const proc = await startProcess(selectedProjectId, selectedScript);
       setActiveProcess(proc);
@@ -329,7 +338,7 @@ export function TerminalView({ initialSelection }: TerminalViewProps = {}) {
       setActionLoading(true);
       setErrorMessage(null);
       setLogs([]);
-      setLatestSeqId(0);
+      latestSeqIdRef.current = 0;
 
       const updated = await restartProcess(activeProcess.id);
       setActiveProcess(updated);

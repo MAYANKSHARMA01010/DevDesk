@@ -5,10 +5,12 @@ export type NavItemId =
   | "git"
   | "api-tester"
   | "database"
-  | "env";
+  | "env"
+  | "settings";
 
 export interface NavItem {
   id: NavItemId;
   label: string;
   description: string;
+  shortcut?: string;
 }

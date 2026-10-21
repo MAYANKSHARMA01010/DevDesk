@@ -21,6 +21,7 @@ app.get("/health", (_req, res) => {
 app.use("/api", apiRouter);
 
 import { processManager } from "./services/processes/processManager.js";
+import { databaseService } from "./services/database/databaseService.js";
 
 // Start server
 const server = app.listen(PORT, () => {
@@ -30,6 +31,7 @@ const server = app.listen(PORT, () => {
 function handleShutdown(signal: string) {
   console.log(`[DevDesk Backend] Received ${signal}. Shutting down gracefully...`);
   processManager.cleanupAll();
+  databaseService.closeAllConnections().catch(() => {});
   server.close(() => {
     process.exit(0);
   });
