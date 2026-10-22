@@ -652,8 +652,21 @@ export async function scanProjectsDirectory(
   targetPath: string,
   options: ScanOptions = {}
 ): Promise<DiscoveredProject[]> {
-  const maxDepth = typeof options.maxDepth === "number" && options.maxDepth >= 0 ? options.maxDepth : 5;
-  const maxProjects = typeof options.maxProjects === "number" && options.maxProjects > 0 ? options.maxProjects : 200;
+  const isUnlimited =
+    options.maxDepth === 0 ||
+    options.maxDepth === -1 ||
+    (typeof options.maxDepth === "number" && options.maxDepth >= 99);
+  const maxDepth = isUnlimited
+    ? 999
+    : typeof options.maxDepth === "number" && options.maxDepth > 0
+    ? options.maxDepth
+    : 5;
+  const maxProjects =
+    typeof options.maxProjects === "number" && options.maxProjects > 0
+      ? options.maxProjects
+      : isUnlimited || maxDepth >= 10
+      ? 2000
+      : 300;
   const includeRoot = options.includeRoot !== false;
 
   const resolvedRoot = resolveDirectoryPath(targetPath);

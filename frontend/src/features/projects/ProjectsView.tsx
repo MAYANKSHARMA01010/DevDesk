@@ -37,6 +37,37 @@ export const AVAILABLE_IDES: IdeOption[] = [
   { id: "fleet", name: "Fleet", shortName: "Fleet", icon: "🚀" },
 ];
 
+export type SortField = "git" | "name" | "type" | "pkg" | "runnable" | "path";
+export type SortDirection = "asc" | "desc";
+
+export interface SortRule {
+  id: string;
+  field: SortField;
+  direction: SortDirection;
+}
+
+export interface SortFieldMeta {
+  field: SortField;
+  label: string;
+  ascLabel: string;
+  descLabel: string;
+  icon: string;
+}
+
+export const SORT_FIELD_OPTIONS: SortFieldMeta[] = [
+  { field: "git", label: "Git Repository", ascLabel: "Git Repos First", descLabel: "Non-Git First", icon: "⎇" },
+  { field: "name", label: "Project Name", ascLabel: "Name (A → Z)", descLabel: "Name (Z → A)", icon: "🔤" },
+  { field: "type", label: "Framework / Type", ascLabel: "Type (A → Z)", descLabel: "Type (Z → A)", icon: "🏷️" },
+  { field: "pkg", label: "Package Manager", ascLabel: "Pkg (A → Z)", descLabel: "Pkg (Z → A)", icon: "📦" },
+  { field: "runnable", label: "Runnable Status", ascLabel: "Runnable First", descLabel: "Non-Runnable First", icon: "⚡" },
+  { field: "path", label: "Folder Path", ascLabel: "Path (A → Z)", descLabel: "Path (Z → A)", icon: "📁" },
+];
+
+export const DEFAULT_SORT_RULES: SortRule[] = [
+  { id: "rule-git", field: "git", direction: "asc" },
+  { id: "rule-name", field: "name", direction: "asc" },
+];
+
 export type SortOption =
   | "name-asc"
   | "name-desc"
@@ -126,6 +157,64 @@ export function compareProjectsByOption(
   }
 }
 
+export function compareProjectsByRules(
+  a: SavedProject | DiscoveredProject,
+  b: SavedProject | DiscoveredProject,
+  rules: SortRule[]
+): number {
+  const aLabel = a.displayName || a.name;
+  const bLabel = b.displayName || b.name;
+
+  for (const rule of rules) {
+    let diff = 0;
+    switch (rule.field) {
+      case "git": {
+        if (a.isRoot && !b.isRoot) diff = -1;
+        else if (!a.isRoot && b.isRoot) diff = 1;
+        else {
+          const aGit = a.isGitRepo ? 1 : 0;
+          const bGit = b.isGitRepo ? 1 : 0;
+          diff = bGit - aGit; // Git repos (1) before non-git (0)
+        }
+        break;
+      }
+      case "name":
+        diff = aLabel.localeCompare(bLabel);
+        break;
+      case "runnable": {
+        const aRun = isRunnableProject(a) ? 1 : 0;
+        const bRun = isRunnableProject(b) ? 1 : 0;
+        diff = bRun - aRun; // Runnable (1) before non-runnable (0)
+        break;
+      }
+      case "type":
+        diff = a.type.localeCompare(b.type);
+        break;
+      case "pkg": {
+        const aPkg = a.packageManager || "";
+        const bPkg = b.packageManager || "";
+        diff = aPkg.localeCompare(bPkg);
+        break;
+      }
+      case "path":
+        diff = (a.relativePath || a.path || "").localeCompare(b.relativePath || b.path || "");
+        break;
+    }
+
+    if (diff !== 0) {
+      return rule.direction === "asc" ? diff : -diff;
+    }
+  }
+
+  return aLabel.localeCompare(bLabel);
+}
+
+export function formatSeconds(sec: number): string {
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  return `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}s`;
+}
+
 export function ProjectsView({
   isActive,
   onNavigateToTerminal,
@@ -163,62 +252,129 @@ export function ProjectsView({
   const [filterMode, setFilterMode] = useState<FilterMode>("all");
   const [filterType, setFilterType] = useState<string>("");
   const [filterPkg, setFilterPkg] = useState<string>("");
-  const [sortBy, setSortBy] = useState<SortOption>(() => {
+  // Multi-Level Sort Rules State
+  const [sortRules, setSortRules] = useState<SortRule[]>(() => {
     if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("devdesk_projects_sort_by");
-      if (
-        saved &&
-        [
-          "git-first",
-          "name-asc",
-          "name-desc",
-          "type",
-          "pkg",
-          "runnable-first",
-          "path",
-        ].includes(saved)
-      ) {
-        return saved as SortOption;
+      const saved = localStorage.getItem("devdesk_projects_multi_sort_rules");
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            return parsed;
+          }
+        } catch {
+          // ignore
+        }
       }
     }
-    return "git-first";
+    return DEFAULT_SORT_RULES;
   });
 
-  const handleSetSortBy = (val: SortOption) => {
-    setSortBy(val);
+  const [showSortManager, setShowSortManager] = useState<boolean>(false);
+  const sortManagerRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (sortManagerRef.current && !sortManagerRef.current.contains(e.target as Node)) {
+        setShowSortManager(false);
+      }
+    }
+    if (showSortManager) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => document.removeEventListener("mousedown", handleClickOutside);
+    }
+  }, [showSortManager]);
+
+  const handleSetSortRules = (rules: SortRule[]) => {
+    setSortRules(rules);
     if (typeof window !== "undefined") {
-      localStorage.setItem("devdesk_projects_sort_by", val);
+      localStorage.setItem("devdesk_projects_multi_sort_rules", JSON.stringify(rules));
     }
   };
 
-  const [secondarySortBy, setSecondarySortBy] = useState<SecondarySortOption>(() => {
+  const toggleRuleDirection = (ruleId: string) => {
+    const updated = sortRules.map((r) =>
+      r.id === ruleId
+        ? { ...r, direction: (r.direction === "asc" ? "desc" : "asc") as SortDirection }
+        : r
+    );
+    handleSetSortRules(updated);
+  };
+
+  const updateRuleField = (ruleId: string, newField: SortField) => {
+    const updated = sortRules.map((r) =>
+      r.id === ruleId ? { ...r, field: newField } : r
+    );
+    handleSetSortRules(updated);
+  };
+
+  const removeSortRule = (ruleId: string) => {
+    if (sortRules.length <= 1) return; // Keep at least 1 rule
+    const updated = sortRules.filter((r) => r.id !== ruleId);
+    handleSetSortRules(updated);
+  };
+
+  const moveSortRule = (index: number, direction: "up" | "down") => {
+    const targetIndex = direction === "up" ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= sortRules.length) return;
+    const copy = [...sortRules];
+    const [moved] = copy.splice(index, 1);
+    copy.splice(targetIndex, 0, moved);
+    handleSetSortRules(copy);
+  };
+
+  const addNextSortRule = () => {
+    const usedFields = new Set(sortRules.map((r) => r.field));
+    const nextFieldMeta = SORT_FIELD_OPTIONS.find((o) => !usedFields.has(o.field));
+    if (!nextFieldMeta) return;
+
+    const newRule: SortRule = {
+      id: `rule-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      field: nextFieldMeta.field,
+      direction: "asc",
+    };
+    handleSetSortRules([...sortRules, newRule]);
+  };
+
+  const resetSortRules = () => {
+    handleSetSortRules(DEFAULT_SORT_RULES);
+  };
+
+  // Configurable Scan Depth (1, 2, 3, 4, 5, 8, 10, 15, 20, 0=max/unlimited)
+  const [scanDepth, setScanDepth] = useState<number>(() => {
     if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("devdesk_projects_secondary_sort");
-      if (
-        saved &&
-        [
-          "none",
-          "name-asc",
-          "name-desc",
-          "type",
-          "pkg",
-          "git-first",
-          "runnable-first",
-          "path",
-        ].includes(saved)
-      ) {
-        return saved as SecondarySortOption;
+      const saved = localStorage.getItem("devdesk_scan_depth");
+      if (saved !== null) {
+        const parsed = parseInt(saved, 10);
+        if (!isNaN(parsed) && parsed >= 0) return parsed;
       }
     }
-    return "none";
+    return 5;
   });
 
-  const handleSetSecondarySortBy = (val: SecondarySortOption) => {
-    setSecondarySortBy(val);
+  const handleSetScanDepth = (depth: number) => {
+    setScanDepth(depth);
     if (typeof window !== "undefined") {
-      localStorage.setItem("devdesk_projects_secondary_sort", val);
+      localStorage.setItem("devdesk_scan_depth", depth.toString());
     }
   };
+
+  const [scanningTarget, setScanningTarget] = useState<string>("");
+  const [scanElapsedSeconds, setScanElapsedSeconds] = useState<number>(0);
+
+  useEffect(() => {
+    if (status !== "scanning") {
+      setScanElapsedSeconds(0);
+      return;
+    }
+
+    const startTime = Date.now();
+    const interval = setInterval(() => {
+      setScanElapsedSeconds(Math.floor((Date.now() - startTime) / 1000));
+    }, 500);
+
+    return () => clearInterval(interval);
+  }, [status]);
 
   // IDE states
   const [defaultIde, setDefaultIde] = useState<string>("vscode");
@@ -292,13 +448,16 @@ export function ProjectsView({
       }
 
       setStatus("scanning");
+      setScanningTarget(chosenPath);
       setErrorMessage(null);
       setPathWarning(null);
       setActionError(null);
       setShowForgetConfirm(false);
 
-      // Call POST /api/workspaces/scan
-      const saved = await scanAndSaveWorkspace(chosenPath);
+      // Call POST /api/workspaces/scan with configurable scan depth
+      const saved = await scanAndSaveWorkspace(chosenPath, {
+        maxDepth: scanDepth,
+      });
 
       startTransition(() => {
         setWorkspaces((prev) => {
@@ -314,6 +473,8 @@ export function ProjectsView({
         err instanceof Error ? err.message : "Failed to scan workspace root";
       setStatus("error");
       setErrorMessage(errorMsg);
+    } finally {
+      setScanningTarget("");
     }
   }
 
@@ -353,12 +514,15 @@ export function ProjectsView({
     if (!activeWorkspace) return;
 
     setStatus("scanning");
+    setScanningTarget(activeWorkspace.rootPath);
     setErrorMessage(null);
     setPathWarning(null);
     setActionError(null);
 
     try {
-      const rescanned = await scanAndSaveWorkspace(activeWorkspace.rootPath);
+      const rescanned = await scanAndSaveWorkspace(activeWorkspace.rootPath, {
+        maxDepth: scanDepth,
+      });
       startTransition(() => {
         setWorkspaces((prev) =>
           prev.map((w) => (w.id === rescanned.id ? rescanned : w))
@@ -382,6 +546,8 @@ export function ProjectsView({
         setStatus("error");
         setErrorMessage(errorMsg);
       }
+    } finally {
+      setScanningTarget("");
     }
   }
 
@@ -829,19 +995,7 @@ export function ProjectsView({
       }
       return true;
     })
-    .sort((a, b) => {
-      const primaryDiff = compareProjectsByOption(a, b, sortBy);
-      if (primaryDiff !== 0) return primaryDiff;
-
-      if (secondarySortBy && secondarySortBy !== "none" && secondarySortBy !== sortBy) {
-        const secondaryDiff = compareProjectsByOption(a, b, secondarySortBy as SortOption);
-        if (secondaryDiff !== 0) return secondaryDiff;
-      }
-
-      const aLabel = a.displayName || a.name;
-      const bLabel = b.displayName || b.name;
-      return aLabel.localeCompare(bLabel);
-    });
+    .sort((a, b) => compareProjectsByRules(a, b, sortRules));
 
   // --- Render Views ---
 
@@ -896,13 +1050,35 @@ export function ProjectsView({
             </div>
           )}
 
-          {activeWorkspace && (
+            {/* Scan Depth Selector */}
+            <div className="flex items-center gap-1.5" title="Maximum directory depth to scan. 0 = Max / Complete unlimited recursive scan.">
+              <span className="text-[11px] text-zinc-500 uppercase font-medium">Depth:</span>
+              <select
+                value={scanDepth}
+                onChange={(e) => handleSetScanDepth(parseInt(e.target.value, 10))}
+                disabled={status === "scanning" || status === "deleting"}
+                className="px-2 py-1.5 rounded-md text-xs font-medium text-zinc-200 bg-zinc-900 border border-zinc-800 hover:border-zinc-700 focus:outline-none focus:ring-1 focus:ring-zinc-600 transition-all cursor-pointer"
+              >
+                <option value={1}>1 lvl (Root)</option>
+                <option value={2}>2 lvls (Shallow)</option>
+                <option value={3}>3 lvls</option>
+                <option value={4}>4 lvls</option>
+                <option value={5}>5 lvls (Default)</option>
+                <option value={8}>8 lvls (Deep)</option>
+                <option value={10}>10 lvls (Very Deep)</option>
+                <option value={15}>15 lvls</option>
+                <option value={20}>20 lvls</option>
+                <option value={0}>⚡ Max (Complete Scan)</option>
+              </select>
+            </div>
+
+            {activeWorkspace && (
             <>
               <button
                 onClick={handleRescan}
                 disabled={status === "scanning" || status === "deleting" || runningAction !== null}
-                className="px-3 py-1.5 rounded-md text-xs font-medium text-zinc-300 bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 hover:text-zinc-100 disabled:opacity-50 transition-all flex items-center gap-1.5 cursor-pointer"
-                title="Rescan current workspace recursively"
+                className="px-3 py-1.5 rounded-md text-xs font-medium text-zinc-300 bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 hover:text-zinc-100 disabled:opacity-50 transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
+                title={`Rescan workspace recursively (${scanDepth === 0 ? "Complete unlimited scan" : `up to ${scanDepth} levels deep`})`}
               >
                 {status === "scanning" && (
                   <span className="w-3 h-3 rounded-full border border-zinc-500 border-t-zinc-200 animate-spin" />
@@ -1008,9 +1184,16 @@ export function ProjectsView({
               {allProjects.length} {allProjects.length === 1 ? "Project Discovered" : "Projects Discovered"}
             </span>
           </div>
-          <p className="text-[10px] text-zinc-500">
-            Recursive scan up to 5 levels deep. Excluded node_modules, build caches, and .git internals.
-          </p>
+          <div className="flex flex-wrap items-center justify-between gap-2 text-[10px] text-zinc-500 pt-1 border-t border-zinc-800/50">
+            <span>
+              {scanDepth === 0
+                ? "⚡ Complete recursive scan (unlimited depth, max level). Excluded node_modules, build caches, and .git internals."
+                : `Recursive scan configured up to ${scanDepth} level${scanDepth === 1 ? "" : "s"} deep. Excluded node_modules, build caches, and .git internals.`}
+            </span>
+            <span className="font-mono text-zinc-400">
+              Depth: {scanDepth === 0 ? "⚡ Max / Unlimited" : `${scanDepth} lvls`}
+            </span>
+          </div>
         </div>
       )}
 
@@ -1113,41 +1296,273 @@ export function ProjectsView({
           {/* Row 2: Multi-Sort Selectors, Type Filter, Package Manager Filter & Default IDE */}
           <div className="flex flex-wrap items-center justify-between gap-2.5 p-2 rounded-lg bg-zinc-900/40 border border-zinc-800/60 text-xs">
             <div className="flex flex-wrap items-center gap-2">
-              {/* Primary Sort Dropdown */}
-              <div className="flex items-center gap-1.5">
-                <span className="text-[11px] text-zinc-500 uppercase font-medium">Sort:</span>
-                <select
-                  value={sortBy}
-                  onChange={(e) => handleSetSortBy(e.target.value as SortOption)}
-                  className="px-2 py-1 rounded bg-zinc-900 border border-zinc-800 text-zinc-200 hover:border-zinc-700 focus:outline-none cursor-pointer text-xs"
+              {/* Unified Multi-Sort Manager */}
+              <div className="relative" ref={sortManagerRef}>
+                <button
+                  type="button"
+                  onClick={() => setShowSortManager((prev) => !prev)}
+                  className={`px-2.5 py-1 rounded-md text-xs font-medium border flex items-center gap-1.5 transition cursor-pointer select-none ${
+                    showSortManager
+                      ? "bg-zinc-800 text-white border-zinc-600 shadow-sm"
+                      : "bg-zinc-900 text-zinc-200 border-zinc-800 hover:border-zinc-700 hover:text-white"
+                  }`}
+                  title="Configure multi-level sorting (sort by multiple fields in priority order with custom ASC / DESC)"
                 >
-                  <option value="git-first">Git Repos First</option>
-                  <option value="name-asc">Name (A → Z)</option>
-                  <option value="name-desc">Name (Z → A)</option>
-                  <option value="type">Framework / Type</option>
-                  <option value="pkg">Package Manager</option>
-                  <option value="runnable-first">Runnable First</option>
-                  <option value="path">Folder Path</option>
-                </select>
+                  <span className="text-cyan-400">⇅</span>
+                  <span className="font-semibold">Sort ({sortRules.length})</span>
+                  <span className="text-zinc-500 text-[10px]">▾</span>
+                </button>
+
+                {/* Popover / Panel for Sort Rules */}
+                {showSortManager && (
+                  <div className="absolute left-0 top-full mt-2 w-[340px] sm:w-[380px] bg-zinc-900 border border-zinc-700/80 rounded-xl p-4 shadow-2xl z-40 text-xs animate-in fade-in duration-150">
+                    <div className="flex items-center justify-between pb-2.5 border-b border-zinc-800 mb-3">
+                      <div>
+                        <h4 className="font-semibold text-zinc-100 flex items-center gap-1.5">
+                          <span className="text-cyan-400">⇅</span>
+                          <span>Multi-Level Sorting</span>
+                        </h4>
+                        <p className="text-[11px] text-zinc-400 mt-0.5">
+                          Sort by multiple criteria in priority order with custom ASC/DESC.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setShowSortManager(false)}
+                        className="text-zinc-500 hover:text-zinc-300 p-1 rounded hover:bg-zinc-800 cursor-pointer text-xs"
+                      >
+                        ✕
+                      </button>
+                    </div>
+
+                    {/* Rules List */}
+                    <div className="space-y-2 mb-3 max-h-[260px] overflow-y-auto pr-1">
+                      {sortRules.map((rule, idx) => {
+                        const meta = SORT_FIELD_OPTIONS.find((o) => o.field === rule.field);
+                        const isAsc = rule.direction === "asc";
+
+                        return (
+                          <div
+                            key={rule.id}
+                            className="flex items-center justify-between gap-2 p-2 rounded-lg bg-zinc-950 border border-zinc-800/80"
+                          >
+                            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-zinc-900 border border-zinc-800 text-zinc-400 font-bold shrink-0">
+                              #{idx + 1}
+                            </span>
+
+                            {/* Field Select */}
+                            <select
+                              value={rule.field}
+                              onChange={(e) => updateRuleField(rule.id, e.target.value as SortField)}
+                              className="px-2 py-1 rounded bg-zinc-900 border border-zinc-800 text-zinc-200 focus:outline-none cursor-pointer flex-1 text-xs truncate"
+                            >
+                              {SORT_FIELD_OPTIONS.map((opt) => (
+                                <option key={opt.field} value={opt.field}>
+                                  {opt.icon} {opt.label}
+                                </option>
+                              ))}
+                            </select>
+
+                            {/* Direction Toggle */}
+                            <button
+                              type="button"
+                              onClick={() => toggleRuleDirection(rule.id)}
+                              className="px-2 py-1 rounded bg-zinc-900 border border-zinc-800 hover:border-zinc-700 text-cyan-400 hover:text-cyan-300 font-mono text-[11px] font-semibold transition cursor-pointer shrink-0"
+                              title={`Current: ${isAsc ? meta?.ascLabel : meta?.descLabel}. Click to toggle.`}
+                            >
+                              {isAsc ? `↑ ${meta?.ascLabel}` : `↓ ${meta?.descLabel}`}
+                            </button>
+
+                            {/* Move Up/Down & Remove */}
+                            <div className="flex items-center gap-0.5 shrink-0">
+                              <button
+                                type="button"
+                                disabled={idx === 0}
+                                onClick={() => moveSortRule(idx, "up")}
+                                className="w-5 h-5 flex items-center justify-center rounded text-[10px] text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
+                                title="Move up in priority"
+                              >
+                                ▲
+                              </button>
+                              <button
+                                type="button"
+                                disabled={idx === sortRules.length - 1}
+                                onClick={() => moveSortRule(idx, "down")}
+                                className="w-5 h-5 flex items-center justify-center rounded text-[10px] text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
+                                title="Move down in priority"
+                              >
+                                ▼
+                              </button>
+                              <button
+                                type="button"
+                                disabled={sortRules.length <= 1}
+                                onClick={() => removeSortRule(rule.id)}
+                                className="w-5 h-5 flex items-center justify-center rounded text-[11px] text-zinc-500 hover:text-rose-400 hover:bg-zinc-800 disabled:opacity-30 disabled:pointer-events-none cursor-pointer ml-0.5"
+                                title="Remove this rule"
+                              >
+                                ✕
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Add Rule Button */}
+                    {sortRules.length < SORT_FIELD_OPTIONS.length ? (
+                      <button
+                        type="button"
+                        onClick={addNextSortRule}
+                        className="w-full py-1.5 px-3 rounded-lg border border-dashed border-zinc-700 hover:border-zinc-500 text-zinc-300 hover:text-white bg-zinc-950/40 hover:bg-zinc-950 text-xs font-medium transition flex items-center justify-center gap-1.5 cursor-pointer mb-3"
+                      >
+                        <span>+</span>
+                        <span>Add Sort Level</span>
+                      </button>
+                    ) : (
+                      <p className="text-[10px] text-zinc-500 italic text-center mb-3">
+                        All available fields are currently active.
+                      </p>
+                    )}
+
+                    {/* Quick Presets */}
+                    <div className="pt-2 border-t border-zinc-800">
+                      <span className="text-[10px] text-zinc-500 uppercase font-semibold block mb-1.5">
+                        Quick Presets:
+                      </span>
+                      <div className="flex flex-wrap gap-1">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            handleSetSortRules([
+                              { id: "1", field: "git", direction: "asc" },
+                              { id: "2", field: "name", direction: "asc" },
+                            ]);
+                          }}
+                          className="px-2 py-0.5 rounded text-[10px] bg-zinc-950 border border-zinc-800 text-zinc-300 hover:bg-zinc-800 cursor-pointer"
+                        >
+                          Git Repos + Name
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            handleSetSortRules([
+                              { id: "1", field: "name", direction: "asc" },
+                            ]);
+                          }}
+                          className="px-2 py-0.5 rounded text-[10px] bg-zinc-950 border border-zinc-800 text-zinc-300 hover:bg-zinc-800 cursor-pointer"
+                        >
+                          Name (A → Z)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            handleSetSortRules([
+                              { id: "1", field: "type", direction: "asc" },
+                              { id: "2", field: "name", direction: "asc" },
+                            ]);
+                          }}
+                          className="px-2 py-0.5 rounded text-[10px] bg-zinc-950 border border-zinc-800 text-zinc-300 hover:bg-zinc-800 cursor-pointer"
+                        >
+                          Framework + Name
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            handleSetSortRules([
+                              { id: "1", field: "runnable", direction: "asc" },
+                              { id: "2", field: "name", direction: "asc" },
+                            ]);
+                          }}
+                          className="px-2 py-0.5 rounded text-[10px] bg-zinc-950 border border-zinc-800 text-zinc-300 hover:bg-zinc-800 cursor-pointer"
+                        >
+                          Runnable + Name
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            handleSetSortRules([
+                              { id: "1", field: "path", direction: "asc" },
+                              { id: "2", field: "name", direction: "asc" },
+                            ]);
+                          }}
+                          className="px-2 py-0.5 rounded text-[10px] bg-zinc-950 border border-zinc-800 text-zinc-300 hover:bg-zinc-800 cursor-pointer"
+                        >
+                          Folder Path + Name
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Popover Footer */}
+                    <div className="flex items-center justify-between pt-3 mt-3 border-t border-zinc-800 text-[11px]">
+                      <button
+                        type="button"
+                        onClick={resetSortRules}
+                        className="text-zinc-500 hover:text-zinc-300 cursor-pointer"
+                      >
+                        Reset to Default
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setShowSortManager(false)}
+                        className="px-3 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-100 font-medium cursor-pointer"
+                      >
+                        Done
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
-              {/* Secondary Sort ("Then by") Dropdown */}
-              <div className="flex items-center gap-1.5">
-                <span className="text-[11px] text-zinc-500 uppercase font-medium">Then by:</span>
-                <select
-                  value={secondarySortBy}
-                  onChange={(e) => handleSetSecondarySortBy(e.target.value as SecondarySortOption)}
-                  className="px-2 py-1 rounded bg-zinc-900 border border-zinc-800 text-zinc-200 hover:border-zinc-700 focus:outline-none cursor-pointer text-xs"
-                >
-                  <option value="none">None</option>
-                  <option value="name-asc">Name (A → Z)</option>
-                  <option value="name-desc">Name (Z → A)</option>
-                  <option value="type">Framework / Type</option>
-                  <option value="pkg">Package Manager</option>
-                  <option value="git-first">Git Repos First</option>
-                  <option value="runnable-first">Runnable First</option>
-                  <option value="path">Folder Path</option>
-                </select>
+              {/* Active Sort Rule Pills displayed right in the toolbar */}
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {sortRules.map((rule, idx) => {
+                  const meta = SORT_FIELD_OPTIONS.find((o) => o.field === rule.field);
+                  const isAsc = rule.direction === "asc";
+                  const dirLabel = isAsc ? meta?.ascLabel : meta?.descLabel;
+
+                  return (
+                    <span
+                      key={rule.id}
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-zinc-900 border border-zinc-800 text-zinc-300 text-[11px] shadow-2xs group hover:border-zinc-700 transition"
+                    >
+                      <span className="text-zinc-500 font-mono text-[10px]">#{idx + 1}</span>
+                      <span className="text-zinc-200 font-medium">{meta?.label}</span>
+                      <button
+                        type="button"
+                        onClick={() => toggleRuleDirection(rule.id)}
+                        className="text-cyan-400 hover:text-cyan-300 font-mono font-semibold px-1 py-0.2 rounded hover:bg-zinc-800 transition cursor-pointer"
+                        title={`Click to switch to ${isAsc ? meta?.descLabel : meta?.ascLabel}`}
+                      >
+                        {isAsc ? "↑" : "↓"} {dirLabel}
+                      </button>
+                      {sortRules.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => removeSortRule(rule.id)}
+                          className="text-zinc-500 hover:text-rose-400 text-[10px] ml-0.5 cursor-pointer px-0.5 rounded hover:bg-zinc-800"
+                          title="Remove this sort level"
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </span>
+                  );
+                })}
+
+                {sortRules.length < SORT_FIELD_OPTIONS.length && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      addNextSortRule();
+                      setShowSortManager(true);
+                    }}
+                    className="px-2 py-0.5 rounded border border-dashed border-zinc-700 hover:border-zinc-500 text-zinc-400 hover:text-zinc-200 text-[11px] transition cursor-pointer flex items-center gap-1"
+                    title="Add another sort criterion"
+                  >
+                    <span>+</span>
+                    <span>Add Level</span>
+                  </button>
+                )}
               </div>
 
               {/* Type Filter Dropdown */}
@@ -1268,8 +1683,7 @@ export function ProjectsView({
                   setFilterMode("all");
                   setFilterType("");
                   setFilterPkg("");
-                  handleSetSortBy("git-first");
-                  handleSetSecondarySortBy("none");
+                  resetSortRules();
                 }}
                 className="ml-auto text-[11px] text-amber-400 hover:text-amber-300 hover:underline cursor-pointer"
                 title="Reset all filters and sorting"
@@ -1346,14 +1760,71 @@ export function ProjectsView({
 
       {/* 6. View States */}
 
-      {/* State A: Scanning Active Workspace */}
+      {/* State A: Scanning Active Workspace / Splash Waiting Screen */}
       {status === "scanning" && (
-        <div className="flex-1 flex flex-col items-center justify-center border border-dashed border-zinc-800 rounded-lg p-10 bg-zinc-900/20 text-center">
-          <div className="w-8 h-8 rounded-full border-2 border-zinc-700 border-t-zinc-200 animate-spin mb-4" />
-          <p className="text-sm font-medium text-zinc-200">Scanning workspace directories recursively...</p>
-          <p className="text-xs text-zinc-500 mt-1 max-w-sm font-mono truncate">
-            {activeWorkspace?.rootPath}
-          </p>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 animate-in fade-in duration-200">
+          <div className="bg-gradient-to-b from-zinc-900 via-zinc-900/95 to-zinc-950 border border-zinc-700/80 rounded-2xl max-w-lg w-full p-8 shadow-2xl relative overflow-hidden flex flex-col items-center text-center">
+            {/* Ambient Background Glow */}
+            <div className="absolute -top-24 -left-24 w-48 h-48 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none" />
+            <div className="absolute -bottom-24 -right-24 w-48 h-48 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
+
+            {/* Glowing Pulse Radar Animation */}
+            <div className="relative w-24 h-24 mb-6 flex items-center justify-center">
+              <div className="absolute inset-0 rounded-full border-2 border-cyan-500/30 animate-ping opacity-30" />
+              <div className="absolute inset-1 rounded-full border-2 border-transparent border-t-cyan-400 border-r-indigo-500 animate-spin" />
+              <div className="w-16 h-16 rounded-full bg-zinc-800/90 border border-zinc-700 flex items-center justify-center text-2xl shadow-inner relative z-10">
+                <span>⚡</span>
+              </div>
+            </div>
+
+            {/* Title & Mode */}
+            <h3 className="text-lg font-bold text-zinc-100 tracking-tight">
+              {scanDepth === 0 || scanDepth >= 20
+                ? "Complete Deep Scan In Progress"
+                : "Scanning Workspace Directories"}
+            </h3>
+
+            {/* Target Path */}
+            <div className="mt-3 px-3 py-1.5 rounded-lg bg-zinc-950/80 border border-zinc-800 max-w-full">
+              <span className="text-xs font-mono text-zinc-300 truncate block select-all">
+                {scanningTarget || activeWorkspace?.rootPath || "Selected Workspace Directory"}
+              </span>
+            </div>
+
+            {/* Depth & Timer Metrics Bar */}
+            <div className="mt-4 flex items-center justify-center gap-3 text-xs">
+              <span className="px-2.5 py-1 rounded-md bg-zinc-800 border border-zinc-700/80 text-zinc-300 flex items-center gap-1.5 font-medium">
+                <span>🔍</span>
+                <span>
+                  {scanDepth === 0
+                    ? "Max Level (Unlimited Depth)"
+                    : `${scanDepth} Levels Deep`}
+                </span>
+              </span>
+
+              <span className="px-2.5 py-1 rounded-md bg-zinc-800 border border-zinc-700/80 text-cyan-300 font-mono flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
+                <span>Elapsed: {formatSeconds(scanElapsedSeconds)}</span>
+              </span>
+            </div>
+
+            {/* Dynamic Status / Progress Note based on elapsed seconds */}
+            <p className="mt-5 text-xs text-zinc-400 max-w-sm leading-relaxed min-h-[36px] flex items-center justify-center">
+              {scanElapsedSeconds < 3
+                ? "Indexing directory hierarchy and detecting project boundaries..."
+                : scanElapsedSeconds < 7
+                ? "Parsing package manifests (package.json, pyproject.toml, Cargo.toml, go.mod)..."
+                : scanElapsedSeconds < 12
+                ? "Analyzing nested Git repositories, worktrees, and remotes..."
+                : "Deep recursive scan in progress... Scanning large workspace directory tree. Please wait."}
+            </p>
+
+            {/* Safety Notice */}
+            <div className="mt-6 pt-4 border-t border-zinc-800/80 text-[11px] text-zinc-500 flex items-center gap-2">
+              <span>🛡️</span>
+              <span>Automatically skips node_modules, build outputs, and .git internals for speed.</span>
+            </div>
+          </div>
         </div>
       )}
 
