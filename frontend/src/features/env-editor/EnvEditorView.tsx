@@ -9,6 +9,7 @@ import {
   saveEnvFile,
 } from "@/services/env-editor";
 import { WorkspaceWithProjects } from "@/types/project";
+import { useWorkspaceSubscription } from "@/services/workspaceSync";
 import {
   EnvFileMetadata,
   EnvVariableEntry,
@@ -35,13 +36,14 @@ function formatBytes(bytes: number): string {
 }
 
 interface EnvEditorViewProps {
+  isActive?: boolean;
   initialSelection?: {
     workspaceId?: string;
     projectId?: string;
   } | null;
 }
 
-export function EnvEditorView({ initialSelection }: EnvEditorViewProps = {}) {
+export function EnvEditorView({ isActive, initialSelection }: EnvEditorViewProps = {}) {
   const baseId = useId();
 
   // Workspace & Project Selection
@@ -52,6 +54,14 @@ export function EnvEditorView({ initialSelection }: EnvEditorViewProps = {}) {
   const [selectedProjectId, setSelectedProjectId] = useState<string>(
     initialSelection?.projectId || ""
   );
+
+  useWorkspaceSubscription(setWorkspaces, isActive, (fresh) => {
+    setSelectedWorkspaceId((prev) => {
+      if (!prev) return "";
+      const exists = fresh.some((w) => w.id === prev);
+      return exists ? prev : "";
+    });
+  });
 
   // Files & Content State
   const [envFiles, setEnvFiles] = useState<EnvFileMetadata[]>([]);

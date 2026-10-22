@@ -13,6 +13,7 @@ import {
   unstageGitFiles,
 } from "@/services/git";
 import { WorkspaceWithProjects } from "@/types/project";
+import { useWorkspaceSubscription } from "@/services/workspaceSync";
 import {
   GitBranchesResult,
   GitCommitItem,
@@ -22,13 +23,14 @@ import {
 } from "@/types/git";
 
 interface GitViewProps {
+  isActive?: boolean;
   initialSelection?: {
     workspaceId?: string;
     projectId?: string;
   } | null;
 }
 
-export function GitView({ initialSelection }: GitViewProps = {}) {
+export function GitView({ isActive, initialSelection }: GitViewProps = {}) {
   // Workspaces and Project selection
   const [workspaces, setWorkspaces] = useState<WorkspaceWithProjects[]>([]);
   const [selectedWorkspaceId, setSelectedWorkspaceId] = useState<string>(
@@ -37,6 +39,14 @@ export function GitView({ initialSelection }: GitViewProps = {}) {
   const [selectedProjectId, setSelectedProjectId] = useState<string>(
     initialSelection?.projectId || ""
   );
+
+  useWorkspaceSubscription(setWorkspaces, isActive, (fresh) => {
+    setSelectedWorkspaceId((prev) => {
+      if (!prev) return "";
+      const exists = fresh.some((w) => w.id === prev);
+      return exists ? prev : "";
+    });
+  });
 
   // Git data state
   const [gitStatus, setGitStatus] = useState<GitStatusResult | null>(null);

@@ -8,6 +8,10 @@ import {
   scanAndSaveWorkspace,
 } from "@/services/projects";
 import {
+  broadcastWorkspacesChanged,
+  useWorkspaceSubscription,
+} from "@/services/workspaceSync";
+import {
   DiscoveredProject,
   SavedProject,
   WorkspaceWithProjects,
@@ -61,6 +65,7 @@ interface ActionFeedback {
 }
 
 interface ProjectsViewProps {
+  isActive?: boolean;
   onNavigateToTerminal?: (selection: {
     workspaceId?: string;
     projectId?: string;
@@ -79,11 +84,19 @@ export function isRunnableProject(p: SavedProject | DiscoveredProject): boolean 
 }
 
 export function ProjectsView({
+  isActive,
   onNavigateToTerminal,
   onNavigateToGit,
 }: ProjectsViewProps = {}) {
   const [workspaces, setWorkspaces] = useState<WorkspaceWithProjects[]>([]);
   const [activeWorkspaceId, setActiveWorkspaceId] = useState<string | null>(null);
+
+  useWorkspaceSubscription(setWorkspaces, isActive, (fresh) => {
+    setActiveWorkspaceId((prev) => {
+      if (prev && fresh.some((w) => w.id === prev)) return prev;
+      return fresh.length > 0 ? fresh[0].id : null;
+    });
+  });
   const [status, setStatus] = useState<ViewStatus>("loading_initial");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [pathWarning, setPathWarning] = useState<string | null>(null);
@@ -196,7 +209,9 @@ export function ProjectsView({
       startTransition(() => {
         setWorkspaces((prev) => {
           const filtered = prev.filter((w) => w.id !== saved.id);
-          return [saved, ...filtered];
+          const next = [saved, ...filtered];
+          broadcastWorkspacesChanged(next);
+          return next;
         });
         setActiveWorkspaceId(saved.id);
         setStatus("idle");
@@ -231,7 +246,9 @@ export function ProjectsView({
       startTransition(() => {
         setWorkspaces((prev) => {
           const filtered = prev.filter((w) => w.id !== targetWorkspaceId);
-          return [updated, ...filtered];
+          const next = [updated, ...filtered];
+          broadcastWorkspacesChanged(next);
+          return next;
         });
       });
     } catch {
@@ -251,9 +268,11 @@ export function ProjectsView({
     try {
       const rescanned = await scanAndSaveWorkspace(activeWorkspace.rootPath);
       startTransition(() => {
-        setWorkspaces((prev) =>
-          prev.map((w) => (w.id === rescanned.id ? rescanned : w))
-        );
+        setWorkspaces((prev) => {
+          const next = prev.map((w) => (w.id === rescanned.id ? rescanned : w));
+          broadcastWorkspacesChanged(next);
+          return next;
+        });
         setStatus("idle");
       });
     } catch (err: unknown) {
@@ -288,6 +307,7 @@ export function ProjectsView({
 
       startTransition(() => {
         const remaining = workspaces.filter((w) => w.id !== targetId);
+        broadcastWorkspacesChanged(remaining);
         setWorkspaces(remaining);
         setActiveWorkspaceId(remaining.length > 0 ? remaining[0].id : null);
         setStatus("idle");

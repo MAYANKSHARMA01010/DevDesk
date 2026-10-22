@@ -9,6 +9,7 @@ import {
 import { ManagedProcess, ProcessStatus } from "@/types/process";
 
 interface ProcessesViewProps {
+  isActive?: boolean;
   onNavigateToTerminal?: (selection: {
     workspaceId?: string;
     projectId?: string;
@@ -18,6 +19,7 @@ interface ProcessesViewProps {
 }
 
 export function ProcessesView({
+  isActive,
   onNavigateToTerminal,
   onNavigateToProjects,
 }: ProcessesViewProps) {
@@ -91,6 +93,13 @@ export function ProcessesView({
       clearInterval(interval);
     };
   }, []);
+
+  // 3. Immediately refresh processes when switching to Processes tab
+  useEffect(() => {
+    if (isActive) {
+      loadProcesses();
+    }
+  }, [isActive]);
 
   // 3. Process actions: Stop and Restart
   async function handleStop(proc: ManagedProcess) {

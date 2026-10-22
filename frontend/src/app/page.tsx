@@ -188,21 +188,29 @@ export default function Home() {
         <main className="flex-1 min-w-0 overflow-y-auto bg-zinc-900/40 relative">
           <div className={activeTab === "projects" ? "h-full w-full" : "hidden"}>
             <ProjectsView
+              isActive={activeTab === "projects"}
               onNavigateToTerminal={handleNavigateToTerminal}
               onNavigateToGit={handleNavigateToGit}
             />
           </div>
           <div className={activeTab === "terminal" ? "h-full w-full" : "hidden"}>
-            <TerminalView initialSelection={terminalSelection} />
+            <TerminalView
+              isActive={activeTab === "terminal"}
+              initialSelection={terminalSelection}
+            />
           </div>
           <div className={activeTab === "processes" ? "h-full w-full" : "hidden"}>
             <ProcessesView
+              isActive={activeTab === "processes"}
               onNavigateToTerminal={handleNavigateToTerminal}
               onNavigateToProjects={() => setActiveTab("projects")}
             />
           </div>
           <div className={activeTab === "git" ? "h-full w-full" : "hidden"}>
-            <GitView initialSelection={gitSelection} />
+            <GitView
+              isActive={activeTab === "git"}
+              initialSelection={gitSelection}
+            />
           </div>
           <div className={activeTab === "api-tester" ? "h-full w-full" : "hidden"}>
             <ApiTesterView />
@@ -211,7 +219,9 @@ export default function Home() {
             <DatabaseView />
           </div>
           <div className={activeTab === "env" ? "h-full w-full" : "hidden"}>
-            <EnvEditorView />
+            <EnvEditorView
+              isActive={activeTab === "env"}
+            />
           </div>
           <div className={activeTab === "settings" ? "h-full w-full" : "hidden"}>
             <SettingsView />

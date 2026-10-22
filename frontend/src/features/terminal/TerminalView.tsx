@@ -11,6 +11,7 @@ import {
   stopProcess,
 } from "@/services/processes";
 import { WorkspaceWithProjects } from "@/types/project";
+import { useWorkspaceSubscription } from "@/services/workspaceSync";
 import { ManagedProcess, ProcessLogEntry, ProcessStatus } from "@/types/process";
 
 export interface TerminalTab {
@@ -32,6 +33,7 @@ export interface TerminalTab {
 }
 
 interface TerminalViewProps {
+  isActive?: boolean;
   initialSelection?: {
     workspaceId?: string;
     projectId?: string;
@@ -63,10 +65,12 @@ function createDefaultTab(index = 1): TerminalTab {
   };
 }
 
-export function TerminalView({ initialSelection }: TerminalViewProps = {}) {
+export function TerminalView({ isActive, initialSelection }: TerminalViewProps = {}) {
   // Workspaces state
   const [workspaces, setWorkspaces] = useState<WorkspaceWithProjects[]>([]);
   const [loadingWorkspaces, setLoadingWorkspaces] = useState<boolean>(true);
+
+  useWorkspaceSubscription(setWorkspaces, isActive);
 
   // Tabs state
   const [tabs, setTabs] = useState<TerminalTab[]>([]);

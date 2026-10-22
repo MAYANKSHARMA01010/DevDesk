@@ -98,6 +98,10 @@ export async function scanAndSaveWorkspace(
     );
   }
 
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent("devdesk:workspaces-changed"));
+  }
+
   return json.data;
 }
 
@@ -139,6 +143,10 @@ export async function forgetWorkspace(id: string): Promise<void> {
       json.error || `Failed to forget workspace (status: ${response.status}).`
     );
   }
+
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent("devdesk:workspaces-changed"));
+  }
 }
 
 /**
@@ -175,6 +183,10 @@ export async function markWorkspaceOpened(
     throw new Error(
       json.error || `Failed to update workspace last opened (status: ${response.status}).`
     );
+  }
+
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent("devdesk:workspaces-changed"));
   }
 
   return json.data;
