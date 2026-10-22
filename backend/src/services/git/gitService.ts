@@ -411,7 +411,7 @@ export class GitService {
 
     return {
       projectId: project.id,
-      projectName: project.name,
+      projectName: project.displayName || project.name,
       projectPath: project.path,
       repositoryRoot,
       currentBranch,

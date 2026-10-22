@@ -3,6 +3,7 @@ import fs from "fs";
 import { getDatabase } from "../../config/database.js";
 import { DiscoveredProject, PackageManager, ProjectType } from "../../types/project.js";
 import { SavedProject, WorkspaceWithProjects } from "../../types/workspace.js";
+import { resolveDisplayNames } from "../projects/projectScanner.js";
 
 interface WorkspaceRow {
   id: string;
@@ -25,6 +26,9 @@ interface ProjectRow {
   git_root?: string | null;
   git_remote?: string | null;
   is_root?: number | null;
+  display_name?: string | null;
+  namespace?: string | null;
+  has_name_collision?: number | null;
   updated_at: string;
 }
 
@@ -33,6 +37,9 @@ function mapProjectRow(row: ProjectRow): SavedProject {
     id: row.id,
     workspaceId: row.workspace_id,
     name: row.name,
+    displayName: row.display_name || undefined,
+    namespace: row.namespace || undefined,
+    hasNameCollision: Boolean(row.has_name_collision),
     path: row.path,
     relativePath: row.relative_path || undefined,
     type: row.type as ProjectType,
@@ -49,6 +56,17 @@ function mapWorkspaceRow(
   workspaceRow: WorkspaceRow,
   projectRows: ProjectRow[]
 ): WorkspaceWithProjects {
+  const projects = projectRows.map(mapProjectRow);
+  // Re-run naming resolver to ensure live display names & namespaces are always fresh
+  resolveDisplayNames(projects, workspaceRow.root_path);
+  // Sort projects so root is first, then alphabetical by displayName
+  projects.sort((a, b) => {
+    if (a.isRoot && !b.isRoot) return -1;
+    if (!a.isRoot && b.isRoot) return 1;
+    const aLabel = a.displayName || a.name;
+    const bLabel = b.displayName || b.name;
+    return aLabel.localeCompare(bLabel);
+  });
   return {
     id: workspaceRow.id,
     rootPath: workspaceRow.root_path,
@@ -56,7 +74,7 @@ function mapWorkspaceRow(
     lastScannedAt: workspaceRow.last_scanned_at,
     createdAt: workspaceRow.created_at,
     updatedAt: workspaceRow.updated_at,
-    projects: projectRows.map(mapProjectRow),
+    projects,
   };
 }
 
@@ -237,8 +255,8 @@ export class WorkspaceRepository {
       const insertProjectStmt = db.prepare(
         `INSERT INTO projects (
           id, workspace_id, name, path, relative_path, type, package_manager, 
-          is_git_repo, git_root, git_remote, is_root, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+          is_git_repo, git_root, git_remote, is_root, display_name, namespace, has_name_collision, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       );
 
       for (const project of discoveredProjects) {
@@ -255,6 +273,9 @@ export class WorkspaceRepository {
           project.gitRoot || null,
           project.gitRemote || null,
           project.isRoot ? 1 : 0,
+          project.displayName || null,
+          project.namespace || null,
+          project.hasNameCollision ? 1 : 0,
           now
         );
       }

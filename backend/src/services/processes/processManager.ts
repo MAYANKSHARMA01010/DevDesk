@@ -227,7 +227,7 @@ export class ProcessManager {
       id: processId,
       projectId: project.id,
       workspaceId: project.workspaceId,
-      projectName: project.name,
+      projectName: project.displayName || project.name,
       script: scriptLabel,
       command: fullCommand,
       status: "starting",

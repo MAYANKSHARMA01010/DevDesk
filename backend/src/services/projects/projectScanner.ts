@@ -52,7 +52,75 @@ export const DEFAULT_IGNORED_DIRS = new Set([
   "scratch",
   ".parcel-cache",
   ".yarn",
+  "src-tauri",
 ]);
+
+/**
+ * Boilerplate directory segments too generic to serve as a project qualifier or unique name.
+ */
+export const GENERIC_DIR_SEGMENTS = new Set([
+  "apps",
+  "packages",
+  "libs",
+  "modules",
+  "services",
+  "src",
+  "source",
+  "app",
+  "core",
+  "common",
+  "shared",
+  "utils",
+  "helpers",
+  "config",
+  "scripts",
+  "tools",
+  "internal",
+  "external",
+  "public",
+  "private",
+  "main",
+  "root",
+  "projects",
+  "workspace",
+  "monorepo",
+]);
+
+/**
+ * Generic component names that frequently repeat across different repositories
+ * and should always be qualified by their parent project name in the UI.
+ */
+export const GENERIC_COMPONENT_NAMES = new Set([
+  "frontend",
+  "backend",
+  "client",
+  "server",
+  "api",
+  "web",
+  "ui",
+  "desktop",
+  "mobile",
+  "app",
+  "apps",
+  "python",
+  "service",
+  "services",
+  "worker",
+  "admin",
+  "dashboard",
+  "remotion",
+  "widget",
+]);
+
+export interface ProjectNamingTarget {
+  name: string;
+  path: string;
+  relativePath?: string;
+  isRoot?: boolean;
+  displayName?: string;
+  namespace?: string;
+  hasNameCollision?: boolean;
+}
 
 /**
  * Resolves home directory shorthand (~) and standardizes absolute path.
@@ -146,12 +214,33 @@ export function isConfigOnlyPackage(
     }
   }
 
-  // Empty or stub package.json with no scripts and no dependencies
+  // Monorepo internal stub packages (under packages/ or libs/) with no runnable scripts
+  const isMonorepoPkgDir =
+    directoryPath.includes("/packages/") || directoryPath.includes("/libs/");
+  const hasAppScript =
+    scripts &&
+    Boolean(
+      scripts.dev ||
+        scripts.start ||
+        scripts.build ||
+        scripts.test ||
+        scripts.serve ||
+        scripts.preview
+    );
   const hasDeps =
     (pkg.dependencies && Object.keys(pkg.dependencies).length > 0) ||
     (pkg.devDependencies && Object.keys(pkg.devDependencies).length > 0);
   const hasScripts = scripts && Object.keys(scripts).length > 0;
-  if (!name && !hasDeps && !hasScripts) {
+
+  if (isMonorepoPkgDir && !hasAppScript) {
+    // Pure type/contract/stub declarations with empty scripts or no deps
+    if (!hasScripts || !hasDeps) {
+      return true;
+    }
+  }
+
+  // Empty or stub package.json with no scripts and no dependencies
+  if (!hasDeps && !hasScripts) {
     return true;
   }
 
@@ -292,10 +381,16 @@ export async function detectProjectMarker(directoryPath: string): Promise<{
       return null;
     }
 
-    const projectName =
+    let projectName =
       typeof parsed.name === "string" && parsed.name.trim().length > 0
         ? parsed.name.trim()
         : path.basename(directoryPath);
+
+    // If package.json has a generic directory name like "apps" or "packages", use directory name instead
+    if (GENERIC_DIR_SEGMENTS.has(projectName.toLowerCase())) {
+      projectName = path.basename(directoryPath);
+    }
+
     const projectType = detectProjectType(parsed, directoryPath);
     const pm = await detectPackageManager(directoryPath, parsed);
     return {
@@ -741,7 +836,6 @@ export async function scanProjectsDirectory(
             "server",
             "desktop",
             "python",
-            "src-tauri",
           ]);
           const childHasGit = fsSync.existsSync(path.join(childPath, ".git"));
           if (childHasGit || SUBPROJECT_CONTAINERS.has(entry.name.toLowerCase())) {
@@ -817,56 +911,35 @@ export async function scanProjectsDirectory(
 // ---------------------------------------------------------------------------
 
 /**
- * Boilerplate directory segments too generic to serve as a unique project qualifier.
- * The engine skips these and continues walking up the path hierarchy.
- *
- * Examples:
- *   "Boiler_Code/packages/frontend" → skip "packages" → qualifier: "Boiler_Code"
- *   "apps/web/frontend"             → skip "apps"     → qualifier: "web"
- *   "MyProject/src/frontend"        → skip "src"      → qualifier: "MyProject"
- */
-const GENERIC_DIR_SEGMENTS = new Set([
-  "apps",
-  "packages",
-  "libs",
-  "modules",
-  "services",
-  "src",
-  "source",
-  "app",
-  "core",
-  "common",
-  "shared",
-  "utils",
-  "helpers",
-  "config",
-  "scripts",
-  "tools",
-  "internal",
-  "external",
-  "public",
-  "private",
-  "main",
-  "root",
-  "projects",
-  "workspace",
-  "monorepo",
-]);
-
-/**
  * Resolves `displayName`, `namespace`, and `hasNameCollision` for all projects.
+ * Supports both DiscoveredProject and SavedProject.
  *
- * - Unique raw names → displayName = name, no namespace, hasNameCollision = false
- * - Colliding raw names → compound parent qualifier from relativePath,
- *   skipping generic boilerplate segments, increasing depth until all unique.
+ * Rules:
+ * 1. Collisions: Any projects sharing the same raw name (case-insensitive) are marked hasNameCollision = true.
+ * 2. Nested Subprojects: If a project is nested (e.g. "Auto_Upload/frontend", "Consistify/apps/backend",
+ *    "campus_connect/frontend", "Verbatix/apps/desktop", "Verbatix/python"):
+ *    - Finds meaningful parent project namespace (skipping generic container dirs like "apps", "packages", "src").
+ *    - If subproject raw name equals namespace or is "apps", normalizes it to directory basename (e.g. "frontend", "backend").
+ *    - Sets namespace = parent namespace (e.g. "Auto_Upload", "Consistify", "Verbatix").
+ *    - Sets displayName = `${namespace} › ${componentName}` (e.g. "Auto_Upload › frontend").
+ * 3. Colliding Top-Level Projects:
+ *    - If top-level projects share a name (e.g. "Boiler_Code" and "Krafty_Portfolio" both named "Portfolio_Santoshi"):
+ *      Sets displayName = `${name} (${folderName})` and namespace = folderName.
+ * 4. Generic Component Names:
+ *    - Projects named "frontend", "backend", "desktop", "python", "client", "server", etc. are always qualified with their namespace.
+ * 5. Global Uniqueness Guarantee:
+ *    - If any displayNames still collide, appends relativePath to guarantee 100% unique labels.
  */
-function resolveDisplayNames(
-  projects: DiscoveredProject[],
+export function resolveDisplayNames<T extends ProjectNamingTarget>(
+  projects: T[],
   workspaceRoot: string
 ): void {
-  const byName = new Map<string, DiscoveredProject[]>();
+  if (!projects || projects.length === 0) return;
+
+  // 1. Group projects by raw name (case-insensitive) to identify name collisions
+  const byName = new Map<string, T[]>();
   for (const proj of projects) {
-    const key = proj.name.toLowerCase();
+    const key = (proj.name || "").trim().toLowerCase();
     const existing = byName.get(key);
     if (existing) {
       existing.push(proj);
@@ -876,103 +949,92 @@ function resolveDisplayNames(
   }
 
   for (const group of byName.values()) {
-    if (group.length === 1) {
-      group[0].displayName = group[0].name;
+    if (group.length > 1) {
+      for (const proj of group) {
+        proj.hasNameCollision = true;
+      }
+    } else {
       group[0].hasNameCollision = false;
+    }
+  }
+
+  // 2. Resolve namespace and displayName for each project
+  for (const proj of projects) {
+    let rel = (proj.relativePath ?? "").replace(/\\/g, "/").trim();
+    if (!rel && proj.path && workspaceRoot) {
+      try {
+        rel = path.relative(workspaceRoot, proj.path).replace(/\\/g, "/");
+      } catch {
+        rel = "";
+      }
+    }
+
+    // Case A: Workspace root project
+    if (proj.isRoot || rel === "." || rel === "") {
+      proj.namespace = undefined;
+      proj.displayName = proj.name;
       continue;
     }
-    for (const proj of group) {
-      proj.hasNameCollision = true;
-    }
-    resolveCollisionGroup(group, workspaceRoot);
-  }
-}
 
-/**
- * Assigns unique `displayName` + `namespace` to each project in a collision group.
- *
- * Algorithm:
- * 1. Parse relativePath ancestors (excluding the project's own directory).
- * 2. Walk from deepest ancestor upward, skipping GENERIC_DIR_SEGMENTS.
- * 3. Collect `levels` meaningful segments and join with " › ".
- * 4. If displayNames are still not unique, increment `levels` and retry.
- * 5. At MAX_LEVELS or if all paths exhausted, use full relativePath as tiebreaker.
- */
-function resolveCollisionGroup(
-  group: DiscoveredProject[],
-  workspaceRoot: string
-): void {
-  function buildQualifier(
-    proj: DiscoveredProject,
-    levels: number
-  ): { namespace: string; displayName: string } {
-    const rel = proj.relativePath ?? "";
+    const parts = rel.split("/").filter(Boolean);
 
-    if (rel === "." || rel === "") {
-      return { namespace: "(root)", displayName: `${proj.name} (root)` };
+    // Case B: Direct top-level folder in workspace root (e.g. "Auto_Upload", "Semester_5_AML_DL")
+    if (parts.length <= 1) {
+      const folderName = parts[0] || proj.name;
+      if (proj.hasNameCollision && folderName.toLowerCase() !== proj.name.toLowerCase()) {
+        // e.g. Boiler_Code vs Krafty_Portfolio both named Portfolio_Santoshi in package.json
+        proj.namespace = folderName;
+        proj.displayName = `${proj.name} (${folderName})`;
+      } else {
+        proj.namespace = undefined;
+        proj.displayName = proj.name;
+      }
+      continue;
     }
 
-    const parts = rel.split("/");
-    // ancestors: all segments except the final (project) directory
-    const ancestors = parts.slice(0, Math.max(parts.length - 1, 0));
+    // Case C: Nested subprojects (e.g. "Auto_Upload/frontend", "Consistify/apps/backend", "Verbatix/apps/desktop")
+    const ownDir = parts[parts.length - 1];
+    const ancestors = parts.slice(0, parts.length - 1);
 
-    if (ancestors.length === 0) {
-      return { namespace: parts[0], displayName: `${parts[0]} › ${proj.name}` };
-    }
-
-    // Walk from deepest to shallowest, collect non-generic segments
+    // Collect non-generic ancestors in order (e.g. ["shorts-factory", "ClipPilot"] from "shorts-factory/packages/ClipPilot/remotion_explainer")
     const meaningful: string[] = [];
-    for (let i = ancestors.length - 1; i >= 0 && meaningful.length < levels; i--) {
-      const seg = ancestors[i];
+    for (const seg of ancestors) {
       if (!GENERIC_DIR_SEGMENTS.has(seg.toLowerCase())) {
-        meaningful.unshift(seg);
-      } else if (meaningful.length > 0) {
-        // Stop at a generic boundary once we have something meaningful
-        break;
+        meaningful.push(seg);
       }
     }
 
-    // Fallback: nothing was meaningful, use the last ancestor raw
-    if (meaningful.length === 0) {
-      meaningful.push(ancestors[ancestors.length - 1]);
+    const namespace = meaningful.length > 0 ? meaningful.join(" › ") : ancestors[ancestors.length - 1];
+
+    // Normalize project name if it was generic or duplicated the parent name
+    let componentName = proj.name;
+    if (
+      proj.name.toLowerCase() === namespace.toLowerCase() ||
+      proj.name.toLowerCase() === "apps" ||
+      proj.name.toLowerCase() === "packages"
+    ) {
+      componentName = ownDir;
+      proj.name = ownDir;
     }
 
-    const namespace = meaningful.join(" › ");
-    return { namespace, displayName: `${namespace} › ${proj.name}` };
+    proj.namespace = namespace;
+    proj.displayName = `${namespace} › ${componentName}`;
   }
 
-  let levels = 1;
-  const MAX_LEVELS = 6;
+  // 3. Post-pass: ensure all displayNames are unique across the workspace
+  const displayCounts = new Map<string, number>();
+  for (const proj of projects) {
+    const key = (proj.displayName || proj.name).toLowerCase();
+    displayCounts.set(key, (displayCounts.get(key) || 0) + 1);
+  }
 
-  while (levels <= MAX_LEVELS) {
-    const seen = new Map<string, DiscoveredProject[]>();
-    for (const proj of group) {
-      const { displayName } = buildQualifier(proj, levels);
-      const key = displayName.toLowerCase();
-      const g = seen.get(key);
-      if (g) g.push(proj);
-      else seen.set(key, [proj]);
-    }
-
-    const allUnique = [...seen.values()].every((g) => g.length === 1);
-
-    if (allUnique || levels === MAX_LEVELS) {
-      for (const proj of group) {
-        const { namespace, displayName } = buildQualifier(proj, levels);
-        proj.displayName = displayName;
-        proj.namespace = namespace;
+  for (const proj of projects) {
+    const key = (proj.displayName || proj.name).toLowerCase();
+    if ((displayCounts.get(key) || 0) > 1) {
+      const rel = (proj.relativePath ?? "").replace(/\\/g, "/");
+      if (rel && rel !== ".") {
+        proj.displayName = `${proj.displayName || proj.name} (${rel})`;
       }
-      // Last-resort tiebreaker: full relative path
-      if (!allUnique) {
-        for (const proj of group) {
-          const suffix = proj.relativePath ?? proj.path.replace(workspaceRoot, "");
-          proj.displayName = `${proj.name} (${suffix})`;
-          proj.namespace = suffix;
-        }
-      }
-      break;
     }
-
-    levels++;
   }
 }

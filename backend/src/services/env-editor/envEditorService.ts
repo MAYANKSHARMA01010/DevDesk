@@ -206,7 +206,7 @@ export class EnvEditorService {
 
     return {
       projectId: project.id,
-      projectName: project.name,
+      projectName: project.displayName || project.name,
       projectPath: project.path,
       files,
     };
@@ -224,7 +224,7 @@ export class EnvEditorService {
 
     if (!exists) {
       throw new NotFoundError(
-        `Environment file "${filename}" does not exist in project "${project.name}".`
+        `Environment file "${filename}" does not exist in project "${project.displayName || project.name}".`
       );
     }
 
@@ -241,7 +241,7 @@ export class EnvEditorService {
 
     return {
       projectId: project.id,
-      projectName: project.name,
+      projectName: project.displayName || project.name,
       filename,
       lastModified: stat.mtime.toISOString(),
       sizeBytes: stat.size,

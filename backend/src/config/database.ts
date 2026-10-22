@@ -154,6 +154,9 @@ export function initializeDatabase(): SqliteDatabase {
       git_root TEXT,
       git_remote TEXT,
       is_root INTEGER NOT NULL DEFAULT 0,
+      display_name TEXT,
+      namespace TEXT,
+      has_name_collision INTEGER NOT NULL DEFAULT 0,
       updated_at TEXT NOT NULL,
       FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE,
       UNIQUE(workspace_id, path)
@@ -196,6 +199,15 @@ export function initializeDatabase(): SqliteDatabase {
     }
     if (!colSet.has("is_root")) {
       db.exec("ALTER TABLE projects ADD COLUMN is_root INTEGER NOT NULL DEFAULT 0");
+    }
+    if (!colSet.has("display_name")) {
+      db.exec("ALTER TABLE projects ADD COLUMN display_name TEXT");
+    }
+    if (!colSet.has("namespace")) {
+      db.exec("ALTER TABLE projects ADD COLUMN namespace TEXT");
+    }
+    if (!colSet.has("has_name_collision")) {
+      db.exec("ALTER TABLE projects ADD COLUMN has_name_collision INTEGER NOT NULL DEFAULT 0");
     }
   } catch (migErr) {
     console.error("[Database] Migration warning:", migErr);

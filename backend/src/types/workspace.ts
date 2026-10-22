@@ -4,6 +4,9 @@ export interface SavedProject {
   id: string;
   workspaceId: string;
   name: string;
+  displayName?: string;
+  namespace?: string;
+  hasNameCollision?: boolean;
   path: string;
   relativePath?: string;
   type: ProjectType;

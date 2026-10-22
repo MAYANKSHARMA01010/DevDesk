@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { fetchWorkspaces } from "@/services/projects";
 import {
   checkoutBranch,
@@ -88,9 +88,14 @@ export function GitView({ initialSelection }: GitViewProps = {}) {
             if (targetWs) {
               setSelectedWorkspaceId(targetWs.id);
               if (initialSelection?.projectId) {
-                const targetProj = targetWs.projects.find((p) => p.id === initialSelection.projectId);
+                const targetProj = targetWs.projects.find(
+                  (p) => p.id === initialSelection.projectId && (p.isGitRepo || p.type === "Git Repository")
+                );
                 if (targetProj) {
                   setSelectedProjectId(targetProj.id);
+                } else {
+                  const firstGit = targetWs.projects.find((p) => p.isGitRepo || p.type === "Git Repository");
+                  setSelectedProjectId(firstGit ? firstGit.id : "");
                 }
               }
             }
@@ -120,11 +125,19 @@ export function GitView({ initialSelection }: GitViewProps = {}) {
     };
   }, [initialSelection]);
 
-  // Derived active workspace and project
+  // Derived active workspace and Git projects
   const activeWorkspace =
     workspaces.find((w) => w.id === selectedWorkspaceId) || null;
+
+  // Filter projects to only those that are Git repositories
+  const gitProjects = useMemo(() => {
+    return (activeWorkspace?.projects || []).filter(
+      (p) => Boolean(p.isGitRepo) || p.type === "Git Repository"
+    );
+  }, [activeWorkspace]);
+
   const activeProject =
-    activeWorkspace?.projects.find((p) => p.id === selectedProjectId) || null;
+    gitProjects.find((p) => p.id === selectedProjectId) || null;
 
   // 2. Fetch all Git data for selected project
   async function loadGitData(projectId: string, isManualRefresh = false) {
@@ -200,7 +213,18 @@ export function GitView({ initialSelection }: GitViewProps = {}) {
   // Reload Git data when selected project changes
   useEffect(() => {
     if (selectedProjectId) {
-      loadGitData(selectedProjectId);
+      const isGitProject = gitProjects.some((p) => p.id === selectedProjectId);
+      if (isGitProject) {
+        loadGitData(selectedProjectId);
+      } else {
+        setSelectedProjectId("");
+        setGitStatus(null);
+        setBranches(null);
+        setHistory([]);
+        setSelectedFile(null);
+        setDiffResult(null);
+        setErrorMessage(null);
+      }
     } else {
       setGitStatus(null);
       setBranches(null);
@@ -209,7 +233,7 @@ export function GitView({ initialSelection }: GitViewProps = {}) {
       setDiffResult(null);
       setErrorMessage(null);
     }
-  }, [selectedProjectId]);
+  }, [selectedProjectId, gitProjects]);
 
   // 3. Load diff when selectedFile changes
   useEffect(() => {
@@ -529,16 +553,24 @@ export function GitView({ initialSelection }: GitViewProps = {}) {
               <select
                 value={selectedProjectId}
                 onChange={(e) => setSelectedProjectId(e.target.value)}
-                disabled={actionLoading || !activeWorkspace || activeWorkspace.projects.length === 0}
-                className="px-2.5 py-1.5 rounded-md text-xs font-medium text-zinc-200 bg-zinc-950 border border-zinc-800 hover:border-zinc-700 focus:outline-none focus:ring-1 focus:ring-zinc-600 transition-all cursor-pointer max-w-[180px] truncate"
+                disabled={actionLoading || !activeWorkspace || gitProjects.length === 0}
+                className="px-2.5 py-1.5 rounded-md text-xs font-medium text-zinc-200 bg-zinc-950 border border-zinc-800 hover:border-zinc-700 focus:outline-none focus:ring-1 focus:ring-zinc-600 transition-all cursor-pointer max-w-[280px] truncate"
               >
-                <option value="">None (Select Project)</option>
-                {activeWorkspace?.projects.map((proj) => (
-                  <option key={proj.id} value={proj.id}>
-                    {proj.isRoot ? `[Root] ${proj.name}` : proj.isGitRepo ? `[Git] ${proj.name}` : proj.name}
-                    {proj.relativePath && proj.relativePath !== "." ? ` (${proj.relativePath})` : ""}
-                  </option>
-                ))}
+                {gitProjects.length === 0 ? (
+                  <option value="">No Git repositories found</option>
+                ) : (
+                  <>
+                    <option value="">None (Select Project)</option>
+                    {gitProjects.map((proj) => {
+                      const label = proj.displayName || proj.name;
+                      return (
+                        <option key={proj.id} value={proj.id}>
+                          {proj.isRoot ? `[Root] ${label}` : label}
+                        </option>
+                      );
+                    })}
+                  </>
+                )}
               </select>
             </div>
 
@@ -673,9 +705,15 @@ export function GitView({ initialSelection }: GitViewProps = {}) {
           <div className="w-12 h-12 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center text-sm font-mono text-zinc-400 mb-4 shadow-sm">
             ⎇
           </div>
-          <p className="text-sm font-semibold text-zinc-200">No Project Selected</p>
+          <p className="text-sm font-semibold text-zinc-200">
+            {activeWorkspace && gitProjects.length === 0
+              ? "No Git Repositories Found"
+              : "No Repository Selected"}
+          </p>
           <p className="text-xs text-zinc-400 mt-1 max-w-md leading-relaxed">
-            Select a workspace and project from the toolbar above to view Git branches, inspect file changes, stage files, and create commits.
+            {activeWorkspace && gitProjects.length === 0
+              ? "The selected workspace does not contain any Git repositories."
+              : "Select a workspace and Git repository from the toolbar above to view Git branches, inspect file changes, stage files, and create commits."}
           </p>
         </div>
       ) : !gitStatus ? (

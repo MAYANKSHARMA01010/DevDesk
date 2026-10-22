@@ -492,12 +492,12 @@ export function EnvEditorView({ initialSelection }: EnvEditorViewProps = {}) {
               value={selectedProjectId}
               onChange={(e) => setSelectedProjectId(e.target.value)}
               disabled={availableProjects.length === 0}
-              className="px-2.5 py-1.5 bg-zinc-900 border border-zinc-700 rounded-md text-xs text-zinc-200 focus:outline-none focus:border-zinc-500 disabled:opacity-50"
+              className="px-2.5 py-1.5 bg-zinc-900 border border-zinc-700 rounded-md text-xs text-zinc-200 focus:outline-none focus:border-zinc-500 disabled:opacity-50 max-w-[280px] truncate"
             >
               <option value="">None (Select Project)</option>
               {availableProjects.map((proj) => (
                 <option key={proj.id} value={proj.id}>
-                  {proj.name} ({proj.type})
+                  {proj.displayName || proj.name} ({proj.type})
                 </option>
               ))}
             </select>

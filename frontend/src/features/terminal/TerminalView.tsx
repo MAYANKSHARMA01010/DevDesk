@@ -19,6 +19,7 @@ export interface TerminalTab {
   workspaceId: string;
   projectId: string;
   projectName: string;
+  projectDisplayName?: string;
   script: string;
   customCommand: string;
   isCustom: boolean;
@@ -49,6 +50,7 @@ function createDefaultTab(index = 1): TerminalTab {
     workspaceId: "",
     projectId: "",
     projectName: "",
+    projectDisplayName: "",
     script: "",
     customCommand: "",
     isCustom: false,
@@ -156,6 +158,30 @@ export function TerminalView({ initialSelection }: TerminalViewProps = {}) {
           // ignore corrupted storage
         }
 
+        // Heal and re-qualify restored tabs using freshly loaded workspace project data
+        const allLoadedProjects = loadedWorkspaces.flatMap((w) => w.projects);
+        restoredTabs = restoredTabs.map((t) => {
+          const matchedProj = allLoadedProjects.find((p) => p.id === t.projectId);
+          if (!matchedProj) return t;
+
+          const projLabel = matchedProj.displayName || matchedProj.name;
+          let newTitle = t.title;
+
+          // If the title still uses the old raw name (e.g. "frontend: dev" or "frontend: term"), heal it
+          const oldName = t.projectName || matchedProj.name;
+          if (t.title.startsWith(`${oldName}:`) || t.title === oldName) {
+            const suffix = t.title.includes(":") ? t.title.split(":").slice(1).join(":") : "term";
+            newTitle = `${projLabel}:${suffix}`;
+          }
+
+          return {
+            ...t,
+            projectName: matchedProj.name,
+            projectDisplayName: projLabel,
+            title: newTitle,
+          };
+        });
+
         let initialActiveId = "";
         try {
           initialActiveId = localStorage.getItem(LOCAL_STORAGE_ACTIVE_TAB_KEY) || "";
@@ -169,6 +195,7 @@ export function TerminalView({ initialSelection }: TerminalViewProps = {}) {
           const targetProj = targetWs?.projects.find((p) => p.id === initialSelection.projectId);
 
           if (targetWs && targetProj) {
+            const projLabel = targetProj.displayName || targetProj.name;
             // Check if there is already a tab for this project
             const existingTab = restoredTabs.find(
               (t) =>
@@ -182,10 +209,11 @@ export function TerminalView({ initialSelection }: TerminalViewProps = {}) {
               // Create a dedicated tab for this selected project
               const newTab: TerminalTab = {
                 ...createDefaultTab(restoredTabs.length + 1),
-                title: `${targetProj.name}: ${initialSelection.script || "term"}`,
+                title: `${projLabel}: ${initialSelection.script || "term"}`,
                 workspaceId: targetWs.id,
                 projectId: targetProj.id,
                 projectName: targetProj.name,
+                projectDisplayName: projLabel,
                 script: initialSelection.script || "",
               };
               restoredTabs.push(newTab);
@@ -245,13 +273,15 @@ export function TerminalView({ initialSelection }: TerminalViewProps = {}) {
     if (existingIndex >= 0) {
       setActiveTabId(tabs[existingIndex].id);
     } else {
+      const projLabel = targetProj.displayName || targetProj.name;
       // Create new tab
       const newTab: TerminalTab = {
         ...createDefaultTab(tabs.length + 1),
-        title: `${targetProj.name}: ${initialSelection.script || "term"}`,
+        title: `${projLabel}: ${initialSelection.script || "term"}`,
         workspaceId: targetWs.id,
         projectId: targetProj.id,
         projectName: targetProj.name,
+        projectDisplayName: projLabel,
         script: initialSelection.script || "",
       };
       setTabs((prev) => [...prev, newTab]);
@@ -473,34 +503,39 @@ export function TerminalView({ initialSelection }: TerminalViewProps = {}) {
   function handleWorkspaceChange(wsId: string) {
     const ws = workspaces.find((w) => w.id === wsId);
     const firstProj = ws?.projects[0] || null;
+    const projLabel = firstProj ? (firstProj.displayName || firstProj.name) : "";
 
     updateActiveTab({
       workspaceId: wsId,
       projectId: firstProj?.id || "",
       projectName: firstProj?.name || "",
+      projectDisplayName: projLabel,
       script: "",
-      title: firstProj ? `${firstProj.name}: term` : `Terminal ${tabs.length}`,
+      title: firstProj ? `${projLabel}: term` : `Terminal ${tabs.length}`,
     });
   }
 
   function handleProjectChange(projId: string) {
     const proj = activeWorkspace?.projects.find((p) => p.id === projId);
+    const projLabel = proj ? (proj.displayName || proj.name) : "";
     updateActiveTab({
       projectId: projId,
       projectName: proj?.name || "",
+      projectDisplayName: projLabel,
       script: "",
-      title: proj ? `${proj.name}: term` : activeTab?.title || "Terminal",
+      title: proj ? `${projLabel}: term` : activeTab?.title || "Terminal",
     });
   }
 
   // Script selection or custom command update
   function handleSelectScript(scriptKey: string) {
     if (!activeTab) return;
+    const label = activeTab.projectDisplayName || activeTab.projectName;
     updateActiveTab({
       script: scriptKey,
       isCustom: false,
-      title: activeTab.projectName
-        ? `${activeTab.projectName}: ${scriptKey}`
+      title: label
+        ? `${label}: ${scriptKey}`
         : scriptKey,
     });
   }
@@ -535,14 +570,16 @@ export function TerminalView({ initialSelection }: TerminalViewProps = {}) {
         commandToRun || undefined
       );
 
+      const label = activeTab.projectDisplayName || activeTab.projectName;
+
       // Update active tab with running process info
       updateActiveTab({
         processId: proc.id,
         status: "starting",
         latestSeqId: startLog.id,
         logs: [...activeTab.logs, startLog],
-        title: activeTab.projectName
-          ? `${activeTab.projectName}: ${proc.script}`
+        title: label
+          ? `${label}: ${proc.script}`
           : proc.script,
       });
 
@@ -772,7 +809,8 @@ export function TerminalView({ initialSelection }: TerminalViewProps = {}) {
               ) : (
                 <span
                   onDoubleClick={(e) => handleStartRename(tab, e)}
-                  className="truncate max-w-[140px] font-mono text-[11px]"
+                  title={tab.title || `Terminal ${idx + 1}`}
+                  className="truncate max-w-[200px] font-mono text-[11px]"
                 >
                   {tab.title || `Terminal ${idx + 1}`}
                 </span>
@@ -830,14 +868,17 @@ export function TerminalView({ initialSelection }: TerminalViewProps = {}) {
                 value={activeTab?.projectId || ""}
                 onChange={(e) => handleProjectChange(e.target.value)}
                 disabled={!activeTab?.workspaceId || isRunning}
-                className="px-2.5 py-1 rounded bg-zinc-950 border border-zinc-800 text-zinc-200 text-xs hover:border-zinc-700 focus:outline-none disabled:opacity-50 cursor-pointer max-w-[180px] truncate"
+                className="px-2.5 py-1 rounded bg-zinc-950 border border-zinc-800 text-zinc-200 text-xs hover:border-zinc-700 focus:outline-none disabled:opacity-50 cursor-pointer max-w-[280px] truncate"
               >
                 <option value="">(Select Project)</option>
-                {activeWorkspace?.projects.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name} ({p.type})
-                  </option>
-                ))}
+                {(activeWorkspace?.projects || [])
+                  .slice()
+                  .sort((a, b) => (a.displayName || a.name).localeCompare(b.displayName || b.name))
+                  .map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.displayName || p.name} ({p.type})
+                    </option>
+                  ))}
               </select>
             </div>
 

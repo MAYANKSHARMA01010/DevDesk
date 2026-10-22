@@ -600,7 +600,7 @@ export function ProjectsView({
   }
 
   function renderGitBadge(project: DiscoveredProject | SavedProject) {
-    if (project.isGitRepo || project.isRoot || project.type === "Git Repository") {
+    if (project.isGitRepo || project.type === "Git Repository") {
       const projId = "id" in project ? project.id : undefined;
       return (
         <span
@@ -648,7 +648,7 @@ export function ProjectsView({
   const allProjects = activeWorkspace?.projects || [];
   const fullstackCount = allProjects.filter((p) => p.type === "Fullstack").length;
   const aimlCount = allProjects.filter((p) => p.type === "AI / ML / Deep Learning").length;
-  const gitCount = allProjects.filter((p) => p.isGitRepo || p.isRoot).length;
+  const gitCount = allProjects.filter((p) => Boolean(p.isGitRepo) || p.type === "Git Repository").length;
   const runnableCount = allProjects.filter(isRunnableProject).length;
   const nestedCount = allProjects.filter((p) => p.relativePath && p.relativePath !== ".").length;
 
@@ -681,7 +681,7 @@ export function ProjectsView({
       if (filterMode === "aiml" && p.type !== "AI / ML / Deep Learning") {
         return false;
       }
-      if (filterMode === "git" && !p.isGitRepo && !p.isRoot) {
+      if (filterMode === "git" && !p.isGitRepo && p.type !== "Git Repository") {
         return false;
       }
       if (filterMode === "runnable" && !isRunnableProject(p)) {
@@ -1266,27 +1266,20 @@ export function ProjectsView({
             >
               <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
-                  {/* Namespace breadcrumb — shown only when there's a name collision */}
-                  {project.namespace && project.hasNameCollision && (
-                    <div className="flex items-center gap-1 mb-1">
-                      <span className="text-[10px] font-mono text-zinc-500 tracking-wide flex items-center gap-1">
-                        <span className="opacity-60">in</span>
-                        <span className="text-zinc-400 font-medium">{project.namespace}</span>
-                      </span>
-                    </div>
-                  )}
-
                   <div className="flex items-center flex-wrap gap-2">
                     <h3 className="text-sm font-semibold text-zinc-100 tracking-tight flex items-center gap-1.5">
-                      {/* Use displayName (qualified) when there's a collision, else just raw name */}
-                      <span>
-                        {project.namespace && project.hasNameCollision
-                          ? project.name
-                          : (project.displayName || project.name)}
-                      </span>
+                      {project.namespace ? (
+                        <span className="flex items-center gap-1.5">
+                          <span className="text-zinc-400 font-medium">{project.namespace}</span>
+                          <span className="text-zinc-600 font-mono text-xs">›</span>
+                          <span className="text-zinc-100 font-semibold">{project.name}</span>
+                        </span>
+                      ) : (
+                        <span>{project.displayName || project.name}</span>
+                      )}
                       {project.hasNameCollision && (
                         <span
-                          title={`Name collision: multiple projects named "${project.name}" were found. Qualified as: ${project.displayName}`}
+                          title={`Name collision resolved. Qualified as: ${project.displayName || project.name}`}
                           className="text-[10px] text-amber-400/80 cursor-help select-none"
                         >
                           ⚡
