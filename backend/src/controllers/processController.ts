@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { processManager } from "../services/processes/processManager.js";
 import { detectPortsForProcesses } from "../services/processes/portDetector.js";
+import { systemPortService } from "../services/processes/systemPortService.js";
 import { ProcessPortInfo } from "../types/process.js";
 
 /**
@@ -250,3 +251,59 @@ export async function getProcessLogsController(
     });
   }
 }
+
+/**
+ * Handles GET /api/processes/system-ports
+ * Returns all listening TCP ports on the machine with PID, cwd, and process name.
+ */
+export async function getSystemPortsController(
+  _req: Request,
+  res: Response
+): Promise<void> {
+  try {
+    const ports = await systemPortService.getSystemListeningPorts();
+    res.status(200).json({
+      success: true,
+      data: ports,
+    });
+  } catch (err: unknown) {
+    const error = err as Error;
+    res.status(500).json({
+      success: false,
+      error: error.message || "Failed to list system listening ports",
+    });
+  }
+}
+
+/**
+ * Handles POST /api/processes/system-kill
+ * Body: { pid: number, force?: boolean }
+ */
+export async function killSystemProcessController(
+  req: Request,
+  res: Response
+): Promise<void> {
+  try {
+    const { pid, force } = req.body ?? {};
+    if (!pid || typeof pid !== "number" || isNaN(pid)) {
+      res.status(400).json({
+        success: false,
+        error: "Body field 'pid' (number) is required",
+      });
+      return;
+    }
+
+    const result = await systemPortService.killProcess(pid, Boolean(force));
+    res.status(200).json({
+      success: true,
+      message: result.message,
+    });
+  } catch (err: unknown) {
+    const error = err as Error;
+    res.status(400).json({
+      success: false,
+      error: error.message || "Failed to terminate process",
+    });
+  }
+}
+

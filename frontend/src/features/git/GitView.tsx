@@ -79,6 +79,22 @@ export function GitView({ isActive, initialSelection }: GitViewProps = {}) {
   // Checkout confirmation modal when dirty
   const [pendingCheckoutBranch, setPendingCheckoutBranch] = useState<string | null>(null);
 
+  const [copiedPath, setCopiedPath] = useState<boolean>(false);
+
+  const handleCopyPath = (path: string) => {
+    if (typeof navigator !== "undefined" && navigator.clipboard) {
+      navigator.clipboard.writeText(path);
+      setCopiedPath(true);
+      setTimeout(() => setCopiedPath(false), 2000);
+    }
+  };
+
+  const handleRevealInFinder = async (path: string) => {
+    if (window.electron?.revealInFinder) {
+      await window.electron.revealInFinder(path);
+    }
+  };
+
   const isMountedRef = useRef<boolean>(true);
 
   // 1. Initial Load: Workspaces
@@ -93,24 +109,53 @@ export function GitView({ isActive, initialSelection }: GitViewProps = {}) {
         setWorkspaces(loaded);
 
         if (loaded.length > 0) {
+          let wsToSelect = "";
+          let projToSelect = "";
+
           if (initialSelection?.workspaceId) {
             const targetWs = loaded.find((w) => w.id === initialSelection.workspaceId);
             if (targetWs) {
-              setSelectedWorkspaceId(targetWs.id);
+              wsToSelect = targetWs.id;
               if (initialSelection?.projectId) {
                 const targetProj = targetWs.projects.find(
                   (p) => p.id === initialSelection.projectId && (p.isGitRepo || p.type === "Git Repository")
                 );
-                if (targetProj) {
-                  setSelectedProjectId(targetProj.id);
-                } else {
-                  const firstGit = targetWs.projects.find((p) => p.isGitRepo || p.type === "Git Repository");
-                  setSelectedProjectId(firstGit ? firstGit.id : "");
+                projToSelect = targetProj ? targetProj.id : "";
+              }
+            }
+          } else if (typeof window !== "undefined") {
+            const savedWsId =
+              localStorage.getItem("devdesk_git_last_workspace_id") ||
+              localStorage.getItem("devdesk_last_selected_workspace_id");
+            if (savedWsId) {
+              const matchedWs = loaded.find((w) => w.id === savedWsId);
+              if (matchedWs) {
+                wsToSelect = matchedWs.id;
+                const savedProjId =
+                  localStorage.getItem("devdesk_git_last_project_id") ||
+                  localStorage.getItem("devdesk_last_selected_project_id");
+                if (savedProjId) {
+                  const matchedProj = matchedWs.projects.find(
+                    (p) => p.id === savedProjId && (p.isGitRepo || p.type === "Git Repository")
+                  );
+                  if (matchedProj) {
+                    projToSelect = matchedProj.id;
+                  }
                 }
               }
             }
+          }
+
+          if (wsToSelect) {
+            setSelectedWorkspaceId(wsToSelect);
+            if (projToSelect) {
+              setSelectedProjectId(projToSelect);
+            } else {
+              const targetWs = loaded.find((w) => w.id === wsToSelect);
+              const firstGit = targetWs?.projects.find((p) => p.isGitRepo || p.type === "Git Repository");
+              setSelectedProjectId(firstGit ? firstGit.id : "");
+            }
           } else {
-            // Default None
             setSelectedWorkspaceId("");
             setSelectedProjectId("");
           }
@@ -134,6 +179,21 @@ export function GitView({ isActive, initialSelection }: GitViewProps = {}) {
       isMountedRef.current = false;
     };
   }, [initialSelection]);
+
+  // Persist workspace & project changes
+  useEffect(() => {
+    if (selectedWorkspaceId && typeof window !== "undefined") {
+      localStorage.setItem("devdesk_git_last_workspace_id", selectedWorkspaceId);
+      localStorage.setItem("devdesk_last_selected_workspace_id", selectedWorkspaceId);
+    }
+  }, [selectedWorkspaceId]);
+
+  useEffect(() => {
+    if (selectedProjectId && typeof window !== "undefined") {
+      localStorage.setItem("devdesk_git_last_project_id", selectedProjectId);
+      localStorage.setItem("devdesk_last_selected_project_id", selectedProjectId);
+    }
+  }, [selectedProjectId]);
 
   // Derived active workspace and Git projects
   const activeWorkspace =
@@ -637,6 +697,43 @@ export function GitView({ isActive, initialSelection }: GitViewProps = {}) {
             </div>
           )}
         </div>
+
+        {/* Project Location Bar */}
+        {activeProject && (
+          <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-1.5 rounded-md bg-zinc-950/80 border border-zinc-800/80 text-xs font-mono text-zinc-300">
+            <div className="flex items-center gap-2 truncate min-w-0">
+              <span className="text-zinc-500 font-sans text-[11px] font-semibold uppercase tracking-wider shrink-0">
+                Path:
+              </span>
+              <span className="truncate select-all text-zinc-200" title={activeProject.path}>
+                {activeProject.path}
+              </span>
+              {activeProject.relativePath && activeProject.relativePath !== "." && (
+                <span className="text-[10px] text-zinc-500 hidden md:inline shrink-0">
+                  📁 {activeProject.relativePath}
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-1.5 shrink-0 ml-auto">
+              <button
+                type="button"
+                onClick={() => handleCopyPath(activeProject.path)}
+                className="px-2 py-0.5 rounded bg-zinc-900 border border-zinc-700/80 hover:bg-zinc-800 hover:text-white text-zinc-300 text-[11px] transition cursor-pointer"
+                title="Copy full directory path to clipboard"
+              >
+                {copiedPath ? "✓ Copied" : "📋 Copy Path"}
+              </button>
+              <button
+                type="button"
+                onClick={() => handleRevealInFinder(activeProject.path)}
+                className="px-2 py-0.5 rounded bg-zinc-900 border border-zinc-700/80 hover:bg-zinc-800 hover:text-white text-zinc-300 text-[11px] transition cursor-pointer"
+                title="Reveal folder in Finder"
+              >
+                📁 Reveal in Finder
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Notifications & Confirmation Banners */}
         {errorMessage && (

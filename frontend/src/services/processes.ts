@@ -7,6 +7,8 @@ import {
   ProcessPortsResponse,
   ProcessResponse,
   ProjectScriptsResponse,
+  SystemPortInfo,
+  SystemPortsResponse,
 } from "@/types/process";
 
 const BACKEND_BASE_URL =
@@ -265,3 +267,70 @@ export async function fetchProcessPorts(): Promise<ProcessPortInfo[]> {
 
   return json.data;
 }
+
+/**
+ * Retrieves all system-wide TCP listening ports across localhost and interfaces.
+ * Calls GET /api/processes/system-ports
+ */
+export async function fetchSystemPorts(): Promise<SystemPortInfo[]> {
+  const queryUrl = `${BACKEND_BASE_URL}/api/processes/system-ports`;
+
+  let response: Response;
+  try {
+    response = await fetch(queryUrl, { cache: "no-store" });
+  } catch (err: unknown) {
+    const errorMsg = err instanceof Error ? err.message : "Network error";
+    throw new Error(
+      `Cannot connect to DevDesk backend at ${BACKEND_BASE_URL} (${errorMsg}). Ensure the backend is running.`
+    );
+  }
+
+  let json: SystemPortsResponse;
+  try {
+    json = (await response.json()) as SystemPortsResponse;
+  } catch {
+    throw new Error(`Invalid response received from backend (${response.status}).`);
+  }
+
+  if (!response.ok || !json.success || !json.data) {
+    throw new Error(json.error || `Failed to fetch system ports (${response.status})`);
+  }
+
+  return json.data;
+}
+
+/**
+ * Terminates any system process by PID.
+ * Calls POST /api/processes/system-kill
+ */
+export async function killSystemProcess(pid: number, force = false): Promise<string> {
+  const queryUrl = `${BACKEND_BASE_URL}/api/processes/system-kill`;
+
+  let response: Response;
+  try {
+    response = await fetch(queryUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ pid, force }),
+    });
+  } catch (err: unknown) {
+    const errorMsg = err instanceof Error ? err.message : "Network error";
+    throw new Error(
+      `Cannot connect to DevDesk backend at ${BACKEND_BASE_URL} (${errorMsg}). Ensure the backend is running.`
+    );
+  }
+
+  let json: { success: boolean; message?: string; error?: string };
+  try {
+    json = await response.json();
+  } catch {
+    throw new Error(`Invalid response received from backend (${response.status}).`);
+  }
+
+  if (!response.ok || !json.success) {
+    throw new Error(json.error || `Failed to terminate process PID ${pid} (${response.status})`);
+  }
+
+  return json.message || `Terminated PID ${pid}`;
+}
+

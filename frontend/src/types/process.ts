@@ -87,3 +87,23 @@ export interface ProcessPortsResponse {
   data?: ProcessPortInfo[];
   error?: string;
 }
+
+export interface SystemPortInfo {
+  port: number;
+  pid: number;
+  processName: string;
+  user: string;
+  protocol: string;
+  address: string;
+  command?: string;
+  cwd?: string;
+  isDevDeskManaged?: boolean;
+  devDeskProcessId?: string;
+}
+
+export interface SystemPortsResponse {
+  success: boolean;
+  data?: SystemPortInfo[];
+  error?: string;
+}
+

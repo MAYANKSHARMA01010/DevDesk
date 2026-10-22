@@ -3,8 +3,8 @@ import type { ActionResult, ElectronAPI } from "./types";
 
 const electronAPI: ElectronAPI = {
   ping: (): Promise<string> => ipcRenderer.invoke("ping"),
-  selectDirectory: (): Promise<string | null> =>
-    ipcRenderer.invoke("dialog:select-directory"),
+  selectDirectory: (defaultPath?: string): Promise<string | null> =>
+    ipcRenderer.invoke("dialog:select-directory", defaultPath),
   openInVSCode: (projectPath: string): Promise<ActionResult> =>
     ipcRenderer.invoke("project:open-vscode", projectPath),
   openInEditor: (projectPath: string, editorId?: string): Promise<ActionResult> =>

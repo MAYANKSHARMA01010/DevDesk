@@ -142,6 +142,34 @@ export class EnvEditorService {
   }
 
   /**
+   * Scans all projects within a workspace and returns the IDs of projects
+   * that contain at least one supported .env file on disk.
+   */
+  public async getWorkspaceProjectsWithEnv(workspaceId: string): Promise<string[]> {
+    if (!workspaceId || typeof workspaceId !== "string" || !workspaceId.trim()) {
+      return [];
+    }
+
+    const workspace = workspaceRepository.getById(workspaceId.trim());
+    if (!workspace) return [];
+
+    const projectIdsWithEnv: string[] = [];
+
+    for (const project of workspace.projects) {
+      if (fs.existsSync(project.path)) {
+        const hasEnv = ALLOWED_ENV_FILES.some((fname) =>
+          fs.existsSync(path.resolve(project.path, fname))
+        );
+        if (hasEnv) {
+          projectIdsWithEnv.push(project.id);
+        }
+      }
+    }
+
+    return projectIdsWithEnv;
+  }
+
+  /**
    * Lists all supported environment files for a project without exposing variable values.
    */
   public async listEnvFiles(projectId: string): Promise<EnvFilesListResult> {

@@ -1,5 +1,6 @@
 import { Router } from "express";
 import {
+  getWorkspaceProjectsWithEnvController,
   listEnvFilesController,
   readEnvFileController,
   createEnvFileController,
@@ -7,6 +8,12 @@ import {
 } from "../controllers/envEditorController.js";
 
 const router = Router();
+
+// GET /api/env-editor/workspaces/:workspaceId/projects-with-env - List project IDs containing .env files
+router.get(
+  "/workspaces/:workspaceId/projects-with-env",
+  getWorkspaceProjectsWithEnvController
+);
 
 // GET /api/env-editor/:projectId/files - Lists available supported environment files
 router.get("/:projectId/files", listEnvFilesController);

@@ -5,6 +5,7 @@ import { fetchWorkspaces } from "@/services/projects";
 import {
   createEnvFile,
   fetchEnvFiles,
+  fetchWorkspaceProjectsWithEnv,
   readEnvFile,
   saveEnvFile,
 } from "@/services/env-editor";
@@ -48,12 +49,24 @@ export function EnvEditorView({ isActive, initialSelection }: EnvEditorViewProps
 
   // Workspace & Project Selection
   const [workspaces, setWorkspaces] = useState<WorkspaceWithProjects[]>([]);
-  const [selectedWorkspaceId, setSelectedWorkspaceId] = useState<string>(
-    initialSelection?.workspaceId || ""
-  );
-  const [selectedProjectId, setSelectedProjectId] = useState<string>(
-    initialSelection?.projectId || ""
-  );
+  const [selectedWorkspaceId, setSelectedWorkspaceId] = useState<string>(() => {
+    if (initialSelection?.workspaceId) return initialSelection.workspaceId;
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("devdesk_enveditor_last_workspace_id") || "";
+    }
+    return "";
+  });
+  const [selectedProjectId, setSelectedProjectId] = useState<string>(() => {
+    if (initialSelection?.projectId) return initialSelection.projectId;
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("devdesk_enveditor_last_project_id") || "";
+    }
+    return "";
+  });
+
+  // Projects that have at least one .env file
+  const [projectsWithEnv, setProjectsWithEnv] = useState<string[]>([]);
+  const [onlyProjectsWithEnv, setOnlyProjectsWithEnv] = useState<boolean>(true);
 
   useWorkspaceSubscription(setWorkspaces, isActive, (fresh) => {
     setSelectedWorkspaceId((prev) => {
@@ -105,9 +118,25 @@ export function EnvEditorView({ isActive, initialSelection }: EnvEditorViewProps
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
+  const [copiedPath, setCopiedPath] = useState<boolean>(false);
+
+  const handleCopyPath = (path: string) => {
+    if (typeof navigator !== "undefined" && navigator.clipboard) {
+      navigator.clipboard.writeText(path);
+      setCopiedPath(true);
+      setTimeout(() => setCopiedPath(false), 2000);
+    }
+  };
+
+  const handleRevealInFinder = async (path: string) => {
+    if (window.electron?.revealInFinder) {
+      await window.electron.revealInFinder(path);
+    }
+  };
+
   const isMountedRef = useRef<boolean>(true);
 
-  // 1. Initial Load: Workspaces
+  // 1. Initial Load: Workspaces & Restoring Saved Selection
   useEffect(() => {
     isMountedRef.current = true;
 
@@ -118,9 +147,22 @@ export function EnvEditorView({ isActive, initialSelection }: EnvEditorViewProps
         if (!isMountedRef.current) return;
         setWorkspaces(loaded);
 
-        // Default None
-        setSelectedWorkspaceId("");
-        setSelectedProjectId("");
+        // Restore saved workspace & project from localStorage if none provided via props
+        const lastWsId = localStorage.getItem("devdesk_enveditor_last_workspace_id");
+        const lastProjId = localStorage.getItem("devdesk_enveditor_last_project_id");
+
+        if (initialSelection?.workspaceId) {
+          setSelectedWorkspaceId(initialSelection.workspaceId);
+          setSelectedProjectId(initialSelection.projectId || "");
+        } else if (lastWsId && loaded.some((w) => w.id === lastWsId)) {
+          setSelectedWorkspaceId(lastWsId);
+          const ws = loaded.find((w) => w.id === lastWsId);
+          if (lastProjId && ws?.projects.some((p) => p.id === lastProjId)) {
+            setSelectedProjectId(lastProjId);
+          } else if (ws && ws.projects.length > 0) {
+            setSelectedProjectId(ws.projects[0].id);
+          }
+        }
       } catch (err: unknown) {
         if (!isMountedRef.current) return;
         setErrorMessage(
@@ -139,6 +181,46 @@ export function EnvEditorView({ isActive, initialSelection }: EnvEditorViewProps
       isMountedRef.current = false;
     };
   }, []);
+
+  // 1b. Load projects with .env files whenever workspace changes
+  useEffect(() => {
+    if (!selectedWorkspaceId) {
+      setProjectsWithEnv([]);
+      return;
+    }
+
+    if (typeof window !== "undefined") {
+      localStorage.setItem("devdesk_enveditor_last_workspace_id", selectedWorkspaceId);
+    }
+
+    async function loadEnvProjects() {
+      try {
+        const ids = await fetchWorkspaceProjectsWithEnv(selectedWorkspaceId);
+        if (!isMountedRef.current) return;
+        setProjectsWithEnv(ids);
+
+        // If currently selected project is not among projects with env and onlyProjectsWithEnv is active,
+        // automatically select the first project that has an .env file
+        if (ids.length > 0) {
+          setSelectedProjectId((prev) => {
+            if (prev && ids.includes(prev)) return prev;
+            return ids[0];
+          });
+        }
+      } catch {
+        // ignore
+      }
+    }
+
+    loadEnvProjects();
+  }, [selectedWorkspaceId]);
+
+  // Persist project selection changes
+  useEffect(() => {
+    if (selectedProjectId && typeof window !== "undefined") {
+      localStorage.setItem("devdesk_enveditor_last_project_id", selectedProjectId);
+    }
+  }, [selectedProjectId]);
 
   // When Workspace changes, update Project
   const activeWorkspace = workspaces.find((w) => w.id === selectedWorkspaceId) || null;
@@ -437,9 +519,14 @@ export function EnvEditorView({ isActive, initialSelection }: EnvEditorViewProps
       (v.comment && v.comment.toLowerCase().includes(searchFilter.toLowerCase()))
   );
 
+  const displayedProjects = onlyProjectsWithEnv
+    ? availableProjects.filter((p) => projectsWithEnv.includes(p.id))
+    : availableProjects;
+
   const currentFileMeta = envFiles.find((f) => f.filename === selectedFilename);
   const fileExists = currentFileMeta?.exists ?? false;
 
+  const existingEnvFiles = envFiles.filter((f) => f.exists);
   const missingSupportedFiles = SUPPORTED_ENV_FILES.filter(
     (fname) => !envFiles.some((f) => f.filename === fname && f.exists)
   );
@@ -490,7 +577,7 @@ export function EnvEditorView({ isActive, initialSelection }: EnvEditorViewProps
             </select>
           </div>
 
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 flex-wrap">
             <label
               htmlFor={`${baseId}-proj-select`}
               className="text-xs text-zinc-400 font-medium"
@@ -501,19 +588,80 @@ export function EnvEditorView({ isActive, initialSelection }: EnvEditorViewProps
               id={`${baseId}-proj-select`}
               value={selectedProjectId}
               onChange={(e) => setSelectedProjectId(e.target.value)}
-              disabled={availableProjects.length === 0}
+              disabled={displayedProjects.length === 0}
               className="px-2.5 py-1.5 bg-zinc-900 border border-zinc-700 rounded-md text-xs text-zinc-200 focus:outline-none focus:border-zinc-500 disabled:opacity-50 max-w-[280px] truncate"
             >
               <option value="">None (Select Project)</option>
-              {availableProjects.map((proj) => (
+              {displayedProjects.map((proj) => (
                 <option key={proj.id} value={proj.id}>
                   {proj.displayName || proj.name} ({proj.type})
                 </option>
               ))}
             </select>
+
+            {/* Checkbox toggle: only projects with .env */}
+            {availableProjects.length > 0 && (
+              <label className="flex items-center gap-1.5 text-xs text-zinc-400 hover:text-zinc-200 cursor-pointer ml-1 select-none">
+                <input
+                  type="checkbox"
+                  checked={onlyProjectsWithEnv}
+                  onChange={(e) => setOnlyProjectsWithEnv(e.target.checked)}
+                  className="rounded bg-zinc-900 border-zinc-700 text-cyan-500 focus:ring-0 cursor-pointer"
+                />
+                <span className="text-[11px]">
+                  Only with .env ({projectsWithEnv.length} of {availableProjects.length})
+                </span>
+              </label>
+            )}
           </div>
         </div>
       </div>
+
+      {/* Project and Env File Location Bar */}
+      {activeProject && (
+        <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-1.5 rounded-md bg-zinc-950/80 border border-zinc-800/80 text-xs font-mono text-zinc-300">
+          <div className="flex items-center gap-2 truncate min-w-0">
+            <span className="text-zinc-500 font-sans text-[11px] font-semibold uppercase tracking-wider shrink-0">
+              {fileExists ? "File:" : "Path:"}
+            </span>
+            <span
+              className="truncate select-all text-zinc-200"
+              title={fileExists ? `${activeProject.path}/${selectedFilename}` : activeProject.path}
+            >
+              {fileExists ? `${activeProject.path}/${selectedFilename}` : activeProject.path}
+            </span>
+            {fileExists && (
+              <span className="text-[10px] px-1.5 py-0.2 rounded bg-emerald-950 text-emerald-400 border border-emerald-800/60 shrink-0 font-sans">
+                Active on disk
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-1.5 shrink-0 ml-auto">
+            <button
+              type="button"
+              onClick={() =>
+                handleCopyPath(
+                  fileExists
+                    ? `${activeProject.path}/${selectedFilename}`
+                    : activeProject.path
+                )
+              }
+              className="px-2 py-0.5 rounded bg-zinc-900 border border-zinc-700/80 hover:bg-zinc-800 hover:text-white text-zinc-300 text-[11px] transition cursor-pointer"
+              title="Copy path to clipboard"
+            >
+              {copiedPath ? "✓ Copied" : "📋 Copy Path"}
+            </button>
+            <button
+              type="button"
+              onClick={() => handleRevealInFinder(activeProject.path)}
+              className="px-2 py-0.5 rounded bg-zinc-900 border border-zinc-700/80 hover:bg-zinc-800 hover:text-white text-zinc-300 text-[11px] transition cursor-pointer"
+              title="Reveal folder in Finder"
+            >
+              📁 Reveal in Finder
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Advisory Banner: Process Restart Reminder */}
       <div className="my-3 px-3.5 py-2 rounded-md bg-amber-950/30 border border-amber-900/50 flex items-center justify-between text-xs text-amber-300/90 shrink-0">
@@ -566,30 +714,24 @@ export function EnvEditorView({ isActive, initialSelection }: EnvEditorViewProps
         </div>
       ) : (
         <div className="flex-1 flex flex-col min-h-0 bg-zinc-950 border border-zinc-800 rounded-lg overflow-hidden mt-1">
-          {/* File Selection Bar */}
+          {/* File Selection Bar: Only show existing env files plus + New File */}
           <div className="flex items-center justify-between px-3 py-2 bg-zinc-900/70 border-b border-zinc-800 shrink-0 overflow-x-auto gap-2">
             <div className="flex items-center gap-1.5 flex-nowrap">
-              {SUPPORTED_ENV_FILES.map((fname) => {
-                const meta = envFiles.find((f) => f.filename === fname);
-                const isSelected = selectedFilename === fname;
-                const exists = meta?.exists ?? false;
+              {existingEnvFiles.map((file) => {
+                const isSelected = selectedFilename === file.filename;
 
                 return (
                   <button
-                    key={fname}
-                    onClick={() => handleSelectFile(fname)}
+                    key={file.filename}
+                    onClick={() => handleSelectFile(file.filename)}
                     className={`px-2.5 py-1 rounded text-xs font-mono transition-all flex items-center gap-1.5 shrink-0 ${
                       isSelected
                         ? "bg-zinc-800 text-zinc-100 border border-zinc-600 font-semibold shadow-sm"
-                        : exists
-                        ? "text-zinc-300 hover:bg-zinc-900 border border-transparent"
-                        : "text-zinc-500 hover:text-zinc-400 border border-transparent opacity-60"
+                        : "text-zinc-300 hover:bg-zinc-900 border border-transparent"
                     }`}
                   >
-                    <span>{fname}</span>
-                    {exists && (
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                    )}
+                    <span>{file.filename}</span>
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
                     {isSelected && isDirty && (
                       <span
                         className="w-2 h-2 rounded-full bg-amber-400 animate-pulse"
@@ -600,6 +742,12 @@ export function EnvEditorView({ isActive, initialSelection }: EnvEditorViewProps
                 );
               })}
 
+              {existingEnvFiles.length === 0 && (
+                <span className="text-xs text-zinc-500 italic px-1">
+                  No .env files exist in this project
+                </span>
+              )}
+
               {/* Create File Button */}
               {missingSupportedFiles.length > 0 && (
                 <button
@@ -607,7 +755,8 @@ export function EnvEditorView({ isActive, initialSelection }: EnvEditorViewProps
                     setTargetCreateFilename(missingSupportedFiles[0]);
                     setShowCreateModal(true);
                   }}
-                  className="px-2 py-1 rounded text-xs text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/60 border border-dashed border-zinc-700 flex items-center gap-1 shrink-0 transition-colors"
+                  className="px-2 py-1 rounded text-xs text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/60 border border-dashed border-zinc-700 flex items-center gap-1 shrink-0 transition-colors cursor-pointer"
+                  title="Create a new environment file"
                 >
                   <span>+</span>
                   <span>New File</span>

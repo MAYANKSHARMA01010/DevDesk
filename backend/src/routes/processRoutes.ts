@@ -3,12 +3,20 @@ import {
   getProcessesController,
   getProcessLogsController,
   getProcessPortsController,
+  getSystemPortsController,
+  killSystemProcessController,
   restartProcessController,
   startProcessController,
   stopProcessController,
 } from "../controllers/processController.js";
 
 const router = Router();
+
+// GET /api/processes/system-ports - List all system listening TCP ports
+router.get("/system-ports", getSystemPortsController);
+
+// POST /api/processes/system-kill - Kill any system process by PID
+router.post("/system-kill", killSystemProcessController);
 
 // POST /api/processes/start - Start a project package script
 router.post("/start", startProcessController);
@@ -29,3 +37,4 @@ router.get("/", getProcessesController);
 router.get("/:processId/logs", getProcessLogsController);
 
 export default router;
+

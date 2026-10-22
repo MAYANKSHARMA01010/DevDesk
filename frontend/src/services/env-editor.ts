@@ -207,3 +207,45 @@ export async function saveEnvFile(
 
   return json.data;
 }
+
+/**
+ * Fetches IDs of projects in a workspace that have at least one .env file on disk.
+ * Calls GET /api/env-editor/workspaces/:workspaceId/projects-with-env
+ */
+export async function fetchWorkspaceProjectsWithEnv(
+  workspaceId: string
+): Promise<string[]> {
+  if (!workspaceId) return [];
+
+  const queryUrl = `${BACKEND_BASE_URL}/api/env-editor/workspaces/${encodeURIComponent(
+    workspaceId
+  )}/projects-with-env`;
+
+  let response: Response;
+  try {
+    response = await fetch(queryUrl, { cache: "no-store" });
+  } catch (err: unknown) {
+    const errorMsg = err instanceof Error ? err.message : "Network error";
+    throw new Error(
+      `Cannot connect to DevDesk backend at ${BACKEND_BASE_URL} (${errorMsg}).`
+    );
+  }
+
+  let json: { success: boolean; data?: string[]; error?: string };
+  try {
+    json = await response.json();
+  } catch {
+    throw new Error(
+      `Invalid response received from backend (${response.status} ${response.statusText}).`
+    );
+  }
+
+  if (!response.ok || !json.success || !json.data) {
+    throw new Error(
+      json.error || `Failed to fetch projects with environment files (${response.status})`
+    );
+  }
+
+  return json.data;
+}
+

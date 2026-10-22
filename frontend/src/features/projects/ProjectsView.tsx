@@ -137,9 +137,22 @@ export function ProjectsView({
   useWorkspaceSubscription(setWorkspaces, isActive, (fresh) => {
     setActiveWorkspaceId((prev) => {
       if (prev && fresh.some((w) => w.id === prev)) return prev;
+      if (typeof window !== "undefined") {
+        const savedId =
+          localStorage.getItem("devdesk_projects_last_active_workspace_id") ||
+          localStorage.getItem("devdesk_last_selected_workspace_id");
+        if (savedId && fresh.some((w) => w.id === savedId)) return savedId;
+      }
       return fresh.length > 0 ? fresh[0].id : null;
     });
   });
+
+  useEffect(() => {
+    if (activeWorkspaceId && typeof window !== "undefined") {
+      localStorage.setItem("devdesk_projects_last_active_workspace_id", activeWorkspaceId);
+      localStorage.setItem("devdesk_last_selected_workspace_id", activeWorkspaceId);
+    }
+  }, [activeWorkspaceId]);
   const [status, setStatus] = useState<ViewStatus>("loading_initial");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [pathWarning, setPathWarning] = useState<string | null>(null);
@@ -267,8 +280,16 @@ export function ProjectsView({
     }
 
     try {
-      const chosenPath = await window.electron.selectDirectory();
+      const lastPath =
+        typeof window !== "undefined"
+          ? localStorage.getItem("devdesk_last_selected_dir_path") || undefined
+          : undefined;
+      const chosenPath = await window.electron.selectDirectory(lastPath);
       if (!chosenPath) return;
+
+      if (typeof window !== "undefined") {
+        localStorage.setItem("devdesk_last_selected_dir_path", chosenPath);
+      }
 
       setStatus("scanning");
       setErrorMessage(null);

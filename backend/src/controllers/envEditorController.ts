@@ -35,6 +35,34 @@ function handleError(res: Response, err: unknown, fallbackMessage: string): void
 }
 
 /**
+ * Handles GET /api/env-editor/workspaces/:workspaceId/projects-with-env
+ * Lists project IDs in the workspace that contain at least one .env file.
+ */
+export async function getWorkspaceProjectsWithEnvController(
+  req: Request,
+  res: Response
+): Promise<void> {
+  try {
+    const { workspaceId } = req.params;
+    if (!workspaceId || typeof workspaceId !== "string") {
+      res.status(400).json({
+        success: false,
+        error: "Workspace ID parameter is required.",
+      });
+      return;
+    }
+
+    const result = await envEditorService.getWorkspaceProjectsWithEnv(workspaceId);
+    res.status(200).json({
+      success: true,
+      data: result,
+    });
+  } catch (err: unknown) {
+    handleError(res, err, "Failed to inspect workspace projects for environment files.");
+  }
+}
+
+/**
  * Handles GET /api/env-editor/:projectId/files
  * Lists available supported environment files without exposing values.
  */

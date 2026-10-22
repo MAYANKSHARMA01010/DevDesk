@@ -767,11 +767,15 @@ function registerIpcHandlers(): void {
     return "pong";
   });
 
-  ipcMain.handle("dialog:select-directory", async () => {
-    console.log("[DevDesk] dialog:select-directory handler invoked");
-    const result = await dialog.showOpenDialog({
+  ipcMain.handle("dialog:select-directory", async (_event, defaultPath?: string) => {
+    console.log("[DevDesk] dialog:select-directory handler invoked, defaultPath:", defaultPath);
+    const options: Electron.OpenDialogOptions = {
       properties: ["openDirectory"],
-    });
+    };
+    if (defaultPath && typeof defaultPath === "string") {
+      options.defaultPath = defaultPath;
+    }
+    const result = await dialog.showOpenDialog(options);
 
     if (result.canceled || result.filePaths.length === 0) {
       return null;

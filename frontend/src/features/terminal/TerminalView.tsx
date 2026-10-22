@@ -93,6 +93,21 @@ export function TerminalView({ isActive, initialSelection }: TerminalViewProps =
   const [actionLoading, setActionLoading] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [showScrollBottomBtn, setShowScrollBottomBtn] = useState<boolean>(false);
+  const [copiedPath, setCopiedPath] = useState<boolean>(false);
+
+  const handleCopyPath = (path: string) => {
+    if (typeof navigator !== "undefined" && navigator.clipboard) {
+      navigator.clipboard.writeText(path);
+      setCopiedPath(true);
+      setTimeout(() => setCopiedPath(false), 2000);
+    }
+  };
+
+  const handleRevealInFinder = async (path: string) => {
+    if (window.electron?.revealInFinder) {
+      await window.electron.revealInFinder(path);
+    }
+  };
 
   const terminalScrollRef = useRef<HTMLDivElement>(null);
   const pollingRef = useRef<boolean>(false);
@@ -231,6 +246,31 @@ export function TerminalView({ isActive, initialSelection }: TerminalViewProps =
           const firstTab = createDefaultTab(1);
           restoredTabs = [firstTab];
           initialActiveId = firstTab.id;
+        }
+
+        // If default single tab has no project selected, restore last used workspace & project
+        if (restoredTabs.length === 1 && !restoredTabs[0].workspaceId) {
+          const lastWsId = localStorage.getItem("devdesk_terminal_last_workspace_id");
+          const lastProjId = localStorage.getItem("devdesk_terminal_last_project_id");
+          if (lastWsId) {
+            const matchedWs = loadedWorkspaces.find((w) => w.id === lastWsId);
+            if (matchedWs) {
+              const matchedProj =
+                matchedWs.projects.find((p) => p.id === lastProjId) ||
+                (matchedWs.projects.length > 0 ? matchedWs.projects[0] : null);
+              const projLabel = matchedProj
+                ? matchedProj.displayName || matchedProj.name
+                : "";
+              restoredTabs[0] = {
+                ...restoredTabs[0],
+                workspaceId: matchedWs.id,
+                projectId: matchedProj?.id || "",
+                projectName: matchedProj?.name || "",
+                projectDisplayName: projLabel,
+                title: matchedProj ? `${projLabel}: term` : restoredTabs[0].title,
+              };
+            }
+          }
         }
 
         // Validate active tab ID
@@ -505,9 +545,17 @@ export function TerminalView({ isActive, initialSelection }: TerminalViewProps =
 
   // Workspace & Project change in active tab
   function handleWorkspaceChange(wsId: string) {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("devdesk_terminal_last_workspace_id", wsId);
+      localStorage.setItem("devdesk_last_selected_workspace_id", wsId);
+    }
     const ws = workspaces.find((w) => w.id === wsId);
     const firstProj = ws?.projects[0] || null;
     const projLabel = firstProj ? (firstProj.displayName || firstProj.name) : "";
+    if (firstProj && typeof window !== "undefined") {
+      localStorage.setItem("devdesk_terminal_last_project_id", firstProj.id);
+      localStorage.setItem("devdesk_last_selected_project_id", firstProj.id);
+    }
 
     updateActiveTab({
       workspaceId: wsId,
@@ -520,6 +568,10 @@ export function TerminalView({ isActive, initialSelection }: TerminalViewProps =
   }
 
   function handleProjectChange(projId: string) {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("devdesk_terminal_last_project_id", projId);
+      localStorage.setItem("devdesk_last_selected_project_id", projId);
+    }
     const proj = activeWorkspace?.projects.find((p) => p.id === projId);
     const projLabel = proj ? (proj.displayName || proj.name) : "";
     updateActiveTab({
@@ -973,6 +1025,43 @@ export function TerminalView({ isActive, initialSelection }: TerminalViewProps =
           </div>
         </div>
 
+        {/* Project Location Bar */}
+        {activeProject && (
+          <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-1.5 rounded-md bg-zinc-950/80 border border-zinc-800/80 text-xs font-mono text-zinc-300">
+            <div className="flex items-center gap-2 truncate min-w-0">
+              <span className="text-zinc-500 font-sans text-[11px] font-semibold uppercase tracking-wider shrink-0">
+                Path:
+              </span>
+              <span className="truncate select-all text-zinc-200" title={activeProject.path}>
+                {activeProject.path}
+              </span>
+              {activeProject.relativePath && activeProject.relativePath !== "." && (
+                <span className="text-[10px] text-zinc-500 hidden md:inline shrink-0">
+                  📁 {activeProject.relativePath}
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-1.5 shrink-0 ml-auto">
+              <button
+                type="button"
+                onClick={() => handleCopyPath(activeProject.path)}
+                className="px-2 py-0.5 rounded bg-zinc-900 border border-zinc-700/80 hover:bg-zinc-800 hover:text-white text-zinc-300 text-[11px] transition cursor-pointer"
+                title="Copy full directory path to clipboard"
+              >
+                {copiedPath ? "✓ Copied" : "📋 Copy Path"}
+              </button>
+              <button
+                type="button"
+                onClick={() => handleRevealInFinder(activeProject.path)}
+                className="px-2 py-0.5 rounded bg-zinc-900 border border-zinc-700/80 hover:bg-zinc-800 hover:text-white text-zinc-300 text-[11px] transition cursor-pointer"
+                title="Reveal folder in Finder"
+              >
+                📁 Reveal in Finder
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Row B: Script selector OR Custom Command input */}
         <div className="pt-2 border-t border-zinc-800/60">
           {!activeTab?.isCustom ? (
@@ -1060,8 +1149,13 @@ export function TerminalView({ isActive, initialSelection }: TerminalViewProps =
             <span className="font-mono text-zinc-300 font-medium truncate ml-1">
               {activeTab?.title || "Terminal"}
             </span>
+            {activeProject && (
+              <span className="font-mono text-zinc-500 text-[10px] truncate hidden md:inline" title={activeProject.path}>
+                — {activeProject.path}
+              </span>
+            )}
             {activeProcess?.command && (
-              <span className="font-mono text-zinc-500 truncate hidden md:inline">
+              <span className="font-mono text-zinc-500 truncate hidden lg:inline">
                 ({activeProcess.command})
               </span>
             )}
