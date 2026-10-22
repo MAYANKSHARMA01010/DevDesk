@@ -209,13 +209,12 @@ export function ProjectsView({
       startTransition(() => {
         setWorkspaces((prev) => {
           const filtered = prev.filter((w) => w.id !== saved.id);
-          const next = [saved, ...filtered];
-          broadcastWorkspacesChanged(next);
-          return next;
+          return [saved, ...filtered];
         });
         setActiveWorkspaceId(saved.id);
         setStatus("idle");
       });
+      broadcastWorkspacesChanged();
     } catch (err: unknown) {
       const errorMsg =
         err instanceof Error ? err.message : "Failed to scan workspace root";
@@ -246,11 +245,10 @@ export function ProjectsView({
       startTransition(() => {
         setWorkspaces((prev) => {
           const filtered = prev.filter((w) => w.id !== targetWorkspaceId);
-          const next = [updated, ...filtered];
-          broadcastWorkspacesChanged(next);
-          return next;
+          return [updated, ...filtered];
         });
       });
+      broadcastWorkspacesChanged();
     } catch {
       // Non-critical timestamp update error
     }
@@ -268,13 +266,12 @@ export function ProjectsView({
     try {
       const rescanned = await scanAndSaveWorkspace(activeWorkspace.rootPath);
       startTransition(() => {
-        setWorkspaces((prev) => {
-          const next = prev.map((w) => (w.id === rescanned.id ? rescanned : w));
-          broadcastWorkspacesChanged(next);
-          return next;
-        });
+        setWorkspaces((prev) =>
+          prev.map((w) => (w.id === rescanned.id ? rescanned : w))
+        );
         setStatus("idle");
       });
+      broadcastWorkspacesChanged();
     } catch (err: unknown) {
       const errorMsg =
         err instanceof Error ? err.message : "Failed to rescan workspace.";
@@ -307,11 +304,11 @@ export function ProjectsView({
 
       startTransition(() => {
         const remaining = workspaces.filter((w) => w.id !== targetId);
-        broadcastWorkspacesChanged(remaining);
         setWorkspaces(remaining);
         setActiveWorkspaceId(remaining.length > 0 ? remaining[0].id : null);
         setStatus("idle");
       });
+      broadcastWorkspacesChanged();
     } catch (err: unknown) {
       const errorMsg =
         err instanceof Error ? err.message : "Failed to forget workspace.";
@@ -548,7 +545,17 @@ export function ProjectsView({
     }
   }
 
-  function renderBadgePkg(pm: DiscoveredProject["packageManager"] | SavedProject["packageManager"]) {
+  function renderBadgePkg(
+    pm: DiscoveredProject["packageManager"] | SavedProject["packageManager"],
+    projectType?: string
+  ) {
+    if (!pm || pm === "unknown") return null;
+
+    // Suppress package manager badge if it duplicates the project type (e.g. type "Go" and pkg "go")
+    if (projectType && projectType.trim().toLowerCase() === pm.trim().toLowerCase()) {
+      return null;
+    }
+
     switch (pm) {
       case "pnpm":
         return (
@@ -613,7 +620,6 @@ export function ProjectsView({
             composer
           </span>
         );
-      case "unknown":
       default:
         return null;
     }
@@ -1322,7 +1328,7 @@ export function ProjectsView({
 
                     <div className="flex items-center gap-1.5 shrink-0">
                       {renderBadgeType(project.type)}
-                      {renderBadgePkg(project.packageManager)}
+                      {renderBadgePkg(project.packageManager, project.type)}
                       {renderGitBadge(project)}
                     </div>
                   </div>

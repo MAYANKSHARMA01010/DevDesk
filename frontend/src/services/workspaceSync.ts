@@ -12,11 +12,15 @@ export const WORKSPACES_CHANGED_EVENT = "devdesk:workspaces-changed";
  */
 export function broadcastWorkspacesChanged(workspaces?: WorkspaceWithProjects[]): void {
   if (typeof window !== "undefined") {
-    window.dispatchEvent(
-      new CustomEvent(WORKSPACES_CHANGED_EVENT, {
-        detail: { workspaces },
-      })
-    );
+    // Dispatch asynchronously on the next event loop tick so React components
+    // never execute setState while another component is in its render phase.
+    setTimeout(() => {
+      window.dispatchEvent(
+        new CustomEvent(WORKSPACES_CHANGED_EVENT, {
+          detail: { workspaces },
+        })
+      );
+    }, 0);
   }
 }
 

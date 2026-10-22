@@ -5,6 +5,7 @@ import {
   WorkspacesResponse,
   WorkspaceWithProjects,
 } from "@/types/project";
+import { broadcastWorkspacesChanged } from "./workspaceSync";
 
 const BACKEND_BASE_URL =
   process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5001";
@@ -98,9 +99,7 @@ export async function scanAndSaveWorkspace(
     );
   }
 
-  if (typeof window !== "undefined") {
-    window.dispatchEvent(new CustomEvent("devdesk:workspaces-changed"));
-  }
+  broadcastWorkspacesChanged();
 
   return json.data;
 }
@@ -144,9 +143,7 @@ export async function forgetWorkspace(id: string): Promise<void> {
     );
   }
 
-  if (typeof window !== "undefined") {
-    window.dispatchEvent(new CustomEvent("devdesk:workspaces-changed"));
-  }
+  broadcastWorkspacesChanged();
 }
 
 /**
@@ -185,9 +182,7 @@ export async function markWorkspaceOpened(
     );
   }
 
-  if (typeof window !== "undefined") {
-    window.dispatchEvent(new CustomEvent("devdesk:workspaces-changed"));
-  }
+  broadcastWorkspacesChanged();
 
   return json.data;
 }
