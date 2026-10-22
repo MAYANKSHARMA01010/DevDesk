@@ -41,9 +41,12 @@ export type SortOption =
   | "name-asc"
   | "name-desc"
   | "type"
+  | "pkg"
   | "git-first"
   | "runnable-first"
   | "path";
+
+export type SecondarySortOption = "none" | SortOption;
 
 export type FilterMode = "all" | "fullstack" | "aiml" | "git" | "runnable" | "nested";
 
@@ -83,6 +86,46 @@ export function isRunnableProject(p: SavedProject | DiscoveredProject): boolean 
   );
 }
 
+export function compareProjectsByOption(
+  a: SavedProject | DiscoveredProject,
+  b: SavedProject | DiscoveredProject,
+  option: SortOption
+): number {
+  const aLabel = a.displayName || a.name;
+  const bLabel = b.displayName || b.name;
+
+  switch (option) {
+    case "name-desc":
+      return bLabel.localeCompare(aLabel);
+    case "type":
+      return a.type.localeCompare(b.type);
+    case "pkg": {
+      const aPkg = a.packageManager || "";
+      const bPkg = b.packageManager || "";
+      return aPkg.localeCompare(bPkg);
+    }
+    case "git-first": {
+      if (a.isRoot && !b.isRoot) return -1;
+      if (!a.isRoot && b.isRoot) return 1;
+      const aGit = a.isGitRepo ? 1 : 0;
+      const bGit = b.isGitRepo ? 1 : 0;
+      if (aGit !== bGit) return bGit - aGit;
+      return 0;
+    }
+    case "runnable-first": {
+      const aRun = isRunnableProject(a) ? 1 : 0;
+      const bRun = isRunnableProject(b) ? 1 : 0;
+      if (aRun !== bRun) return bRun - aRun;
+      return 0;
+    }
+    case "path":
+      return (a.relativePath || "").localeCompare(b.relativePath || "");
+    case "name-asc":
+    default:
+      return aLabel.localeCompare(bLabel);
+  }
+}
+
 export function ProjectsView({
   isActive,
   onNavigateToTerminal,
@@ -117,6 +160,7 @@ export function ProjectsView({
           "name-asc",
           "name-desc",
           "type",
+          "pkg",
           "runnable-first",
           "path",
         ].includes(saved)
@@ -131,6 +175,35 @@ export function ProjectsView({
     setSortBy(val);
     if (typeof window !== "undefined") {
       localStorage.setItem("devdesk_projects_sort_by", val);
+    }
+  };
+
+  const [secondarySortBy, setSecondarySortBy] = useState<SecondarySortOption>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("devdesk_projects_secondary_sort");
+      if (
+        saved &&
+        [
+          "none",
+          "name-asc",
+          "name-desc",
+          "type",
+          "pkg",
+          "git-first",
+          "runnable-first",
+          "path",
+        ].includes(saved)
+      ) {
+        return saved as SecondarySortOption;
+      }
+    }
+    return "none";
+  });
+
+  const handleSetSecondarySortBy = (val: SecondarySortOption) => {
+    setSecondarySortBy(val);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("devdesk_projects_secondary_sort", val);
     }
   };
 
@@ -736,38 +809,17 @@ export function ProjectsView({
       return true;
     })
     .sort((a, b) => {
-      // Use displayName for name sorts so qualified names sort predictably
+      const primaryDiff = compareProjectsByOption(a, b, sortBy);
+      if (primaryDiff !== 0) return primaryDiff;
+
+      if (secondarySortBy && secondarySortBy !== "none" && secondarySortBy !== sortBy) {
+        const secondaryDiff = compareProjectsByOption(a, b, secondarySortBy as SortOption);
+        if (secondaryDiff !== 0) return secondaryDiff;
+      }
+
       const aLabel = a.displayName || a.name;
       const bLabel = b.displayName || b.name;
-
-      switch (sortBy) {
-        case "name-desc":
-          return bLabel.localeCompare(aLabel);
-        case "type":
-          return a.type.localeCompare(b.type) || aLabel.localeCompare(bLabel);
-        case "git-first": {
-          if (a.isRoot && !b.isRoot) return -1;
-          if (!a.isRoot && b.isRoot) return 1;
-          const aGit = a.isGitRepo ? 1 : 0;
-          const bGit = b.isGitRepo ? 1 : 0;
-          if (aGit !== bGit) return bGit - aGit;
-          return aLabel.localeCompare(bLabel);
-        }
-        case "runnable-first": {
-          const aRun = isRunnableProject(a) ? 1 : 0;
-          const bRun = isRunnableProject(b) ? 1 : 0;
-          if (aRun !== bRun) return bRun - aRun;
-          return aLabel.localeCompare(bLabel);
-        }
-        case "path":
-          return (
-            (a.relativePath || "").localeCompare(b.relativePath || "") ||
-            aLabel.localeCompare(bLabel)
-          );
-        case "name-asc":
-        default:
-          return aLabel.localeCompare(bLabel);
-      }
+      return aLabel.localeCompare(bLabel);
     });
 
   // --- Render Views ---
@@ -1037,10 +1089,10 @@ export function ProjectsView({
             </div>
           </div>
 
-          {/* Row 2: Sort Selector, Type Filter, Package Manager Filter & Default IDE */}
+          {/* Row 2: Multi-Sort Selectors, Type Filter, Package Manager Filter & Default IDE */}
           <div className="flex flex-wrap items-center justify-between gap-2.5 p-2 rounded-lg bg-zinc-900/40 border border-zinc-800/60 text-xs">
             <div className="flex flex-wrap items-center gap-2">
-              {/* Sort By Dropdown */}
+              {/* Primary Sort Dropdown */}
               <div className="flex items-center gap-1.5">
                 <span className="text-[11px] text-zinc-500 uppercase font-medium">Sort:</span>
                 <select
@@ -1052,6 +1104,26 @@ export function ProjectsView({
                   <option value="name-asc">Name (A → Z)</option>
                   <option value="name-desc">Name (Z → A)</option>
                   <option value="type">Framework / Type</option>
+                  <option value="pkg">Package Manager</option>
+                  <option value="runnable-first">Runnable First</option>
+                  <option value="path">Folder Path</option>
+                </select>
+              </div>
+
+              {/* Secondary Sort ("Then by") Dropdown */}
+              <div className="flex items-center gap-1.5">
+                <span className="text-[11px] text-zinc-500 uppercase font-medium">Then by:</span>
+                <select
+                  value={secondarySortBy}
+                  onChange={(e) => handleSetSecondarySortBy(e.target.value as SecondarySortOption)}
+                  className="px-2 py-1 rounded bg-zinc-900 border border-zinc-800 text-zinc-200 hover:border-zinc-700 focus:outline-none cursor-pointer text-xs"
+                >
+                  <option value="none">None</option>
+                  <option value="name-asc">Name (A → Z)</option>
+                  <option value="name-desc">Name (Z → A)</option>
+                  <option value="type">Framework / Type</option>
+                  <option value="pkg">Package Manager</option>
+                  <option value="git-first">Git Repos First</option>
                   <option value="runnable-first">Runnable First</option>
                   <option value="path">Folder Path</option>
                 </select>
@@ -1100,23 +1172,6 @@ export function ProjectsView({
                   </select>
                 </div>
               )}
-
-              {/* Reset Filters Button */}
-              {hasActiveFilters && (
-                <button
-                  onClick={() => {
-                    setSearchQuery("");
-                    setFilterMode("all");
-                    setFilterType("");
-                    setFilterPkg("");
-                    handleSetSortBy("git-first");
-                  }}
-                  className="px-2 py-1 rounded text-[11px] text-amber-400 hover:text-amber-300 bg-amber-950/30 border border-amber-900/50 hover:bg-amber-950/50 transition cursor-pointer"
-                  title="Reset all filters and search"
-                >
-                  ✕ Reset Filters
-                </button>
-              )}
             </div>
 
             {/* Default IDE Selector */}
@@ -1137,32 +1192,110 @@ export function ProjectsView({
             </div>
           </div>
 
-          {/* Row 3: Legend / Indicator Guide */}
-          <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 px-3 py-2 rounded-lg bg-zinc-900/30 border border-zinc-800/50 text-[11px] text-zinc-400">
+          {/* Active Filters Row (shows when any filters are active) */}
+          {hasActiveFilters && (
+            <div className="flex flex-wrap items-center gap-2 px-3 py-1.5 rounded-lg bg-zinc-900/30 border border-zinc-800/50 text-xs">
+              <span className="text-[11px] text-zinc-500 font-medium">Active Filters:</span>
+
+              {filterMode !== "all" && (
+                <button
+                  onClick={() => setFilterMode("all")}
+                  className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700 transition cursor-pointer"
+                  title="Remove category filter"
+                >
+                  <span className="capitalize">{filterMode}</span>
+                  <span className="text-zinc-500 hover:text-zinc-200">✕</span>
+                </button>
+              )}
+
+              {filterType && (
+                <button
+                  onClick={() => setFilterType("")}
+                  className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700 transition cursor-pointer"
+                  title="Remove type filter"
+                >
+                  <span>Type: {filterType}</span>
+                  <span className="text-zinc-500 hover:text-zinc-200">✕</span>
+                </button>
+              )}
+
+              {filterPkg && (
+                <button
+                  onClick={() => setFilterPkg("")}
+                  className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700 transition cursor-pointer"
+                  title="Remove package manager filter"
+                >
+                  <span>Pkg: {filterPkg}</span>
+                  <span className="text-zinc-500 hover:text-zinc-200">✕</span>
+                </button>
+              )}
+
+              {searchQuery.trim() && (
+                <button
+                  onClick={() => setSearchQuery("")}
+                  className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700 transition cursor-pointer"
+                  title="Clear search query"
+                >
+                  <span>&quot;{searchQuery.trim()}&quot;</span>
+                  <span className="text-zinc-500 hover:text-zinc-200">✕</span>
+                </button>
+              )}
+
+              <button
+                onClick={() => {
+                  setSearchQuery("");
+                  setFilterMode("all");
+                  setFilterType("");
+                  setFilterPkg("");
+                  handleSetSortBy("git-first");
+                  handleSetSecondarySortBy("none");
+                }}
+                className="ml-auto text-[11px] text-amber-400 hover:text-amber-300 hover:underline cursor-pointer"
+                title="Reset all filters and sorting"
+              >
+                Clear all filters
+              </button>
+            </div>
+          )}
+
+          {/* Row 3: Legend / Indicator Guide with concise symbol labels */}
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 px-3 py-1.5 rounded-lg bg-zinc-900/30 border border-zinc-800/50 text-[11px] text-zinc-400">
             <span className="text-zinc-500 font-semibold uppercase text-[10px] tracking-wider">
-              Indicators:
+              Symbols:
             </span>
-            <span className="flex items-center gap-1.5">
+            <span
+              className="flex items-center gap-1.5 cursor-help"
+              title="Git Repository (click symbol on project card to open in Git Control)"
+            >
               <span className="inline-flex items-center justify-center p-1 rounded font-mono text-[10px] bg-emerald-950/70 text-emerald-300 border border-emerald-800/60 font-medium shadow-xs">
                 <svg className="w-3 h-3 text-emerald-400 shrink-0" fill="currentColor" viewBox="0 0 16 16">
                   <path fillRule="evenodd" d="M11.75 2.5a.75.75 0 100 1.5.75.75 0 000-1.5zm-2.25.75a2.25 2.25 0 113 2.122V6A2.5 2.5 0 0110 8.5H6a1 1 0 00-1 1v1.128a2.251 2.251 0 11-1.5 0V5.372a2.25 2.25 0 111.5 0v1.836A2.492 2.492 0 016 7h4a1 1 0 001-1v-.628A2.25 2.25 0 019.5 3.25zM4.25 12a.75.75 0 100 1.5.75.75 0 000-1.5zM3.5 3.25a.75.75 0 111.5 0 .75.75 0 01-1.5 0z" />
                 </svg>
               </span>
-              <span>Git Repository (click symbol to view Git Control)</span>
+              <span>Git Control</span>
             </span>
-            <span className="flex items-center gap-1.5">
-              <span className="inline-flex items-center justify-center px-2 py-0.5 rounded font-mono text-xs font-bold text-cyan-300 bg-cyan-950/60 border border-cyan-800/60 shadow-xs">
+            <span
+              className="flex items-center gap-1.5 cursor-help"
+              title="Terminal (click symbol to run project scripts in Terminal)"
+            >
+              <span className="inline-flex items-center justify-center px-1.5 py-0.5 rounded font-mono text-[11px] font-bold text-cyan-300 bg-cyan-950/60 border border-cyan-800/60 shadow-xs">
                 &gt;_
               </span>
-              <span>Terminal (click symbol to run scripts)</span>
+              <span>Terminal</span>
             </span>
-            <span className="flex items-center gap-1.5">
+            <span
+              className="flex items-center gap-1.5 cursor-help"
+              title={`Open in ${currentIdeConfig.name} (change default IDE in toolbar above)`}
+            >
               <span className="inline-flex items-center justify-center px-1.5 py-0.5 rounded text-xs bg-zinc-800 border border-zinc-700 shadow-xs">
                 {currentIdeConfig.icon}
               </span>
-              <span>Open in {currentIdeConfig.name} (Default IDE - change in toolbar above)</span>
+              <span>Open in IDE</span>
             </span>
-            <span className="flex items-center gap-1.5">
+            <span
+              className="flex items-center gap-1.5 cursor-help"
+              title="Reveal directory in Finder"
+            >
               <span className="inline-flex items-center justify-center p-1 rounded bg-zinc-800 border border-zinc-700 shadow-xs">
                 <svg className="w-3 h-3 text-zinc-300 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
@@ -1170,15 +1303,21 @@ export function ProjectsView({
               </span>
               <span>Reveal in Finder</span>
             </span>
-            <span className="flex items-center gap-1.5">
+            <span
+              className="flex items-center gap-1.5 cursor-help"
+              title="Name collision — hover icon on project card to see qualified path"
+            >
               <span className="text-[10px] text-amber-400/80 select-none">⚡</span>
-              <span>Name collision — hover for qualified path</span>
+              <span>Collision</span>
             </span>
-            <span className="flex items-center gap-1.5">
+            <span
+              className="flex items-center gap-1.5 cursor-help"
+              title="Top-level parent directory of this workspace"
+            >
               <span className="px-1.5 py-0.5 rounded font-mono text-[10px] text-violet-300 bg-violet-950/60 border border-violet-800/60 font-semibold uppercase">
-                Workspace Root
+                Root
               </span>
-              <span>Top-level parent directory</span>
+              <span>Workspace Root</span>
             </span>
           </div>
         </div>
