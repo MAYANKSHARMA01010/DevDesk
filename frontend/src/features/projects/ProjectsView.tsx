@@ -80,6 +80,16 @@ export type SortOption =
 export type SecondarySortOption = "none" | SortOption;
 
 export type FilterMode = "all" | "fullstack" | "aiml" | "git" | "runnable" | "nested";
+export type ProjectCategory = "fullstack" | "aiml" | "git" | "runnable" | "nested";
+
+export const SORT_FIELD_COMPACT: Record<SortField, { short: string; icon: string }> = {
+  git: { short: "Git", icon: "⎇" },
+  name: { short: "Name", icon: "🔤" },
+  type: { short: "Type", icon: "🏷️" },
+  pkg: { short: "Pkg", icon: "📦" },
+  runnable: { short: "Runnable", icon: "⚡" },
+  path: { short: "Path", icon: "📁" },
+};
 
 type ViewStatus =
   | "loading_initial"
@@ -249,26 +259,56 @@ export function ProjectsView({
 
   // Search, Filter & Sort states
   const [searchQuery, setSearchQuery] = useState("");
-  const [filterMode, setFilterMode] = useState<FilterMode>("all");
-  const [filterType, setFilterType] = useState<string>("");
-  const [filterPkg, setFilterPkg] = useState<string>("");
+  const [selectedCategories, setSelectedCategories] = useState<ProjectCategory[]>([]);
+  const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
+  const [selectedPkgs, setSelectedPkgs] = useState<string[]>([]);
+
+  const [showTypeFilter, setShowTypeFilter] = useState<boolean>(false);
+  const typeFilterRef = useRef<HTMLDivElement | null>(null);
+
+  const [showPkgFilter, setShowPkgFilter] = useState<boolean>(false);
+  const pkgFilterRef = useRef<HTMLDivElement | null>(null);
+
+  const toggleCategory = (cat: ProjectCategory) => {
+    setSelectedCategories((prev) =>
+      prev.includes(cat) ? prev.filter((c) => c !== cat) : [...prev, cat]
+    );
+  };
+
+  const clearCategories = () => {
+    setSelectedCategories([]);
+  };
+
+  const toggleType = (type: string) => {
+    setSelectedTypes((prev) =>
+      prev.includes(type) ? prev.filter((t) => t !== type) : [...prev, type]
+    );
+  };
+
+  const togglePkg = (pkg: string) => {
+    setSelectedPkgs((prev) =>
+      prev.includes(pkg) ? prev.filter((p) => p !== pkg) : [...prev, pkg]
+    );
+  };
+
   // Multi-Level Sort Rules State
-  const [sortRules, setSortRules] = useState<SortRule[]>(() => {
+  const [sortRules, setSortRules] = useState<SortRule[]>(DEFAULT_SORT_RULES);
+
+  useEffect(() => {
     if (typeof window !== "undefined") {
       const saved = localStorage.getItem("devdesk_projects_multi_sort_rules");
       if (saved) {
         try {
           const parsed = JSON.parse(saved);
           if (Array.isArray(parsed) && parsed.length > 0) {
-            return parsed;
+            setSortRules(parsed);
           }
         } catch {
           // ignore
         }
       }
     }
-    return DEFAULT_SORT_RULES;
-  });
+  }, []);
 
   const [showSortManager, setShowSortManager] = useState<boolean>(false);
   const sortManagerRef = useRef<HTMLDivElement | null>(null);
@@ -278,12 +318,16 @@ export function ProjectsView({
       if (sortManagerRef.current && !sortManagerRef.current.contains(e.target as Node)) {
         setShowSortManager(false);
       }
+      if (typeFilterRef.current && !typeFilterRef.current.contains(e.target as Node)) {
+        setShowTypeFilter(false);
+      }
+      if (pkgFilterRef.current && !pkgFilterRef.current.contains(e.target as Node)) {
+        setShowPkgFilter(false);
+      }
     }
-    if (showSortManager) {
-      document.addEventListener("mousedown", handleClickOutside);
-      return () => document.removeEventListener("mousedown", handleClickOutside);
-    }
-  }, [showSortManager]);
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   const handleSetSortRules = (rules: SortRule[]) => {
     setSortRules(rules);
@@ -341,16 +385,17 @@ export function ProjectsView({
   };
 
   // Configurable Scan Depth (1, 2, 3, 4, 5, 8, 10, 15, 20, 0=max/unlimited)
-  const [scanDepth, setScanDepth] = useState<number>(() => {
+  const [scanDepth, setScanDepth] = useState<number>(5);
+
+  useEffect(() => {
     if (typeof window !== "undefined") {
       const saved = localStorage.getItem("devdesk_scan_depth");
       if (saved !== null) {
         const parsed = parseInt(saved, 10);
-        if (!isNaN(parsed) && parsed >= 0) return parsed;
+        if (!isNaN(parsed) && parsed >= 0) setScanDepth(parsed);
       }
     }
-    return 5;
-  });
+  }, []);
 
   const handleSetScanDepth = (depth: number) => {
     setScanDepth(depth);
@@ -954,34 +999,47 @@ export function ProjectsView({
     AVAILABLE_IDES.find((i) => i.id === defaultIde) || AVAILABLE_IDES[0];
 
   const hasActiveFilters =
-    filterMode !== "all" ||
-    Boolean(filterType) ||
-    Boolean(filterPkg) ||
+    selectedCategories.length > 0 ||
+    selectedTypes.length > 0 ||
+    selectedPkgs.length > 0 ||
     Boolean(searchQuery.trim());
 
   const displayedProjects = allProjects
     .filter((p) => {
-      if (filterMode === "fullstack" && p.type !== "Fullstack") {
+      // 1. Category multi-filtering
+      if (selectedCategories.length > 0) {
+        if (selectedCategories.includes("git") && !p.isGitRepo && p.type !== "Git Repository") {
+          return false;
+        }
+        if (selectedCategories.includes("runnable") && !isRunnableProject(p)) {
+          return false;
+        }
+        if (selectedCategories.includes("nested") && (!p.relativePath || p.relativePath === ".")) {
+          return false;
+        }
+        const hasTypeCat =
+          selectedCategories.includes("fullstack") || selectedCategories.includes("aiml");
+        if (hasTypeCat) {
+          const matchFullstack = selectedCategories.includes("fullstack") && p.type === "Fullstack";
+          const matchAiml =
+            selectedCategories.includes("aiml") && p.type === "AI / ML / Deep Learning";
+          if (!matchFullstack && !matchAiml) {
+            return false;
+          }
+        }
+      }
+
+      // 2. Framework / Type multi-select filtering
+      if (selectedTypes.length > 0 && !selectedTypes.includes(p.type)) {
         return false;
       }
-      if (filterMode === "aiml" && p.type !== "AI / ML / Deep Learning") {
+
+      // 3. Package Manager multi-select filtering
+      if (selectedPkgs.length > 0 && !selectedPkgs.includes(p.packageManager || "")) {
         return false;
       }
-      if (filterMode === "git" && !p.isGitRepo && p.type !== "Git Repository") {
-        return false;
-      }
-      if (filterMode === "runnable" && !isRunnableProject(p)) {
-        return false;
-      }
-      if (filterMode === "nested" && (!p.relativePath || p.relativePath === ".")) {
-        return false;
-      }
-      if (filterType && p.type !== filterType) {
-        return false;
-      }
-      if (filterPkg && p.packageManager !== filterPkg) {
-        return false;
-      }
+
+      // 4. Search Query filter
       if (searchQuery.trim().length > 0) {
         const q = searchQuery.toLowerCase().trim();
         const matchName = p.name.toLowerCase().includes(q);
@@ -991,7 +1049,15 @@ export function ProjectsView({
         const matchRel = (p.relativePath || "").toLowerCase().includes(q);
         const matchType = p.type.toLowerCase().includes(q);
         const matchPkg = (p.packageManager || "").toLowerCase().includes(q);
-        return matchName || matchDisplayName || matchNamespace || matchPath || matchRel || matchType || matchPkg;
+        return (
+          matchName ||
+          matchDisplayName ||
+          matchNamespace ||
+          matchPath ||
+          matchRel ||
+          matchType ||
+          matchPkg
+        );
       }
       return true;
     })
@@ -1223,79 +1289,126 @@ export function ProjectsView({
             {/* Filter Pills */}
             <div className="flex items-center gap-1.5 shrink-0 text-xs flex-wrap">
               <button
-                onClick={() => setFilterMode("all")}
-                className={`px-2.5 py-1 rounded-md transition cursor-pointer ${
-                  filterMode === "all"
-                    ? "bg-zinc-800 text-zinc-100 font-medium border border-zinc-700"
-                    : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900"
+                type="button"
+                onClick={clearCategories}
+                className={`px-2.5 py-1 rounded-md transition cursor-pointer select-none ${
+                  selectedCategories.length === 0
+                    ? "bg-zinc-800 text-zinc-100 font-semibold border border-zinc-700 shadow-xs"
+                    : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900 border border-transparent"
                 }`}
+                title="Show all projects without category restrictions"
               >
                 All ({allProjects.length})
               </button>
               {fullstackCount > 0 && (
                 <button
-                  onClick={() => setFilterMode("fullstack")}
-                  className={`px-2.5 py-1 rounded-md transition cursor-pointer flex items-center gap-1 ${
-                    filterMode === "fullstack"
-                      ? "bg-indigo-950/70 text-indigo-200 font-medium border border-indigo-700/80"
-                      : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900"
+                  type="button"
+                  onClick={() => toggleCategory("fullstack")}
+                  className={`px-2.5 py-1 rounded-md transition cursor-pointer flex items-center gap-1 select-none ${
+                    selectedCategories.includes("fullstack")
+                      ? "bg-indigo-950/90 text-indigo-200 font-medium border border-indigo-600/90 shadow-xs"
+                      : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900 border border-transparent"
                   }`}
+                  title={
+                    selectedCategories.includes("fullstack")
+                      ? "Click to remove Fullstack filter"
+                      : "Filter by Fullstack projects"
+                  }
                 >
                   <span>⚡</span>
                   <span>Fullstack ({fullstackCount})</span>
+                  {selectedCategories.includes("fullstack") && (
+                    <span className="text-indigo-400 text-[10px]">✓</span>
+                  )}
                 </button>
               )}
               {aimlCount > 0 && (
                 <button
-                  onClick={() => setFilterMode("aiml")}
-                  className={`px-2.5 py-1 rounded-md transition cursor-pointer flex items-center gap-1 ${
-                    filterMode === "aiml"
-                      ? "bg-emerald-950/70 text-emerald-200 font-medium border border-emerald-700/80"
-                      : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900"
+                  type="button"
+                  onClick={() => toggleCategory("aiml")}
+                  className={`px-2.5 py-1 rounded-md transition cursor-pointer flex items-center gap-1 select-none ${
+                    selectedCategories.includes("aiml")
+                      ? "bg-emerald-950/90 text-emerald-200 font-medium border border-emerald-600/90 shadow-xs"
+                      : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900 border border-transparent"
                   }`}
+                  title={
+                    selectedCategories.includes("aiml")
+                      ? "Click to remove AI / ML / DL filter"
+                      : "Filter by AI / ML / Deep Learning"
+                  }
                 >
                   <span>🧠</span>
                   <span>AI / ML / DL ({aimlCount})</span>
+                  {selectedCategories.includes("aiml") && (
+                    <span className="text-emerald-400 text-[10px]">✓</span>
+                  )}
                 </button>
               )}
               <button
-                onClick={() => setFilterMode("git")}
-                className={`px-2.5 py-1 rounded-md transition cursor-pointer flex items-center gap-1 ${
-                  filterMode === "git"
-                    ? "bg-emerald-950/70 text-emerald-200 font-medium border border-emerald-800/80"
-                    : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900"
+                type="button"
+                onClick={() => toggleCategory("git")}
+                className={`px-2.5 py-1 rounded-md transition cursor-pointer flex items-center gap-1 select-none ${
+                  selectedCategories.includes("git")
+                    ? "bg-emerald-950/90 text-emerald-200 font-medium border border-emerald-600/90 shadow-xs"
+                    : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900 border border-transparent"
                 }`}
+                title={
+                  selectedCategories.includes("git")
+                    ? "Click to remove Git filter"
+                    : "Filter by Git repositories"
+                }
               >
                 <span>⎇</span>
                 <span>Git Repos ({gitCount})</span>
+                {selectedCategories.includes("git") && (
+                  <span className="text-emerald-400 text-[10px]">✓</span>
+                )}
               </button>
               <button
-                onClick={() => setFilterMode("runnable")}
-                className={`px-2.5 py-1 rounded-md transition cursor-pointer flex items-center gap-1 ${
-                  filterMode === "runnable"
-                    ? "bg-cyan-950/70 text-cyan-200 font-medium border border-cyan-800/80"
-                    : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900"
+                type="button"
+                onClick={() => toggleCategory("runnable")}
+                className={`px-2.5 py-1 rounded-md transition cursor-pointer flex items-center gap-1 select-none ${
+                  selectedCategories.includes("runnable")
+                    ? "bg-cyan-950/90 text-cyan-200 font-medium border border-cyan-600/90 shadow-xs"
+                    : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900 border border-transparent"
                 }`}
+                title={
+                  selectedCategories.includes("runnable")
+                    ? "Click to remove Runnable filter"
+                    : "Filter by Runnable projects"
+                }
               >
                 <span>&gt;_</span>
                 <span>Runnable ({runnableCount})</span>
+                {selectedCategories.includes("runnable") && (
+                  <span className="text-cyan-400 text-[10px]">✓</span>
+                )}
               </button>
               <button
-                onClick={() => setFilterMode("nested")}
-                className={`px-2.5 py-1 rounded-md transition cursor-pointer ${
-                  filterMode === "nested"
-                    ? "bg-zinc-800 text-zinc-100 font-medium border border-zinc-700"
-                    : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900"
+                type="button"
+                onClick={() => toggleCategory("nested")}
+                className={`px-2.5 py-1 rounded-md transition cursor-pointer flex items-center gap-1 select-none ${
+                  selectedCategories.includes("nested")
+                    ? "bg-zinc-800 text-zinc-100 font-medium border border-zinc-600 shadow-xs"
+                    : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900 border border-transparent"
                 }`}
+                title={
+                  selectedCategories.includes("nested")
+                    ? "Click to remove Nested filter"
+                    : "Filter by Nested sub-projects"
+                }
               >
-                Nested ({nestedCount})
+                <span>Nested ({nestedCount})</span>
+                {selectedCategories.includes("nested") && (
+                  <span className="text-zinc-400 text-[10px]">✓</span>
+                )}
               </button>
             </div>
           </div>
 
           {/* Row 2: Multi-Sort Selectors, Type Filter, Package Manager Filter & Default IDE */}
-          <div className="flex flex-wrap items-center justify-between gap-2.5 p-2 rounded-lg bg-zinc-900/40 border border-zinc-800/60 text-xs">
-            <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-2.5 p-2 rounded-lg bg-zinc-900/50 border border-zinc-800/80 text-xs">
+            <div className="flex items-center gap-1.5 flex-wrap min-w-0">
               {/* Unified Multi-Sort Manager */}
               <div className="relative" ref={sortManagerRef}>
                 <button
@@ -1513,27 +1626,31 @@ export function ProjectsView({
                 )}
               </div>
 
-              {/* Active Sort Rule Pills displayed right in the toolbar */}
-              <div className="flex items-center gap-1.5 flex-wrap">
+              {/* Compact Active Sort Rule Pills displayed right in toolbar */}
+              <div className="flex items-center gap-1 flex-wrap">
                 {sortRules.map((rule, idx) => {
                   const meta = SORT_FIELD_OPTIONS.find((o) => o.field === rule.field);
                   const isAsc = rule.direction === "asc";
+                  const compactMeta =
+                    SORT_FIELD_COMPACT[rule.field] || { short: meta?.label || rule.field, icon: "⇅" };
                   const dirLabel = isAsc ? meta?.ascLabel : meta?.descLabel;
 
                   return (
                     <span
                       key={rule.id}
-                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-zinc-900 border border-zinc-800 text-zinc-300 text-[11px] shadow-2xs group hover:border-zinc-700 transition"
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-zinc-900 border border-zinc-800 text-zinc-300 text-[11px] shadow-2xs hover:border-zinc-700 transition"
+                      title={`Sort #${idx + 1}: ${meta?.label} (${dirLabel}). Click arrow to toggle, ✕ to remove.`}
                     >
-                      <span className="text-zinc-500 font-mono text-[10px]">#{idx + 1}</span>
-                      <span className="text-zinc-200 font-medium">{meta?.label}</span>
+                      <span className="text-zinc-500 font-mono text-[9px] font-semibold">#{idx + 1}</span>
+                      <span className="text-zinc-400 text-xs">{compactMeta.icon}</span>
+                      <span className="text-zinc-200 font-medium">{compactMeta.short}</span>
                       <button
                         type="button"
                         onClick={() => toggleRuleDirection(rule.id)}
-                        className="text-cyan-400 hover:text-cyan-300 font-mono font-semibold px-1 py-0.2 rounded hover:bg-zinc-800 transition cursor-pointer"
+                        className="text-cyan-400 hover:text-cyan-300 font-mono font-bold px-1 rounded hover:bg-zinc-800 cursor-pointer"
                         title={`Click to switch to ${isAsc ? meta?.descLabel : meta?.ascLabel}`}
                       >
-                        {isAsc ? "↑" : "↓"} {dirLabel}
+                        {isAsc ? "↑" : "↓"}
                       </button>
                       {sortRules.length > 1 && (
                         <button
@@ -1564,129 +1681,287 @@ export function ProjectsView({
                   </button>
                 )}
               </div>
-
-              {/* Type Filter Dropdown */}
-              {availableTypes.length > 0 && (
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[11px] text-zinc-500 uppercase font-medium">Type:</span>
-                  <select
-                    value={filterType}
-                    onChange={(e) => setFilterType(e.target.value)}
-                    className="px-2 py-1 rounded bg-zinc-900 border border-zinc-800 text-zinc-200 hover:border-zinc-700 focus:outline-none cursor-pointer text-xs"
-                  >
-                    <option value="">All Types ({allProjects.length})</option>
-                    {availableTypes.map((t) => {
-                      const count = allProjects.filter((p) => p.type === t).length;
-                      return (
-                        <option key={t} value={t}>
-                          {t} ({count})
-                        </option>
-                      );
-                    })}
-                  </select>
-                </div>
-              )}
-
-              {/* Package Manager Dropdown */}
-              {availablePkgs.length > 0 && (
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[11px] text-zinc-500 uppercase font-medium">Pkg:</span>
-                  <select
-                    value={filterPkg}
-                    onChange={(e) => setFilterPkg(e.target.value)}
-                    className="px-2 py-1 rounded bg-zinc-900 border border-zinc-800 text-zinc-200 hover:border-zinc-700 focus:outline-none cursor-pointer text-xs"
-                  >
-                    <option value="">All Managers</option>
-                    {availablePkgs.map((pm) => {
-                      const count = allProjects.filter((p) => p.packageManager === pm).length;
-                      return (
-                        <option key={pm} value={pm}>
-                          {pm} ({count})
-                        </option>
-                      );
-                    })}
-                  </select>
-                </div>
-              )}
             </div>
 
-            {/* Default IDE Selector */}
-            <div className="flex items-center gap-1.5 ml-auto">
-              <span className="text-[11px] text-zinc-500 uppercase font-medium">Default IDE:</span>
-              <select
-                value={defaultIde}
-                onChange={(e) => handleSetDefaultIde(e.target.value)}
-                className="px-2 py-1 rounded bg-zinc-900 border border-zinc-800 text-zinc-200 hover:border-zinc-700 focus:outline-none cursor-pointer text-xs"
-                title="Select default IDE for opening projects"
-              >
-                {AVAILABLE_IDES.map((ide) => (
-                  <option key={ide.id} value={ide.id}>
-                    {ide.icon} {ide.name}
-                  </option>
-                ))}
-              </select>
+            {/* Right: Multi-Select Filter Popovers & Default IDE Selector */}
+            <div className="flex items-center gap-2 flex-wrap shrink-0">
+              {/* Type Multi-Select Filter Popover */}
+              {availableTypes.length > 0 && (
+                <div className="relative" ref={typeFilterRef}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowTypeFilter((prev) => !prev);
+                      setShowPkgFilter(false);
+                      setShowSortManager(false);
+                    }}
+                    className={`px-2.5 py-1 rounded-md text-xs font-medium border flex items-center gap-1.5 transition cursor-pointer select-none ${
+                      selectedTypes.length > 0
+                        ? "bg-cyan-950/70 text-cyan-200 border-cyan-700/80 shadow-xs"
+                        : "bg-zinc-900 text-zinc-200 border-zinc-800 hover:border-zinc-700 hover:text-white"
+                    }`}
+                    title="Filter by one or more frameworks / types"
+                  >
+                    <span>🏷️</span>
+                    <span>
+                      {selectedTypes.length === 0
+                        ? `Types (${allProjects.length})`
+                        : selectedTypes.length === 1
+                        ? selectedTypes[0]
+                        : `Types (${selectedTypes.length})`}
+                    </span>
+                    <span className="text-zinc-500 text-[10px]">▾</span>
+                  </button>
+
+                  {/* Type Filter Dropdown Panel */}
+                  {showTypeFilter && (
+                    <div className="absolute right-0 top-full mt-2 w-64 bg-zinc-900 border border-zinc-700/80 rounded-xl p-3 shadow-2xl z-40 text-xs animate-in fade-in duration-150">
+                      <div className="flex items-center justify-between pb-2 border-b border-zinc-800 mb-2">
+                        <span className="font-semibold text-zinc-200 flex items-center gap-1">
+                          <span>🏷️</span> Framework / Type
+                        </span>
+                        <div className="flex items-center gap-1.5 text-[10px]">
+                          <button
+                            type="button"
+                            onClick={() => setSelectedTypes(availableTypes)}
+                            className="text-cyan-400 hover:text-cyan-300 hover:underline cursor-pointer"
+                          >
+                            All
+                          </button>
+                          <span className="text-zinc-600">|</span>
+                          <button
+                            type="button"
+                            onClick={() => setSelectedTypes([])}
+                            className="text-zinc-400 hover:text-zinc-200 hover:underline cursor-pointer"
+                          >
+                            Clear
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="space-y-1 max-h-56 overflow-y-auto pr-1">
+                        {availableTypes.map((t) => {
+                          const count = allProjects.filter((p) => p.type === t).length;
+                          const isSelected = selectedTypes.includes(t);
+                          return (
+                            <label
+                              key={t}
+                              className={`flex items-center justify-between gap-2 px-2 py-1.5 rounded cursor-pointer transition select-none ${
+                                isSelected
+                                  ? "bg-cyan-950/40 text-cyan-200 font-medium border border-cyan-800/40"
+                                  : "text-zinc-300 hover:bg-zinc-800/80"
+                              }`}
+                            >
+                              <div className="flex items-center gap-2 min-w-0">
+                                <input
+                                  type="checkbox"
+                                  checked={isSelected}
+                                  onChange={() => toggleType(t)}
+                                  className="rounded border-zinc-700 bg-zinc-900 text-cyan-500 focus:ring-0 focus:ring-offset-0 cursor-pointer"
+                                />
+                                <span className="truncate text-xs">{t}</span>
+                              </div>
+                              <span className="text-[10px] px-1.5 py-0.2 rounded bg-zinc-800 text-zinc-400 font-mono shrink-0">
+                                {count}
+                              </span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Package Manager Multi-Select Filter Popover */}
+              {availablePkgs.length > 0 && (
+                <div className="relative" ref={pkgFilterRef}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowPkgFilter((prev) => !prev);
+                      setShowTypeFilter(false);
+                      setShowSortManager(false);
+                    }}
+                    className={`px-2.5 py-1 rounded-md text-xs font-medium border flex items-center gap-1.5 transition cursor-pointer select-none ${
+                      selectedPkgs.length > 0
+                        ? "bg-emerald-950/70 text-emerald-200 border-emerald-700/80 shadow-xs"
+                        : "bg-zinc-900 text-zinc-200 border-zinc-800 hover:border-zinc-700 hover:text-white"
+                    }`}
+                    title="Filter by one or more package managers"
+                  >
+                    <span>📦</span>
+                    <span>
+                      {selectedPkgs.length === 0
+                        ? "All Managers"
+                        : selectedPkgs.length === 1
+                        ? selectedPkgs[0]
+                        : `Pkg (${selectedPkgs.length})`}
+                    </span>
+                    <span className="text-zinc-500 text-[10px]">▾</span>
+                  </button>
+
+                  {/* Package Manager Dropdown Panel */}
+                  {showPkgFilter && (
+                    <div className="absolute right-0 top-full mt-2 w-56 bg-zinc-900 border border-zinc-700/80 rounded-xl p-3 shadow-2xl z-40 text-xs animate-in fade-in duration-150">
+                      <div className="flex items-center justify-between pb-2 border-b border-zinc-800 mb-2">
+                        <span className="font-semibold text-zinc-200 flex items-center gap-1">
+                          <span>📦</span> Package Manager
+                        </span>
+                        <div className="flex items-center gap-1.5 text-[10px]">
+                          <button
+                            type="button"
+                            onClick={() => setSelectedPkgs(availablePkgs)}
+                            className="text-cyan-400 hover:text-cyan-300 hover:underline cursor-pointer"
+                          >
+                            All
+                          </button>
+                          <span className="text-zinc-600">|</span>
+                          <button
+                            type="button"
+                            onClick={() => setSelectedPkgs([])}
+                            className="text-zinc-400 hover:text-zinc-200 hover:underline cursor-pointer"
+                          >
+                            Clear
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="space-y-1 max-h-56 overflow-y-auto pr-1">
+                        {availablePkgs.map((pm) => {
+                          const count = allProjects.filter((p) => p.packageManager === pm).length;
+                          const isSelected = selectedPkgs.includes(pm);
+                          return (
+                            <label
+                              key={pm}
+                              className={`flex items-center justify-between gap-2 px-2 py-1.5 rounded cursor-pointer transition select-none ${
+                                isSelected
+                                  ? "bg-emerald-950/40 text-emerald-200 font-medium border border-emerald-800/40"
+                                  : "text-zinc-300 hover:bg-zinc-800/80"
+                              }`}
+                            >
+                              <div className="flex items-center gap-2 min-w-0">
+                                <input
+                                  type="checkbox"
+                                  checked={isSelected}
+                                  onChange={() => togglePkg(pm)}
+                                  className="rounded border-zinc-700 bg-zinc-900 text-emerald-500 focus:ring-0 focus:ring-offset-0 cursor-pointer"
+                                />
+                                <span className="truncate text-xs">{pm}</span>
+                              </div>
+                              <span className="text-[10px] px-1.5 py-0.2 rounded bg-zinc-800 text-zinc-400 font-mono shrink-0">
+                                {count}
+                              </span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Default IDE Selector */}
+              <div className="flex items-center gap-1.5">
+                <span className="text-[11px] text-zinc-500 uppercase font-medium">Default IDE:</span>
+                <select
+                  value={defaultIde}
+                  onChange={(e) => handleSetDefaultIde(e.target.value)}
+                  className="px-2 py-1 rounded bg-zinc-900 border border-zinc-800 text-zinc-200 hover:border-zinc-700 focus:outline-none cursor-pointer text-xs"
+                  title="Select default IDE for opening projects"
+                >
+                  {AVAILABLE_IDES.map((ide) => (
+                    <option key={ide.id} value={ide.id}>
+                      {ide.icon} {ide.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
           </div>
 
           {/* Active Filters Row (shows when any filters are active) */}
           {hasActiveFilters && (
-            <div className="flex flex-wrap items-center gap-2 px-3 py-1.5 rounded-lg bg-zinc-900/30 border border-zinc-800/50 text-xs">
-              <span className="text-[11px] text-zinc-500 font-medium">Active Filters:</span>
+            <div className="flex flex-wrap items-center gap-2 px-3 py-1.5 rounded-lg bg-zinc-900/40 border border-zinc-800/70 text-xs">
+              <span className="text-[11px] text-zinc-500 font-medium">
+                Active Filters ({displayedProjects.length} of {allProjects.length}):
+              </span>
 
-              {filterMode !== "all" && (
+              {/* Selected Categories */}
+              {selectedCategories.map((cat) => {
+                const labelMap: Record<string, string> = {
+                  fullstack: "⚡ Fullstack",
+                  aiml: "🧠 AI / ML / DL",
+                  git: "⎇ Git Repos",
+                  runnable: ">_ Runnable",
+                  nested: "📁 Nested",
+                };
+                return (
+                  <button
+                    key={cat}
+                    type="button"
+                    onClick={() => toggleCategory(cat)}
+                    className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 transition cursor-pointer"
+                    title={`Remove category filter: ${labelMap[cat] || cat}`}
+                  >
+                    <span>{labelMap[cat] || cat}</span>
+                    <span className="text-zinc-400 hover:text-white">✕</span>
+                  </button>
+                );
+              })}
+
+              {/* Selected Types */}
+              {selectedTypes.map((t) => (
                 <button
-                  onClick={() => setFilterMode("all")}
-                  className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700 transition cursor-pointer"
-                  title="Remove category filter"
+                  key={t}
+                  type="button"
+                  onClick={() => toggleType(t)}
+                  className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] bg-cyan-950/60 hover:bg-cyan-900/60 text-cyan-200 border border-cyan-800/60 transition cursor-pointer"
+                  title={`Remove type filter: ${t}`}
                 >
-                  <span className="capitalize">{filterMode}</span>
-                  <span className="text-zinc-500 hover:text-zinc-200">✕</span>
+                  <span>🏷️ {t}</span>
+                  <span className="text-cyan-400 hover:text-cyan-100">✕</span>
                 </button>
-              )}
+              ))}
 
-              {filterType && (
+              {/* Selected Package Managers */}
+              {selectedPkgs.map((pm) => (
                 <button
-                  onClick={() => setFilterType("")}
-                  className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700 transition cursor-pointer"
-                  title="Remove type filter"
+                  key={pm}
+                  type="button"
+                  onClick={() => togglePkg(pm)}
+                  className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] bg-emerald-950/60 hover:bg-emerald-900/60 text-emerald-200 border border-emerald-800/60 transition cursor-pointer"
+                  title={`Remove package manager filter: ${pm}`}
                 >
-                  <span>Type: {filterType}</span>
-                  <span className="text-zinc-500 hover:text-zinc-200">✕</span>
+                  <span>📦 {pm}</span>
+                  <span className="text-emerald-400 hover:text-emerald-100">✕</span>
                 </button>
-              )}
+              ))}
 
-              {filterPkg && (
-                <button
-                  onClick={() => setFilterPkg("")}
-                  className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700 transition cursor-pointer"
-                  title="Remove package manager filter"
-                >
-                  <span>Pkg: {filterPkg}</span>
-                  <span className="text-zinc-500 hover:text-zinc-200">✕</span>
-                </button>
-              )}
-
+              {/* Search Query */}
               {searchQuery.trim() && (
                 <button
+                  type="button"
                   onClick={() => setSearchQuery("")}
                   className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700 transition cursor-pointer"
                   title="Clear search query"
                 >
                   <span>&quot;{searchQuery.trim()}&quot;</span>
-                  <span className="text-zinc-500 hover:text-zinc-200">✕</span>
+                  <span className="text-zinc-400 hover:text-white">✕</span>
                 </button>
               )}
 
+              {/* Reset All Filters Button */}
               <button
+                type="button"
                 onClick={() => {
                   setSearchQuery("");
-                  setFilterMode("all");
-                  setFilterType("");
-                  setFilterPkg("");
-                  resetSortRules();
+                  clearCategories();
+                  setSelectedTypes([]);
+                  setSelectedPkgs([]);
                 }}
-                className="ml-auto text-[11px] text-amber-400 hover:text-amber-300 hover:underline cursor-pointer"
-                title="Reset all filters and sorting"
+                className="ml-auto text-[11px] text-amber-400 hover:text-amber-300 hover:underline cursor-pointer font-medium"
+                title="Reset all active search and filter criteria"
               >
                 Clear all filters
               </button>
@@ -1904,9 +2179,11 @@ export function ProjectsView({
           <button
             onClick={() => {
               setSearchQuery("");
-              setFilterMode("all");
+              clearCategories();
+              setSelectedTypes([]);
+              setSelectedPkgs([]);
             }}
-            className="mt-3 px-3 py-1 rounded text-xs bg-zinc-800 text-zinc-200 hover:bg-zinc-700"
+            className="mt-3 px-3 py-1 rounded text-xs bg-zinc-800 text-zinc-200 hover:bg-zinc-700 cursor-pointer"
           >
             Clear Filters
           </button>

@@ -89,3 +89,13 @@ export interface EnvFileSaveResponse {
   data?: EnvFileSaveResult;
   error?: string;
 }
+
+export interface EnvEditorTab {
+  id: string;
+  title: string;
+  workspaceId: string;
+  projectId: string;
+  projectName?: string;
+  selectedFilename: string;
+  isDirty?: boolean;
+}

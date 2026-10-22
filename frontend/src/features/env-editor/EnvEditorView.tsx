@@ -1,40 +1,15 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { fetchWorkspaces } from "@/services/projects";
-import {
-  createEnvFile,
-  fetchEnvFiles,
-  fetchWorkspaceProjectsWithEnv,
-  readEnvFile,
-  saveEnvFile,
-} from "@/services/env-editor";
 import { WorkspaceWithProjects } from "@/types/project";
 import { useWorkspaceSubscription } from "@/services/workspaceSync";
-import {
-  EnvFileMetadata,
-  EnvVariableEntry,
-} from "@/types/env-editor";
+import { EnvEditorTab } from "@/types/env-editor";
+import { EnvEditorPane } from "./EnvEditorPane";
 
-const SUPPORTED_ENV_FILES = [
-  ".env",
-  ".env.local",
-  ".env.development",
-  ".env.development.local",
-  ".env.production",
-  ".env.production.local",
-  ".env.test",
-] as const;
-
-const KEY_REGEX = /^[A-Za-z_][A-Za-z0-9_]*$/;
-
-function formatBytes(bytes: number): string {
-  if (bytes === 0) return "0 B";
-  if (bytes < 1024) return `${bytes} B`;
-  const kb = bytes / 1024;
-  if (kb < 1024) return `${kb.toFixed(1)} KB`;
-  return `${(kb / 1024).toFixed(2)} MB`;
-}
+const LOCAL_STORAGE_TABS_KEY = "devdesk_env_tabs_v2";
+const LOCAL_STORAGE_ACTIVE_TAB_KEY = "devdesk_env_active_tab_id_v2";
+const LOCAL_STORAGE_SPLIT_KEY = "devdesk_env_split_mode_v2";
 
 interface EnvEditorViewProps {
   isActive?: boolean;
@@ -44,130 +19,155 @@ interface EnvEditorViewProps {
   } | null;
 }
 
-export function EnvEditorView({ isActive, initialSelection }: EnvEditorViewProps = {}) {
-  const baseId = useId();
+function createDefaultEnvTab(index: number = 1): EnvEditorTab {
+  return {
+    id: `env-tab-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+    title: `Env Session ${index}`,
+    workspaceId: "",
+    projectId: "",
+    selectedFilename: ".env",
+    isDirty: false,
+  };
+}
 
-  // Workspace & Project Selection
+export function EnvEditorView({
+  isActive,
+  initialSelection,
+}: EnvEditorViewProps = {}) {
+  // Workspaces state
   const [workspaces, setWorkspaces] = useState<WorkspaceWithProjects[]>([]);
-  const [selectedWorkspaceId, setSelectedWorkspaceId] = useState<string>(() => {
-    if (initialSelection?.workspaceId) return initialSelection.workspaceId;
-    if (typeof window !== "undefined") {
-      return localStorage.getItem("devdesk_enveditor_last_workspace_id") || "";
-    }
-    return "";
-  });
-  const [selectedProjectId, setSelectedProjectId] = useState<string>(() => {
-    if (initialSelection?.projectId) return initialSelection.projectId;
-    if (typeof window !== "undefined") {
-      return localStorage.getItem("devdesk_enveditor_last_project_id") || "";
-    }
-    return "";
-  });
-
-  // Projects that have at least one .env file
-  const [projectsWithEnv, setProjectsWithEnv] = useState<string[]>([]);
-  const [onlyProjectsWithEnv, setOnlyProjectsWithEnv] = useState<boolean>(true);
-
-  useWorkspaceSubscription(setWorkspaces, isActive, (fresh) => {
-    setSelectedWorkspaceId((prev) => {
-      if (!prev) return "";
-      const exists = fresh.some((w) => w.id === prev);
-      return exists ? prev : "";
-    });
-  });
-
-  // Files & Content State
-  const [envFiles, setEnvFiles] = useState<EnvFileMetadata[]>([]);
-  const [selectedFilename, setSelectedFilename] = useState<string>(".env");
-  const [variables, setVariables] = useState<EnvVariableEntry[]>([]);
-  const [rawContent, setRawContent] = useState<string>("");
-  const [lastModifiedOnDisk, setLastModifiedOnDisk] = useState<string | null>(null);
-  const [fileSizeBytes, setFileSizeBytes] = useState<number>(0);
-  const [hasSyntaxWarnings, setHasSyntaxWarnings] = useState<boolean>(false);
-
-  // Snapshot for dirty checking
-  const [initialVariablesSnapshot, setInitialVariablesSnapshot] = useState<string>("[]");
-  const [initialRawSnapshot, setInitialRawSnapshot] = useState<string>("");
-  const [isDirty, setIsDirty] = useState<boolean>(false);
-
-  // Editor View Mode
-  const [viewMode, setViewMode] = useState<"structured" | "raw">("structured");
-  const [searchFilter, setSearchFilter] = useState<string>("");
-
-  // Sensitive Value Masking State (Set of variable IDs explicitly revealed)
-  const [revealedVarIds, setRevealedVarIds] = useState<Set<string>>(new Set());
-
-  // Inline New Variable Form
-  const [newKey, setNewKey] = useState<string>("");
-  const [newValue, setNewValue] = useState<string>("");
-  const [newComment, setNewComment] = useState<string>("");
-  const [newKeyError, setNewKeyError] = useState<string | null>(null);
-
-  // Modal States
-  const [showCreateModal, setShowCreateModal] = useState<boolean>(false);
-  const [targetCreateFilename, setTargetCreateFilename] = useState<string>(".env");
-  const [showSaveConfirmModal, setShowSaveConfirmModal] = useState<boolean>(false);
-  const [showConflictModal, setShowConflictModal] = useState<boolean>(false);
-  const [conflictErrorMessage, setConflictErrorMessage] = useState<string>("");
-
-  // Loading & Feedback
   const [loadingWorkspaces, setLoadingWorkspaces] = useState<boolean>(true);
-  const [loadingFiles, setLoadingFiles] = useState<boolean>(false);
-  const [loadingContent, setLoadingContent] = useState<boolean>(false);
-  const [savingFile, setSavingFile] = useState<boolean>(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  const [copiedPath, setCopiedPath] = useState<boolean>(false);
+  useWorkspaceSubscription(setWorkspaces, isActive);
 
-  const handleCopyPath = (path: string) => {
-    if (typeof navigator !== "undefined" && navigator.clipboard) {
-      navigator.clipboard.writeText(path);
-      setCopiedPath(true);
-      setTimeout(() => setCopiedPath(false), 2000);
-    }
-  };
+  // Tabs state
+  const [tabs, setTabs] = useState<EnvEditorTab[]>([createDefaultEnvTab(1)]);
+  const [activeTabId, setActiveTabId] = useState<string>(tabs[0].id);
+  const [splitTabId, setSplitTabId] = useState<string | null>(null);
+  const [isSplitView, setIsSplitView] = useState<boolean>(false);
 
-  const handleRevealInFinder = async (path: string) => {
-    if (window.electron?.revealInFinder) {
-      await window.electron.revealInFinder(path);
-    }
-  };
+  // Inline rename state
+  const [editingTabTitleId, setEditingTabTitleId] = useState<string | null>(null);
+  const [editingTitleText, setEditingTitleText] = useState<string>("");
 
   const isMountedRef = useRef<boolean>(true);
 
-  // 1. Initial Load: Workspaces & Restoring Saved Selection
+  // 1. Initialize workspaces, restore tabs from localStorage, handle initialSelection
   useEffect(() => {
     isMountedRef.current = true;
 
-    async function loadWorkspaces() {
+    async function initialize() {
       try {
         setLoadingWorkspaces(true);
         const loaded = await fetchWorkspaces();
         if (!isMountedRef.current) return;
         setWorkspaces(loaded);
 
-        // Restore saved workspace & project from localStorage if none provided via props
-        const lastWsId = localStorage.getItem("devdesk_enveditor_last_workspace_id");
-        const lastProjId = localStorage.getItem("devdesk_enveditor_last_project_id");
+        // Restore tabs from localStorage
+        let restoredTabs: EnvEditorTab[] = [];
+        try {
+          const stored = localStorage.getItem(LOCAL_STORAGE_TABS_KEY);
+          if (stored) {
+            const parsed = JSON.parse(stored);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              restoredTabs = parsed.map((t) => ({
+                ...t,
+                isDirty: false, // reset dirty on reload
+              }));
+            }
+          }
+        } catch {
+          // ignore corrupted storage
+        }
 
-        if (initialSelection?.workspaceId) {
-          setSelectedWorkspaceId(initialSelection.workspaceId);
-          setSelectedProjectId(initialSelection.projectId || "");
-        } else if (lastWsId && loaded.some((w) => w.id === lastWsId)) {
-          setSelectedWorkspaceId(lastWsId);
-          const ws = loaded.find((w) => w.id === lastWsId);
-          if (lastProjId && ws?.projects.some((p) => p.id === lastProjId)) {
-            setSelectedProjectId(lastProjId);
-          } else if (ws && ws.projects.length > 0) {
-            setSelectedProjectId(ws.projects[0].id);
+        // Restore split view preference
+        try {
+          const storedSplit = localStorage.getItem(LOCAL_STORAGE_SPLIT_KEY);
+          if (storedSplit === "true") {
+            setIsSplitView(true);
+          }
+        } catch {
+          // ignore
+        }
+
+        let initialActiveId = "";
+        try {
+          initialActiveId =
+            localStorage.getItem(LOCAL_STORAGE_ACTIVE_TAB_KEY) || "";
+        } catch {
+          // ignore
+        }
+
+        // If an initialSelection was provided from outside (e.g. ProjectsView)
+        if (initialSelection?.workspaceId && initialSelection?.projectId) {
+          const targetWs = loaded.find(
+            (w) => w.id === initialSelection.workspaceId
+          );
+          const targetProj = targetWs?.projects.find(
+            (p) => p.id === initialSelection.projectId
+          );
+
+          if (targetWs && targetProj) {
+            const projLabel = targetProj.displayName || targetProj.name;
+            const existingTab = restoredTabs.find(
+              (t) => t.projectId === targetProj.id
+            );
+
+            if (existingTab) {
+              initialActiveId = existingTab.id;
+            } else {
+              const newTab: EnvEditorTab = {
+                id: `env-tab-${Date.now()}-init`,
+                title: `${projLabel} › .env`,
+                workspaceId: targetWs.id,
+                projectId: targetProj.id,
+                projectName: targetProj.name,
+                selectedFilename: ".env",
+                isDirty: false,
+              };
+              restoredTabs.push(newTab);
+              initialActiveId = newTab.id;
+            }
           }
         }
-      } catch (err: unknown) {
-        if (!isMountedRef.current) return;
-        setErrorMessage(
-          err instanceof Error ? err.message : "Failed to load workspaces."
+
+        // Fallback if no tabs were restored
+        if (restoredTabs.length === 0) {
+          const firstWs = loaded[0];
+          const firstProj = firstWs?.projects[0];
+          const firstTab: EnvEditorTab = {
+            id: `env-tab-1`,
+            title: firstProj
+              ? `${firstProj.displayName || firstProj.name} › .env`
+              : "Env Session 1",
+            workspaceId: firstWs?.id || "",
+            projectId: firstProj?.id || "",
+            projectName: firstProj?.name || "",
+            selectedFilename: ".env",
+            isDirty: false,
+          };
+          restoredTabs = [firstTab];
+          initialActiveId = firstTab.id;
+        }
+
+        // Set restored tabs
+        setTabs(restoredTabs);
+
+        const matchedActive = restoredTabs.find(
+          (t) => t.id === initialActiveId
         );
+        const resolvedActiveId = matchedActive
+          ? matchedActive.id
+          : restoredTabs[0].id;
+        setActiveTabId(resolvedActiveId);
+
+        // Set default split tab if more than one tab exists
+        if (restoredTabs.length > 1) {
+          const otherTab = restoredTabs.find((t) => t.id !== resolvedActiveId);
+          setSplitTabId(otherTab ? otherTab.id : null);
+        }
+      } catch (err) {
+        console.error("Failed to initialize environment tabs:", err);
       } finally {
         if (isMountedRef.current) {
           setLoadingWorkspaces(false);
@@ -175,1072 +175,491 @@ export function EnvEditorView({ isActive, initialSelection }: EnvEditorViewProps
       }
     }
 
-    loadWorkspaces();
+    initialize();
 
     return () => {
       isMountedRef.current = false;
     };
-  }, []);
+  }, [initialSelection]);
 
-  // 1b. Load projects with .env files whenever workspace changes
+  // Persist tabs & active tab to localStorage
   useEffect(() => {
-    if (!selectedWorkspaceId) {
-      setProjectsWithEnv([]);
-      return;
+    if (tabs.length === 0 || typeof window === "undefined") return;
+    try {
+      const serialized = tabs.map((t) => ({
+        id: t.id,
+        title: t.title,
+        workspaceId: t.workspaceId,
+        projectId: t.projectId,
+        projectName: t.projectName,
+        selectedFilename: t.selectedFilename,
+      }));
+      localStorage.setItem(LOCAL_STORAGE_TABS_KEY, JSON.stringify(serialized));
+    } catch {
+      // ignore storage quota errors
     }
+  }, [tabs]);
 
-    if (typeof window !== "undefined") {
-      localStorage.setItem("devdesk_enveditor_last_workspace_id", selectedWorkspaceId);
-    }
-
-    async function loadEnvProjects() {
+  useEffect(() => {
+    if (activeTabId && typeof window !== "undefined") {
       try {
-        const ids = await fetchWorkspaceProjectsWithEnv(selectedWorkspaceId);
-        if (!isMountedRef.current) return;
-        setProjectsWithEnv(ids);
-
-        // If currently selected project is not among projects with env and onlyProjectsWithEnv is active,
-        // automatically select the first project that has an .env file
-        if (ids.length > 0) {
-          setSelectedProjectId((prev) => {
-            if (prev && ids.includes(prev)) return prev;
-            return ids[0];
-          });
-        }
+        localStorage.setItem(LOCAL_STORAGE_ACTIVE_TAB_KEY, activeTabId);
       } catch {
         // ignore
       }
     }
-
-    loadEnvProjects();
-  }, [selectedWorkspaceId]);
-
-  // Persist project selection changes
-  useEffect(() => {
-    if (selectedProjectId && typeof window !== "undefined") {
-      localStorage.setItem("devdesk_enveditor_last_project_id", selectedProjectId);
-    }
-  }, [selectedProjectId]);
-
-  // When Workspace changes, update Project
-  const activeWorkspace = workspaces.find((w) => w.id === selectedWorkspaceId) || null;
-  const availableProjects = activeWorkspace?.projects || [];
-  const activeProject = availableProjects.find((p) => p.id === selectedProjectId) || null;
+  }, [activeTabId]);
 
   useEffect(() => {
-    if (activeWorkspace && activeWorkspace.projects.length > 0) {
-      if (selectedProjectId && !activeWorkspace.projects.some((p) => p.id === selectedProjectId)) {
-        setSelectedProjectId("");
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.setItem(LOCAL_STORAGE_SPLIT_KEY, String(isSplitView));
+      } catch {
+        // ignore
       }
-    } else {
-      setSelectedProjectId("");
     }
-  }, [selectedWorkspaceId, activeWorkspace, selectedProjectId]);
+  }, [isSplitView]);
 
-  // 2. Load Supported Env Files when Selected Project Changes
-  useEffect(() => {
-    if (!selectedProjectId) {
-      setEnvFiles([]);
-      setVariables([]);
-      setRawContent("");
-      setIsDirty(false);
-      return;
-    }
+  // Tab Add
+  const handleAddTab = useCallback(() => {
+    setTabs((prev) => {
+      const newIndex = prev.length + 1;
+      // Copy workspace and project from current active tab if available
+      const currentActive = prev.find((t) => t.id === activeTabId) || prev[0];
+      const newTab: EnvEditorTab = {
+        id: `env-tab-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+        title: currentActive
+          ? `${currentActive.projectName || "Env"} (${newIndex})`
+          : `Env Session ${newIndex}`,
+        workspaceId: currentActive?.workspaceId || workspaces[0]?.id || "",
+        projectId:
+          currentActive?.projectId ||
+          workspaces[0]?.projects[0]?.id ||
+          "",
+        projectName: currentActive?.projectName || "",
+        selectedFilename: ".env",
+        isDirty: false,
+      };
 
-    loadFilesForProject(selectedProjectId, selectedFilename);
-  }, [selectedProjectId]);
+      const updated = [...prev, newTab];
+      setActiveTabId(newTab.id);
 
-  async function loadFilesForProject(
-    projectId: string,
-    preferredFileToSelect?: string
-  ) {
-    try {
-      setLoadingFiles(true);
-      setErrorMessage(null);
-
-      const result = await fetchEnvFiles(projectId);
-      if (!isMountedRef.current) return;
-
-      setEnvFiles(result.files);
-
-      // Determine which file to select
-      let fileToSelect: string | null = null;
-      if (preferredFileToSelect && result.files.some((f) => f.filename === preferredFileToSelect && f.exists)) {
-        fileToSelect = preferredFileToSelect;
-      } else {
-        // Pick first existing file, or default to .env
-        const firstExisting = result.files.find((f) => f.exists);
-        fileToSelect = firstExisting ? firstExisting.filename : (result.files[0]?.filename || ".env");
+      if (isSplitView && !splitTabId) {
+        setSplitTabId(newTab.id);
       }
 
-      setSelectedFilename(fileToSelect);
+      return updated;
+    });
+  }, [activeTabId, workspaces, isSplitView, splitTabId]);
 
-      const targetFileObj = result.files.find((f) => f.filename === fileToSelect);
-      if (targetFileObj && targetFileObj.exists) {
-        await loadFileContent(projectId, fileToSelect);
-      } else {
-        setVariables([]);
-        setRawContent("");
-        setLastModifiedOnDisk(null);
-        setFileSizeBytes(0);
-        setInitialVariablesSnapshot("[]");
-        setInitialRawSnapshot("");
-        setIsDirty(false);
+  // Tab Close
+  const handleCloseTab = useCallback(
+    (tabIdToClose: string, e?: React.MouseEvent) => {
+      if (e) e.stopPropagation();
+
+      const targetTab = tabs.find((t) => t.id === tabIdToClose);
+      if (targetTab?.isDirty) {
+        const confirmClose = window.confirm(
+          `Tab "${targetTab.title}" has unsaved changes. Are you sure you want to close it?`
+        );
+        if (!confirmClose) return;
       }
-    } catch (err: unknown) {
-      if (!isMountedRef.current) return;
-      setErrorMessage(
-        err instanceof Error ? err.message : "Failed to load environment files."
+
+      setTabs((prev) => {
+        const remaining = prev.filter((t) => t.id !== tabIdToClose);
+
+        if (remaining.length === 0) {
+          const freshTab = createDefaultEnvTab(1);
+          setActiveTabId(freshTab.id);
+          setSplitTabId(null);
+          return [freshTab];
+        }
+
+        if (activeTabId === tabIdToClose) {
+          setActiveTabId(remaining[remaining.length - 1].id);
+        }
+
+        if (splitTabId === tabIdToClose) {
+          const otherTab = remaining.find((t) => t.id !== activeTabId);
+          setSplitTabId(otherTab ? otherTab.id : null);
+        }
+
+        return remaining;
+      });
+    },
+    [tabs, activeTabId, splitTabId]
+  );
+
+  // Tab Rename
+  const handleStartRename = (tab: EnvEditorTab, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditingTabTitleId(tab.id);
+    setEditingTitleText(tab.title);
+  };
+
+  const handleSaveRename = () => {
+    if (!editingTabTitleId) return;
+    const trimmed = editingTitleText.trim();
+    if (trimmed.length > 0) {
+      setTabs((prev) =>
+        prev.map((t) =>
+          t.id === editingTabTitleId ? { ...t, title: trimmed } : t
+        )
       );
-    } finally {
-      if (isMountedRef.current) {
-        setLoadingFiles(false);
-      }
     }
-  }
+    setEditingTabTitleId(null);
+  };
 
-  // 3. Load File Content
-  async function loadFileContent(projectId: string, filename: string) {
-    try {
-      setLoadingContent(true);
-      setErrorMessage(null);
-
-      const result = await readEnvFile(projectId, filename);
-      if (!isMountedRef.current) return;
-
-      setVariables(result.variables);
-      setRawContent(result.content);
-      setLastModifiedOnDisk(result.lastModified);
-      setFileSizeBytes(result.sizeBytes);
-
-      // Check if any raw lines exist that weren't standard variables/comments/blanks
-      const hasUnstructured = result.lines.some((l) => l.type === "raw");
-      setHasSyntaxWarnings(hasUnstructured);
-
-      const varSnapshot = JSON.stringify(result.variables);
-      setInitialVariablesSnapshot(varSnapshot);
-      setInitialRawSnapshot(result.content);
-      setIsDirty(false);
-      setRevealedVarIds(new Set()); // Reset revealed secrets on reload
-    } catch (err: unknown) {
-      if (!isMountedRef.current) return;
-      setErrorMessage(
-        err instanceof Error
-          ? err.message
-          : `Failed to read environment file "${filename}".`
-      );
-    } finally {
-      if (isMountedRef.current) {
-        setLoadingContent(false);
-      }
-    }
-  }
-
-  // Handle switching file
-  function handleSelectFile(filename: string) {
-    if (filename === selectedFilename) return;
-
-    if (isDirty) {
-      const confirmSwitch = window.confirm(
-        `You have unsaved changes in "${selectedFilename}". Discard changes and switch to "${filename}"?`
-      );
-      if (!confirmSwitch) return;
-    }
-
-    setSelectedFilename(filename);
-    const targetFile = envFiles.find((f) => f.filename === filename);
-    if (targetFile && targetFile.exists && selectedProjectId) {
-      loadFileContent(selectedProjectId, filename);
-    } else {
-      setVariables([]);
-      setRawContent("");
-      setLastModifiedOnDisk(null);
-      setFileSizeBytes(0);
-      setInitialVariablesSnapshot("[]");
-      setInitialRawSnapshot("");
-      setIsDirty(false);
-    }
-  }
-
-  // Variable Actions
-  function handleAddVariable() {
-    setNewKeyError(null);
-    const trimmedKey = newKey.trim();
-
-    if (!trimmedKey) {
-      setNewKeyError("Variable key is required.");
-      return;
-    }
-
-    if (!KEY_REGEX.test(trimmedKey)) {
-      setNewKeyError(
-        "Invalid key. Must start with a letter or underscore and contain only alphanumeric characters and underscores."
-      );
-      return;
-    }
-
-    if (variables.some((v) => v.key === trimmedKey)) {
-      setNewKeyError(`Variable "${trimmedKey}" already exists.`);
-      return;
-    }
-
-    const newEntry: EnvVariableEntry = {
-      id: `var-${Date.now()}-${trimmedKey}`,
-      key: trimmedKey,
-      value: newValue,
-      comment: newComment.trim() || undefined,
-      isSecret: /(SECRET|PASSWORD|PASS|TOKEN|API_KEY|PRIVATE_KEY|CREDENTIAL|AUTH|KEY)/i.test(
-        trimmedKey
-      ),
-    };
-
-    const updated = [...variables, newEntry];
-    setVariables(updated);
-    setIsDirty(true);
-
-    // Reset inline form
-    setNewKey("");
-    setNewValue("");
-    setNewComment("");
-  }
-
-  function handleEditValue(id: string, value: string) {
-    setVariables((prev) =>
-      prev.map((v) => (v.id === id ? { ...v, value } : v))
-    );
-    setIsDirty(true);
-  }
-
-  function handleEditComment(id: string, comment: string) {
-    setVariables((prev) =>
-      prev.map((v) => (v.id === id ? { ...v, comment: comment || undefined } : v))
-    );
-    setIsDirty(true);
-  }
-
-  function handleRemoveVariable(id: string) {
-    setVariables((prev) => prev.filter((v) => v.id !== id));
-    setIsDirty(true);
-  }
-
-  function toggleReveal(id: string) {
-    setRevealedVarIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
+  // Toggle Split View
+  const handleToggleSplitView = () => {
+    setIsSplitView((prev) => {
+      const next = !prev;
+      if (next) {
+        // If enabling split view and only 1 tab exists, automatically add a 2nd tab
+        if (tabs.length === 1) {
+          const currentTab = tabs[0];
+          const newTab: EnvEditorTab = {
+            id: `env-tab-${Date.now()}-split`,
+            title: `${currentTab.title} (Split)`,
+            workspaceId: currentTab.workspaceId,
+            projectId: currentTab.projectId,
+            projectName: currentTab.projectName,
+            selectedFilename: ".env.local",
+            isDirty: false,
+          };
+          setTabs([currentTab, newTab]);
+          setSplitTabId(newTab.id);
+        } else if (!splitTabId || splitTabId === activeTabId) {
+          const other = tabs.find((t) => t.id !== activeTabId);
+          setSplitTabId(other ? other.id : tabs[0].id);
+        }
       }
       return next;
     });
-  }
+  };
 
-  function handleDiscardChanges() {
-    if (viewMode === "structured") {
-      try {
-        const restored: EnvVariableEntry[] = JSON.parse(initialVariablesSnapshot);
-        setVariables(restored);
-      } catch {
-        // fallback
-      }
-    } else {
-      setRawContent(initialRawSnapshot);
-    }
-    setIsDirty(false);
-  }
-
-  // Create New Supported File
-  async function handleCreateFile() {
-    if (!selectedProjectId) return;
-    try {
-      setSavingFile(true);
-      setErrorMessage(null);
-
-      await createEnvFile(selectedProjectId, targetCreateFilename);
-      setShowCreateModal(false);
-      setSuccessMessage(`File "${targetCreateFilename}" created successfully.`);
-
-      // Refresh files list and select newly created file
-      await loadFilesForProject(selectedProjectId, targetCreateFilename);
-    } catch (err: unknown) {
-      setErrorMessage(
-        err instanceof Error
-          ? err.message
-          : `Failed to create file "${targetCreateFilename}".`
+  // Tab Meta & Dirty State Callbacks
+  const handleTabDirtyChange = useCallback(
+    (tabId: string, isDirty: boolean) => {
+      setTabs((prev) =>
+        prev.map((t) => (t.id === tabId ? { ...t, isDirty } : t))
       );
-    } finally {
-      setSavingFile(false);
-    }
-  }
-
-  // Save File
-  async function handleExecuteSave() {
-    if (!selectedProjectId) return;
-    try {
-      setSavingFile(true);
-      setErrorMessage(null);
-      setSuccessMessage(null);
-
-      const savePayload = {
-        filename: selectedFilename,
-        expectedLastModified: lastModifiedOnDisk,
-        ...(viewMode === "raw"
-          ? { content: rawContent }
-          : { variables }),
-      };
-
-      const result = await saveEnvFile(selectedProjectId, savePayload);
-
-      setShowSaveConfirmModal(false);
-      setSuccessMessage(
-        `Saved "${result.filename}" (${result.variableCount} variables). Safety backup: ${result.backupCreated || "None"}.`
-      );
-
-      // Refresh file content & metadata
-      await loadFilesForProject(selectedProjectId, selectedFilename);
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Failed to save file.";
-      if (msg.toLowerCase().includes("conflict")) {
-        setShowSaveConfirmModal(false);
-        setConflictErrorMessage(msg);
-        setShowConflictModal(true);
-      } else {
-        setErrorMessage(msg);
-      }
-    } finally {
-      setSavingFile(false);
-    }
-  }
-
-  // Filter variables by search query
-  const filteredVariables = variables.filter(
-    (v) =>
-      v.key.toLowerCase().includes(searchFilter.toLowerCase()) ||
-      (v.comment && v.comment.toLowerCase().includes(searchFilter.toLowerCase()))
+    },
+    []
   );
 
-  const displayedProjects = onlyProjectsWithEnv
-    ? availableProjects.filter((p) => projectsWithEnv.includes(p.id))
-    : availableProjects;
-
-  const currentFileMeta = envFiles.find((f) => f.filename === selectedFilename);
-  const fileExists = currentFileMeta?.exists ?? false;
-
-  const existingEnvFiles = envFiles.filter((f) => f.exists);
-  const missingSupportedFiles = SUPPORTED_ENV_FILES.filter(
-    (fname) => !envFiles.some((f) => f.filename === fname && f.exists)
+  const handleTabMetaChange = useCallback(
+    (
+      tabId: string,
+      meta: {
+        title: string;
+        workspaceId: string;
+        projectId: string;
+        projectName: string;
+        filename: string;
+      }
+    ) => {
+      setTabs((prev) =>
+        prev.map((t) => {
+          if (t.id !== tabId) return t;
+          // Don't overwrite if user gave a custom title unless it was default
+          const isDefaultTitle =
+            t.title.startsWith("Env Session") ||
+            t.title.includes(" › ") ||
+            t.title.includes("(Split)");
+          return {
+            ...t,
+            title: isDefaultTitle ? meta.title : t.title,
+            workspaceId: meta.workspaceId,
+            projectId: meta.projectId,
+            projectName: meta.projectName,
+            selectedFilename: meta.filename,
+          };
+        })
+      );
+    },
+    []
   );
+
+  const activeTab = tabs.find((t) => t.id === activeTabId) || tabs[0] || null;
+  const secondaryTab =
+    tabs.find((t) => t.id === splitTabId) ||
+    tabs.find((t) => t.id !== activeTabId) ||
+    null;
 
   return (
-    <div className="flex flex-col h-full text-zinc-100 p-6 overflow-hidden">
-      {/* Top Header: Title, Description, and Workspace/Project Selectors */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-zinc-800 shrink-0">
+    <div className="flex flex-col h-full p-4 sm:p-6 text-zinc-100 w-full overflow-hidden">
+      {/* 1. Header & Title with Multi-Env Actions */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3 shrink-0">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-xl font-semibold tracking-tight text-zinc-100">
+            <h2 className="text-xl font-semibold tracking-tight">
               Environment Variables
-            </h1>
+            </h2>
             <span className="px-2 py-0.5 text-[10px] font-mono rounded bg-zinc-800 text-zinc-400 border border-zinc-700">
               AES-Safe Local Storage
             </span>
           </div>
-          <p className="text-xs text-zinc-400 mt-1">
-            Safely inspect, validate, edit, and create environment variable files with atomic writes and safety backups.
+          <p className="text-xs text-zinc-400 mt-0.5">
+            Multi-environment manager: inspect, validate, compare, and edit variables across projects and stages.
           </p>
         </div>
 
-        {/* Workspace & Project Selector Controls */}
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-1.5">
-            <label
-              htmlFor={`${baseId}-ws-select`}
-              className="text-xs text-zinc-400 font-medium"
-            >
-              Workspace:
-            </label>
-            <select
-              id={`${baseId}-ws-select`}
-              value={selectedWorkspaceId}
-              onChange={(e) => {
-                setSelectedWorkspaceId(e.target.value);
-                setSelectedProjectId("");
-              }}
-              disabled={loadingWorkspaces || workspaces.length === 0}
-              className="px-2.5 py-1.5 bg-zinc-900 border border-zinc-700 rounded-md text-xs text-zinc-200 focus:outline-none focus:border-zinc-500 disabled:opacity-50"
-            >
-              <option value="">None (Select Workspace)</option>
-              {workspaces.map((ws) => (
-                <option key={ws.id} value={ws.id}>
-                  {ws.rootPath.split("/").pop() || ws.rootPath} ({ws.projects.length} projects)
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <label
-              htmlFor={`${baseId}-proj-select`}
-              className="text-xs text-zinc-400 font-medium"
-            >
-              Project:
-            </label>
-            <select
-              id={`${baseId}-proj-select`}
-              value={selectedProjectId}
-              onChange={(e) => setSelectedProjectId(e.target.value)}
-              disabled={displayedProjects.length === 0}
-              className="px-2.5 py-1.5 bg-zinc-900 border border-zinc-700 rounded-md text-xs text-zinc-200 focus:outline-none focus:border-zinc-500 disabled:opacity-50 max-w-[280px] truncate"
-            >
-              <option value="">None (Select Project)</option>
-              {displayedProjects.map((proj) => (
-                <option key={proj.id} value={proj.id}>
-                  {proj.displayName || proj.name} ({proj.type})
-                </option>
-              ))}
-            </select>
-
-            {/* Checkbox toggle: only projects with .env */}
-            {availableProjects.length > 0 && (
-              <label className="flex items-center gap-1.5 text-xs text-zinc-400 hover:text-zinc-200 cursor-pointer ml-1 select-none">
-                <input
-                  type="checkbox"
-                  checked={onlyProjectsWithEnv}
-                  onChange={(e) => setOnlyProjectsWithEnv(e.target.checked)}
-                  className="rounded bg-zinc-900 border-zinc-700 text-cyan-500 focus:ring-0 cursor-pointer"
-                />
-                <span className="text-[11px]">
-                  Only with .env ({projectsWithEnv.length} of {availableProjects.length})
-                </span>
-              </label>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Project and Env File Location Bar */}
-      {activeProject && (
-        <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-1.5 rounded-md bg-zinc-950/80 border border-zinc-800/80 text-xs font-mono text-zinc-300">
-          <div className="flex items-center gap-2 truncate min-w-0">
-            <span className="text-zinc-500 font-sans text-[11px] font-semibold uppercase tracking-wider shrink-0">
-              {fileExists ? "File:" : "Path:"}
-            </span>
-            <span
-              className="truncate select-all text-zinc-200"
-              title={fileExists ? `${activeProject.path}/${selectedFilename}` : activeProject.path}
-            >
-              {fileExists ? `${activeProject.path}/${selectedFilename}` : activeProject.path}
-            </span>
-            {fileExists && (
-              <span className="text-[10px] px-1.5 py-0.2 rounded bg-emerald-950 text-emerald-400 border border-emerald-800/60 shrink-0 font-sans">
-                Active on disk
-              </span>
-            )}
-          </div>
-          <div className="flex items-center gap-1.5 shrink-0 ml-auto">
-            <button
-              type="button"
-              onClick={() =>
-                handleCopyPath(
-                  fileExists
-                    ? `${activeProject.path}/${selectedFilename}`
-                    : activeProject.path
-                )
-              }
-              className="px-2 py-0.5 rounded bg-zinc-900 border border-zinc-700/80 hover:bg-zinc-800 hover:text-white text-zinc-300 text-[11px] transition cursor-pointer"
-              title="Copy path to clipboard"
-            >
-              {copiedPath ? "✓ Copied" : "📋 Copy Path"}
-            </button>
-            <button
-              type="button"
-              onClick={() => handleRevealInFinder(activeProject.path)}
-              className="px-2 py-0.5 rounded bg-zinc-900 border border-zinc-700/80 hover:bg-zinc-800 hover:text-white text-zinc-300 text-[11px] transition cursor-pointer"
-              title="Reveal folder in Finder"
-            >
-              📁 Reveal in Finder
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Advisory Banner: Process Restart Reminder */}
-      <div className="my-3 px-3.5 py-2 rounded-md bg-amber-950/30 border border-amber-900/50 flex items-center justify-between text-xs text-amber-300/90 shrink-0">
+        {/* Global Tab Controls */}
         <div className="flex items-center gap-2">
-          <span>ℹ️</span>
-          <span>
-            <strong>Process Restart Notice:</strong> Saving changes updates the environment file on disk. Running processes or dev servers must be restarted to load the new values.
-          </span>
+          {/* Split View Toggle */}
+          <button
+            onClick={handleToggleSplitView}
+            className={`px-2.5 py-1.5 rounded-md text-xs font-medium border transition flex items-center gap-1.5 cursor-pointer shadow-xs ${
+              isSplitView
+                ? "bg-zinc-800 text-cyan-400 border-cyan-800/80 hover:bg-zinc-700"
+                : "text-zinc-300 bg-zinc-900 hover:bg-zinc-800 border-zinc-700"
+            }`}
+            title={
+              isSplitView
+                ? "Switch to single view"
+                : "View 2 environment sessions side-by-side"
+            }
+          >
+            <span>{isSplitView ? "▢ Single View" : "◫ Split View"}</span>
+          </button>
+
+          {/* New Tab Button */}
+          <button
+            onClick={handleAddTab}
+            className="px-2.5 py-1.5 rounded-md text-xs font-medium text-zinc-100 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 transition flex items-center gap-1.5 cursor-pointer shadow-xs"
+            title="Open a new environment session tab"
+          >
+            <span className="text-sm font-bold leading-none">+</span>
+            <span>New Env Tab</span>
+          </button>
         </div>
-        <span className="text-[10px] text-amber-400/60 font-mono hidden sm:inline">
-          No automatic injection
-        </span>
       </div>
 
-      {/* Feedback Messages (Success / Error) */}
-      {errorMessage && (
-        <div className="mb-3 px-3 py-2 rounded bg-rose-950/50 border border-rose-800 text-xs text-rose-300 flex items-center justify-between shrink-0">
-          <span>{errorMessage}</span>
-          <button
-            onClick={() => setErrorMessage(null)}
-            className="text-rose-400 hover:text-rose-200 text-xs ml-2"
-          >
-            ✕
-          </button>
-        </div>
-      )}
+      {/* 2. Multi-Env Tab Bar (Consistent with TerminalView) */}
+      <div className="flex items-center gap-1 overflow-x-auto pb-1 mb-2 border-b border-zinc-800/80 shrink-0">
+        {tabs.map((tab, idx) => {
+          const isActive = tab.id === activeTabId;
+          const isSplitActive = isSplitView && tab.id === splitTabId;
 
-      {successMessage && (
-        <div className="mb-3 px-3 py-2 rounded bg-emerald-950/50 border border-emerald-800 text-xs text-emerald-300 flex items-center justify-between shrink-0">
-          <span>{successMessage}</span>
-          <button
-            onClick={() => setSuccessMessage(null)}
-            className="text-emerald-400 hover:text-emerald-200 text-xs ml-2"
-          >
-            ✕
-          </button>
-        </div>
-      )}
+          return (
+            <div
+              key={tab.id}
+              onClick={() => {
+                setActiveTabId(tab.id);
+              }}
+              className={`group flex items-center gap-2 px-3 py-1.5 rounded-t-lg border-t border-x text-xs cursor-pointer select-none transition-all ${
+                isActive
+                  ? "bg-zinc-900 border-zinc-700 text-zinc-100 font-medium shadow-sm"
+                  : isSplitActive
+                  ? "bg-zinc-900/60 border-zinc-700/60 text-cyan-300 font-medium"
+                  : "bg-zinc-950/60 border-transparent text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/50"
+              }`}
+              title={`Click to switch. Double-click to rename.\n${
+                tab.isDirty ? "Status: Unsaved changes" : "Status: Clean"
+              }`}
+            >
+              {/* Status indicator dot */}
+              <span className="relative flex h-2 w-2 shrink-0">
+                {tab.isDirty && (
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
+                )}
+                <span
+                  className={`relative inline-flex rounded-full h-2 w-2 ${
+                    tab.isDirty ? "bg-amber-400" : "bg-emerald-500"
+                  }`}
+                />
+              </span>
 
-      {/* Main Body: File Selector Bar + Variable Editor */}
-      {!selectedProjectId ? (
-        <div className="flex-1 flex flex-col items-center justify-center border border-dashed border-zinc-800 rounded-lg p-8 bg-zinc-900/20 text-center">
-          <div className="w-10 h-10 rounded-md bg-zinc-800 border border-zinc-700 flex items-center justify-center text-sm font-mono text-zinc-400 mb-3">
-            📁
-          </div>
-          <p className="text-sm font-medium text-zinc-300">No Project Selected</p>
-          <p className="text-xs text-zinc-500 mt-1 max-w-sm">
-            Select or scan a project workspace to inspect and manage its environment files.
-          </p>
-        </div>
-      ) : (
-        <div className="flex-1 flex flex-col min-h-0 bg-zinc-950 border border-zinc-800 rounded-lg overflow-hidden mt-1">
-          {/* File Selection Bar: Only show existing env files plus + New File */}
-          <div className="flex items-center justify-between px-3 py-2 bg-zinc-900/70 border-b border-zinc-800 shrink-0 overflow-x-auto gap-2">
-            <div className="flex items-center gap-1.5 flex-nowrap">
-              {existingEnvFiles.map((file) => {
-                const isSelected = selectedFilename === file.filename;
-
-                return (
-                  <button
-                    key={file.filename}
-                    onClick={() => handleSelectFile(file.filename)}
-                    className={`px-2.5 py-1 rounded text-xs font-mono transition-all flex items-center gap-1.5 shrink-0 ${
-                      isSelected
-                        ? "bg-zinc-800 text-zinc-100 border border-zinc-600 font-semibold shadow-sm"
-                        : "text-zinc-300 hover:bg-zinc-900 border border-transparent"
-                    }`}
-                  >
-                    <span>{file.filename}</span>
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                    {isSelected && isDirty && (
-                      <span
-                        className="w-2 h-2 rounded-full bg-amber-400 animate-pulse"
-                        title="Unsaved changes"
-                      />
-                    )}
-                  </button>
-                );
-              })}
-
-              {existingEnvFiles.length === 0 && (
-                <span className="text-xs text-zinc-500 italic px-1">
-                  No .env files exist in this project
+              {/* Title or inline rename input */}
+              {editingTabTitleId === tab.id ? (
+                <input
+                  type="text"
+                  value={editingTitleText}
+                  onChange={(e) => setEditingTitleText(e.target.value)}
+                  onBlur={handleSaveRename}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleSaveRename();
+                    if (e.key === "Escape") setEditingTabTitleId(null);
+                  }}
+                  autoFocus
+                  onClick={(e) => e.stopPropagation()}
+                  className="px-1 py-0.5 rounded bg-zinc-800 text-zinc-100 border border-zinc-600 text-xs w-32 focus:outline-none"
+                />
+              ) : (
+                <span
+                  onDoubleClick={(e) => handleStartRename(tab, e)}
+                  title={tab.title || `Env ${idx + 1}`}
+                  className="truncate max-w-[220px] font-mono text-[11px]"
+                >
+                  {tab.title || `Env ${idx + 1}`}
                 </span>
               )}
 
-              {/* Create File Button */}
-              {missingSupportedFiles.length > 0 && (
+              {/* Split Indicator Tag if in split view */}
+              {isSplitView && (
+                <span className="text-[9px] px-1 py-0.2 rounded font-sans uppercase tracking-tight text-zinc-400">
+                  {tab.id === activeTabId
+                    ? "Left"
+                    : tab.id === splitTabId
+                    ? "Right"
+                    : ""}
+                </span>
+              )}
+
+              {/* Close Tab Button */}
+              {tabs.length > 1 && (
                 <button
-                  onClick={() => {
-                    setTargetCreateFilename(missingSupportedFiles[0]);
-                    setShowCreateModal(true);
-                  }}
-                  className="px-2 py-1 rounded text-xs text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/60 border border-dashed border-zinc-700 flex items-center gap-1 shrink-0 transition-colors cursor-pointer"
-                  title="Create a new environment file"
+                  type="button"
+                  onClick={(e) => handleCloseTab(tab.id, e)}
+                  className="opacity-0 group-hover:opacity-100 hover:bg-zinc-700/80 p-0.5 rounded text-zinc-400 hover:text-zinc-100 transition-opacity ml-1 cursor-pointer"
+                  title="Close environment session"
                 >
-                  <span>+</span>
-                  <span>New File</span>
+                  <span className="text-xs leading-none">✕</span>
                 </button>
               )}
             </div>
+          );
+        })}
 
-            {/* File Actions & View Mode Toggle */}
-            <div className="flex items-center gap-2 shrink-0">
-              {fileExists && (
-                <>
-                  {/* View Mode Switcher */}
-                  <div className="flex items-center bg-zinc-900 border border-zinc-800 rounded p-0.5 text-xs">
-                    <button
-                      onClick={() => setViewMode("structured")}
-                      className={`px-2 py-0.5 rounded transition-colors ${
-                        viewMode === "structured"
-                          ? "bg-zinc-800 text-zinc-100 font-medium"
-                          : "text-zinc-400 hover:text-zinc-200"
-                      }`}
-                    >
-                      Structured
-                    </button>
-                    <button
-                      onClick={() => setViewMode("raw")}
-                      className={`px-2 py-0.5 rounded transition-colors ${
-                        viewMode === "raw"
-                          ? "bg-zinc-800 text-zinc-100 font-medium"
-                          : "text-zinc-400 hover:text-zinc-200"
-                      }`}
-                    >
-                      Raw
-                    </button>
-                  </div>
+        {/* Quick Add Tab Button */}
+        <button
+          onClick={handleAddTab}
+          className="px-2 py-1.5 rounded-t-lg text-zinc-500 hover:text-zinc-200 hover:bg-zinc-900/40 transition text-xs font-bold cursor-pointer"
+          title="Open new environment session"
+        >
+          +
+        </button>
+      </div>
 
-                  {/* Reload Button */}
-                  <button
-                    onClick={() => {
-                      if (selectedProjectId) {
-                        loadFileContent(selectedProjectId, selectedFilename);
-                      }
-                    }}
-                    disabled={loadingContent}
-                    className="p-1.5 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 rounded text-xs transition-colors"
-                    title="Reload from disk"
-                  >
-                    🔄
-                  </button>
-
-                  {/* Discard Changes */}
-                  {isDirty && (
-                    <button
-                      onClick={handleDiscardChanges}
-                      className="px-2 py-1 text-xs text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 rounded transition-colors"
-                    >
-                      Discard
-                    </button>
-                  )}
-
-                  {/* Save Changes Button */}
-                  <button
-                    onClick={() => setShowSaveConfirmModal(true)}
-                    disabled={!isDirty || savingFile}
-                    className={`px-3 py-1 rounded text-xs font-medium flex items-center gap-1.5 transition-all ${
-                      isDirty
-                        ? "bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm"
-                        : "bg-zinc-800 text-zinc-500 cursor-not-allowed border border-zinc-700"
-                    }`}
-                  >
-                    {savingFile ? "Saving..." : "Save Changes"}
-                    {isDirty && <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />}
-                  </button>
-                </>
-              )}
-            </div>
-          </div>
-
-          {/* Subheader: File Metadata Details */}
-          {fileExists ? (
-            <div className="px-4 py-2 bg-zinc-900/40 border-b border-zinc-800/80 flex flex-wrap items-center justify-between text-xs text-zinc-400 gap-2 shrink-0">
-              <div className="flex items-center gap-4">
-                <span className="font-mono text-zinc-200">{selectedFilename}</span>
-                <span>
-                  Size: <strong className="text-zinc-300">{formatBytes(fileSizeBytes)}</strong>
-                </span>
-                <span>
-                  Variables: <strong className="text-zinc-300">{variables.length}</strong>
-                </span>
-                {lastModifiedOnDisk && (
-                  <span className="hidden md:inline">
-                    Modified: <span className="text-zinc-400">{new Date(lastModifiedOnDisk).toLocaleTimeString()}</span>
+      {/* 3. Session Panes Container: Single View or Side-by-Side Split View */}
+      <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+        {isSplitView ? (
+          /* Split View: Dual Pane Side-by-Side */
+          <div className="flex-1 flex flex-col md:flex-row h-full min-h-0 gap-3 overflow-hidden">
+            {/* Left Pane (Primary Active Tab) */}
+            <div className="flex-1 flex flex-col h-full min-h-0 border border-zinc-800 rounded-lg overflow-hidden bg-zinc-950/70">
+              <div className="px-3 py-1.5 bg-zinc-900/90 border-b border-zinc-800 flex items-center justify-between text-xs font-mono text-zinc-300 shrink-0">
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold text-cyan-400">Left Pane:</span>
+                  <span className="text-zinc-100 font-medium">
+                    {activeTab?.title || "Active Session"}
+                  </span>
+                </div>
+                {activeTab?.isDirty && (
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-950/70 text-amber-400 border border-amber-800/60 font-sans">
+                    Unsaved Changes
                   </span>
                 )}
               </div>
-
-              {hasSyntaxWarnings && (
-                <div className="flex items-center gap-1.5 text-amber-400/90 bg-amber-950/40 px-2 py-0.5 rounded border border-amber-900/60">
-                  <span>⚠️ Non-standard lines detected. Raw formatting will be preserved.</span>
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="p-8 flex flex-col items-center justify-center text-center flex-1">
-              <div className="w-10 h-10 rounded-md bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-500 mb-2">
-                📄
+              <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+                {activeTab && (
+                  <EnvEditorPane
+                    key={activeTab.id}
+                    tabId={activeTab.id}
+                    tabTitle={activeTab.title}
+                    initialWorkspaceId={activeTab.workspaceId}
+                    initialProjectId={activeTab.projectId}
+                    initialFilename={activeTab.selectedFilename}
+                    workspaces={workspaces}
+                    loadingWorkspaces={loadingWorkspaces}
+                    isActivePane={true}
+                    isSplit={true}
+                    onDirtyChange={handleTabDirtyChange}
+                    onMetaChange={handleTabMetaChange}
+                  />
+                )}
               </div>
-              <h3 className="text-sm font-semibold text-zinc-200">
-                "{selectedFilename}" does not exist in {activeProject?.name}
-              </h3>
-              <p className="text-xs text-zinc-500 mt-1 max-w-sm">
-                Create this file to configure environment variables specific to this deployment stage.
-              </p>
-              <button
-                onClick={() => {
-                  setTargetCreateFilename(selectedFilename);
-                  setShowCreateModal(true);
-                }}
-                className="mt-4 px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-100 rounded text-xs font-medium transition-colors"
-              >
-                Create {selectedFilename}
-              </button>
             </div>
-          )}
 
-          {/* Editor Body */}
-          {fileExists && (
-            <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
-              {viewMode === "raw" ? (
-                /* Raw Editor View */
-                <div className="flex-1 flex flex-col p-4 min-h-0">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs text-zinc-400 font-mono">
-                      Raw file editor (utf-8, comments and whitespaces preserved)
-                    </span>
-                    <span className="text-xs text-zinc-500">
-                      Lines: {rawContent.split(/\r?\n/).length}
-                    </span>
+            {/* Right Pane (Secondary Split Tab) */}
+            <div className="flex-1 flex flex-col h-full min-h-0 border border-zinc-800 rounded-lg overflow-hidden bg-zinc-950/70">
+              <div className="px-3 py-1.5 bg-zinc-900/90 border-b border-zinc-800 flex items-center justify-between text-xs font-mono text-zinc-300 shrink-0">
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold text-emerald-400">
+                    Right Pane:
+                  </span>
+                  <select
+                    value={secondaryTab?.id || ""}
+                    onChange={(e) => setSplitTabId(e.target.value)}
+                    className="px-2 py-0.5 bg-zinc-950 border border-zinc-700 rounded text-xs text-zinc-200 focus:outline-none focus:border-zinc-500 font-mono"
+                  >
+                    {tabs.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.title} {t.isDirty ? "•" : ""}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                {secondaryTab?.isDirty && (
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-950/70 text-amber-400 border border-amber-800/60 font-sans">
+                    Unsaved Changes
+                  </span>
+                )}
+              </div>
+              <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+                {secondaryTab ? (
+                  <EnvEditorPane
+                    key={secondaryTab.id}
+                    tabId={secondaryTab.id}
+                    tabTitle={secondaryTab.title}
+                    initialWorkspaceId={secondaryTab.workspaceId}
+                    initialProjectId={secondaryTab.projectId}
+                    initialFilename={secondaryTab.selectedFilename}
+                    workspaces={workspaces}
+                    loadingWorkspaces={loadingWorkspaces}
+                    isActivePane={false}
+                    isSplit={true}
+                    onDirtyChange={handleTabDirtyChange}
+                    onMetaChange={handleTabMetaChange}
+                  />
+                ) : (
+                  <div className="flex-1 flex flex-col items-center justify-center p-6 text-center text-zinc-500 text-xs">
+                    <p>No secondary tab selected.</p>
+                    <button
+                      onClick={handleAddTab}
+                      className="mt-3 px-3 py-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 rounded text-xs transition"
+                    >
+                      + Open New Session Tab
+                    </button>
                   </div>
-                  <textarea
-                    value={rawContent}
-                    onChange={(e) => {
-                      setRawContent(e.target.value);
-                      setIsDirty(true);
-                    }}
-                    placeholder="# Enter environment variables..."
-                    spellCheck={false}
-                    className="flex-1 w-full bg-zinc-950 text-zinc-200 font-mono text-xs p-3.5 border border-zinc-800 rounded-md resize-none focus:outline-none focus:border-zinc-600 leading-relaxed"
+                )}
+              </div>
+            </div>
+          </div>
+        ) : (
+          /* Single View: Tabs remain mounted in DOM to preserve unsaved changes & state */
+          <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+            {tabs.map((tab) => {
+              const isTabActive = tab.id === activeTabId;
+              return (
+                <div
+                  key={tab.id}
+                  className={
+                    isTabActive
+                      ? "flex-1 flex flex-col h-full min-h-0"
+                      : "hidden"
+                  }
+                >
+                  <EnvEditorPane
+                    tabId={tab.id}
+                    tabTitle={tab.title}
+                    initialWorkspaceId={tab.workspaceId}
+                    initialProjectId={tab.projectId}
+                    initialFilename={tab.selectedFilename}
+                    workspaces={workspaces}
+                    loadingWorkspaces={loadingWorkspaces}
+                    isActivePane={isTabActive}
+                    isSplit={false}
+                    onDirtyChange={handleTabDirtyChange}
+                    onMetaChange={handleTabMetaChange}
                   />
                 </div>
-              ) : (
-                /* Structured Variables Table View */
-                <div className="flex-1 flex flex-col min-h-0">
-                  {/* Search and Filter Bar */}
-                  <div className="p-3 border-b border-zinc-800/80 flex items-center justify-between gap-3 shrink-0 bg-zinc-900/20">
-                    <div className="relative flex-1 max-w-sm">
-                      <input
-                        type="text"
-                        placeholder="Search variables by key or comment..."
-                        value={searchFilter}
-                        onChange={(e) => setSearchFilter(e.target.value)}
-                        className="w-full px-3 py-1.5 bg-zinc-900 border border-zinc-700 rounded text-xs text-zinc-200 focus:outline-none focus:border-zinc-500 placeholder:text-zinc-500"
-                      />
-                      {searchFilter && (
-                        <button
-                          onClick={() => setSearchFilter("")}
-                          className="absolute right-2.5 top-1.5 text-zinc-400 hover:text-zinc-200 text-xs"
-                        >
-                          ✕
-                        </button>
-                      )}
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => {
-                          if (revealedVarIds.size > 0) {
-                            setRevealedVarIds(new Set());
-                          } else {
-                            const allIds = new Set(variables.map((v) => v.id));
-                            setRevealedVarIds(allIds);
-                          }
-                        }}
-                        className="px-2 py-1 text-xs text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 rounded border border-zinc-700/60 transition-colors"
-                      >
-                        {revealedVarIds.size > 0 ? "Hide All Values" : "Reveal All Values"}
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Variables Table */}
-                  <div className="flex-1 overflow-y-auto">
-                    {filteredVariables.length === 0 ? (
-                      <div className="p-8 text-center text-zinc-500 text-xs">
-                        {searchFilter
-                          ? "No variables matching search criteria."
-                          : "No variables defined in this file yet. Add one below!"}
-                      </div>
-                    ) : (
-                      <table className="w-full text-left border-collapse text-xs">
-                        <thead>
-                          <tr className="border-b border-zinc-800 bg-zinc-900/50 text-zinc-400 font-mono">
-                            <th className="py-2 px-3 w-1/4">Key</th>
-                            <th className="py-2 px-3 w-5/12">Value</th>
-                            <th className="py-2 px-3 w-1/4">Comment</th>
-                            <th className="py-2 px-3 text-right w-16">Action</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-zinc-800/60 font-mono">
-                          {filteredVariables.map((variable) => {
-                            const isRevealed = revealedVarIds.has(variable.id);
-
-                            return (
-                              <tr
-                                key={variable.id}
-                                className="hover:bg-zinc-900/40 group transition-colors"
-                              >
-                                {/* Key Cell */}
-                                <td className="py-2 px-3 align-middle font-medium text-zinc-200">
-                                  <div className="flex items-center gap-1.5">
-                                    <span>{variable.key}</span>
-                                    {variable.isSecret && (
-                                      <span
-                                        className="text-[10px] px-1 py-0.2 rounded bg-amber-950/60 border border-amber-800/50 text-amber-400 font-sans"
-                                        title="Sensitive Variable: masked by default"
-                                      >
-                                        Secret
-                                      </span>
-                                    )}
-                                  </div>
-                                </td>
-
-                                {/* Value Cell */}
-                                <td className="py-1.5 px-3 align-middle">
-                                  <div className="flex items-center gap-1.5">
-                                    <input
-                                      type={isRevealed ? "text" : "password"}
-                                      value={variable.value}
-                                      onChange={(e) =>
-                                        handleEditValue(variable.id, e.target.value)
-                                      }
-                                      placeholder="<empty>"
-                                      className="flex-1 px-2 py-1 bg-zinc-900/90 border border-zinc-700/80 rounded text-zinc-200 focus:outline-none focus:border-zinc-500 text-xs font-mono"
-                                    />
-                                    <button
-                                      onClick={() => toggleReveal(variable.id)}
-                                      className="p-1 text-zinc-400 hover:text-zinc-200 text-xs transition-colors rounded hover:bg-zinc-800"
-                                      title={isRevealed ? "Hide value" : "Reveal value"}
-                                    >
-                                      {isRevealed ? "👁️" : "🙈"}
-                                    </button>
-                                  </div>
-                                </td>
-
-                                {/* Comment Cell */}
-                                <td className="py-1.5 px-3 align-middle">
-                                  <input
-                                    type="text"
-                                    value={variable.comment || ""}
-                                    onChange={(e) =>
-                                      handleEditComment(variable.id, e.target.value)
-                                    }
-                                    placeholder="Optional comment..."
-                                    className="w-full px-2 py-1 bg-zinc-900/50 border border-transparent hover:border-zinc-700 focus:border-zinc-600 rounded text-zinc-400 focus:text-zinc-200 focus:outline-none text-xs font-sans"
-                                  />
-                                </td>
-
-                                {/* Remove Action */}
-                                <td className="py-2 px-3 align-middle text-right">
-                                  <button
-                                    onClick={() => handleRemoveVariable(variable.id)}
-                                    className="text-zinc-500 hover:text-rose-400 p-1 rounded transition-colors text-xs"
-                                    title="Delete variable"
-                                  >
-                                    🗑️
-                                  </button>
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    )}
-                  </div>
-
-                  {/* Inline Form to Add New Variable */}
-                  <div className="p-3 border-t border-zinc-800 bg-zinc-900/40 shrink-0">
-                    <div className="text-xs font-medium text-zinc-300 mb-2 flex items-center justify-between">
-                      <span>Add New Variable</span>
-                      {newKeyError && (
-                        <span className="text-rose-400 text-[11px] font-sans">
-                          {newKeyError}
-                        </span>
-                      )}
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-12 gap-2">
-                      <div className="md:col-span-4">
-                        <input
-                          type="text"
-                          placeholder="KEY (e.g. DATABASE_URL)"
-                          value={newKey}
-                          onChange={(e) => {
-                            setNewKey(e.target.value);
-                            setNewKeyError(null);
-                          }}
-                          className={`w-full px-2.5 py-1.5 bg-zinc-900 border rounded text-xs font-mono text-zinc-100 placeholder:text-zinc-500 focus:outline-none ${
-                            newKeyError
-                              ? "border-rose-600 focus:border-rose-500"
-                              : "border-zinc-700 focus:border-zinc-500"
-                          }`}
-                        />
-                      </div>
-                      <div className="md:col-span-4">
-                        <input
-                          type="text"
-                          placeholder="Value"
-                          value={newValue}
-                          onChange={(e) => setNewValue(e.target.value)}
-                          className="w-full px-2.5 py-1.5 bg-zinc-900 border border-zinc-700 rounded text-xs font-mono text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:border-zinc-500"
-                        />
-                      </div>
-                      <div className="md:col-span-3">
-                        <input
-                          type="text"
-                          placeholder="Comment (optional)"
-                          value={newComment}
-                          onChange={(e) => setNewComment(e.target.value)}
-                          className="w-full px-2.5 py-1.5 bg-zinc-900 border border-zinc-700 rounded text-xs text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:border-zinc-500"
-                        />
-                      </div>
-                      <div className="md:col-span-1">
-                        <button
-                          onClick={handleAddVariable}
-                          className="w-full h-full min-h-[30px] px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-100 border border-zinc-600 rounded text-xs font-medium transition-colors"
-                        >
-                          Add
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* MODAL: Create Environment File */}
-      {showCreateModal && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-zinc-900 border border-zinc-700 rounded-lg max-w-md w-full p-5 shadow-2xl text-zinc-100">
-            <h3 className="text-base font-semibold text-zinc-100">
-              Create Supported Environment File
-            </h3>
-            <p className="text-xs text-zinc-400 mt-1">
-              Select one of the controlled environment filenames to create in{" "}
-              <strong className="text-zinc-200">{activeProject?.name}</strong>.
-            </p>
-
-            <div className="my-4">
-              <label className="text-xs text-zinc-300 font-medium block mb-1.5">
-                Target Filename:
-              </label>
-              <select
-                value={targetCreateFilename}
-                onChange={(e) => setTargetCreateFilename(e.target.value)}
-                className="w-full px-3 py-2 bg-zinc-950 border border-zinc-700 rounded text-xs font-mono text-zinc-200 focus:outline-none focus:border-zinc-500"
-              >
-                {missingSupportedFiles.map((fname) => (
-                  <option key={fname} value={fname}>
-                    {fname}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="flex items-center justify-end gap-2 mt-6">
-              <button
-                onClick={() => setShowCreateModal(false)}
-                className="px-3 py-1.5 text-xs text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 rounded transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleCreateFile}
-                disabled={savingFile}
-                className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-xs font-medium transition-colors"
-              >
-                {savingFile ? "Creating..." : "Create File"}
-              </button>
-            </div>
+              );
+            })}
           </div>
-        </div>
-      )}
-
-      {/* MODAL: Save Confirmation */}
-      {showSaveConfirmModal && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-zinc-900 border border-zinc-700 rounded-lg max-w-md w-full p-5 shadow-2xl text-zinc-100">
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-amber-400">⚠️</span>
-              <h3 className="text-base font-semibold text-zinc-100">
-                Confirm Save Changes
-              </h3>
-            </div>
-
-            <p className="text-xs text-zinc-300 leading-relaxed">
-              Are you sure you want to write changes to{" "}
-              <strong className="text-zinc-100 font-mono">{selectedFilename}</strong>?
-            </p>
-
-            <div className="my-4 p-3 bg-zinc-950 border border-zinc-800 rounded text-xs space-y-1.5 text-zinc-400 font-mono">
-              <div>Project: {activeProject?.name}</div>
-              <div>Variables count: {variables.length}</div>
-              <div>
-                Safety backup:{" "}
-                <span className="text-emerald-400">
-                  {selectedFilename}.devdesk-bak
-                </span>
-              </div>
-            </div>
-
-            <p className="text-[11px] text-zinc-500 mb-4">
-              DevDesk will automatically create a backup file and perform an atomic overwrite.
-            </p>
-
-            <div className="flex items-center justify-end gap-2">
-              <button
-                onClick={() => setShowSaveConfirmModal(false)}
-                className="px-3 py-1.5 text-xs text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 rounded transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleExecuteSave}
-                disabled={savingFile}
-                className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-xs font-medium transition-colors"
-              >
-                {savingFile ? "Writing..." : "Confirm & Save"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL: External Modification Conflict */}
-      {showConflictModal && (
-        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-zinc-900 border border-rose-700/80 rounded-lg max-w-md w-full p-5 shadow-2xl text-zinc-100">
-            <div className="flex items-center gap-2 mb-2 text-rose-400 font-semibold">
-              <span>⚠️</span>
-              <h3>External Conflict Detected</h3>
-            </div>
-
-            <p className="text-xs text-zinc-300 leading-relaxed mb-4">
-              {conflictErrorMessage ||
-                `The file "${selectedFilename}" has been modified on disk by an external program since it was loaded.`}
-            </p>
-
-            <p className="text-xs text-zinc-400 mb-6">
-              To prevent accidental overwrites, please reload the file to inspect the latest changes.
-            </p>
-
-            <div className="flex items-center justify-end gap-2">
-              <button
-                onClick={() => setShowConflictModal(false)}
-                className="px-3 py-1.5 text-xs text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 rounded transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => {
-                  setShowConflictModal(false);
-                  if (selectedProjectId) {
-                    loadFileContent(selectedProjectId, selectedFilename);
-                  }
-                }}
-                className="px-4 py-1.5 bg-amber-600 hover:bg-amber-500 text-white rounded text-xs font-medium transition-colors"
-              >
-                Reload from Disk
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
