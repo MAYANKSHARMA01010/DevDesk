@@ -100,3 +100,102 @@ export async function cancelRequestController(
     });
   }
 }
+
+/**
+ * Handles GET /api/api-tester/discover?projectId=...
+ * Discovers and deeply analyzes all API routes in the specified project.
+ */
+export async function discoverEndpointsController(
+  req: Request,
+  res: Response
+): Promise<void> {
+  try {
+    const { projectId } = req.query;
+
+    if (!projectId || typeof projectId !== "string" || !projectId.trim()) {
+      res.status(400).json({
+        success: false,
+        error: "Query parameter 'projectId' is required",
+      });
+      return;
+    }
+
+    const { workspaceRepository } = await import(
+      "../services/workspaces/workspaceRepository.js"
+    );
+    const { apiDiscoveryService } = await import(
+      "../services/api-tester/apiDiscoveryService.js"
+    );
+
+    const project = workspaceRepository.getProjectById(projectId.trim());
+    if (!project) {
+      res.status(404).json({
+        success: false,
+        error: `Project not found with ID "${projectId}"`,
+      });
+      return;
+    }
+
+    const result = await apiDiscoveryService.discoverProjectEndpoints(
+      project.path,
+      project.displayName || project.name,
+      project.id
+    );
+
+    res.status(200).json({
+      success: true,
+      data: result,
+    });
+  } catch (err: unknown) {
+    const error = err as Error;
+    res.status(500).json({
+      success: false,
+      error: error.message || "Failed to discover API endpoints",
+    });
+  }
+}
+
+/**
+ * Handles POST /api/api-tester/discover-path
+ * Scans any filesystem path for API routes.
+ */
+export async function discoverEndpointsByPathController(
+  req: Request,
+  res: Response
+): Promise<void> {
+  try {
+    const { path: targetPath, name } = req.body || {};
+
+    if (!targetPath || typeof targetPath !== "string" || !targetPath.trim()) {
+      res.status(400).json({
+        success: false,
+        error: "Body parameter 'path' is required",
+      });
+      return;
+    }
+
+    const { apiDiscoveryService } = await import(
+      "../services/api-tester/apiDiscoveryService.js"
+    );
+
+    const resolvedPath = targetPath.trim();
+    const resolvedName = name || resolvedPath.split("/").pop() || "Project";
+
+    const result = await apiDiscoveryService.discoverProjectEndpoints(
+      resolvedPath,
+      resolvedName,
+      `custom-${Date.now()}`
+    );
+
+    res.status(200).json({
+      success: true,
+      data: result,
+    });
+  } catch (err: unknown) {
+    const error = err as Error;
+    res.status(500).json({
+      success: false,
+      error: error.message || "Failed to discover API endpoints",
+    });
+  }
+}

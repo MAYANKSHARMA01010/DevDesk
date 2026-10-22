@@ -91,3 +91,85 @@ export async function cancelApiRequest(
 
   return json.data;
 }
+
+/**
+ * Discovers and deeply analyzes all API routes in a project.
+ * Calls GET /api/api-tester/discover?projectId=:projectId
+ */
+export async function fetchDiscoveredProjectApis(
+  projectId: string
+): Promise<import("@/types/apiDiscovery").ApiDiscoveryResult> {
+  if (!projectId) {
+    throw new Error("Project ID is required to discover APIs.");
+  }
+
+  const queryUrl = `${BACKEND_BASE_URL}/api/api-tester/discover?projectId=${encodeURIComponent(
+    projectId.trim()
+  )}`;
+
+  let response: Response;
+  try {
+    response = await fetch(queryUrl, { cache: "no-store" });
+  } catch (err: unknown) {
+    const errorMsg = err instanceof Error ? err.message : "Network error";
+    throw new Error(
+      `Cannot connect to DevDesk backend at ${BACKEND_BASE_URL} (${errorMsg}).`
+    );
+  }
+
+  let json: import("@/types/apiDiscovery").ApiDiscoveryResponse;
+  try {
+    json = (await response.json()) as import("@/types/apiDiscovery").ApiDiscoveryResponse;
+  } catch {
+    throw new Error(`Invalid response received from backend (${response.status}).`);
+  }
+
+  if (!response.ok || !json.success || !json.data) {
+    throw new Error(json.error || `Failed to discover project APIs (${response.status})`);
+  }
+
+  return json.data;
+}
+
+/**
+ * Discovers and analyzes API routes for any filesystem path.
+ * Calls POST /api/api-tester/discover-path
+ */
+export async function fetchDiscoveredApisByPath(
+  targetPath: string,
+  name?: string
+): Promise<import("@/types/apiDiscovery").ApiDiscoveryResult> {
+  if (!targetPath) {
+    throw new Error("Target path is required to discover APIs.");
+  }
+
+  const queryUrl = `${BACKEND_BASE_URL}/api/api-tester/discover-path`;
+
+  let response: Response;
+  try {
+    response = await fetch(queryUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ path: targetPath.trim(), name }),
+      cache: "no-store",
+    });
+  } catch (err: unknown) {
+    const errorMsg = err instanceof Error ? err.message : "Network error";
+    throw new Error(
+      `Cannot connect to DevDesk backend at ${BACKEND_BASE_URL} (${errorMsg}).`
+    );
+  }
+
+  let json: import("@/types/apiDiscovery").ApiDiscoveryResponse;
+  try {
+    json = (await response.json()) as import("@/types/apiDiscovery").ApiDiscoveryResponse;
+  } catch {
+    throw new Error(`Invalid response received from backend (${response.status}).`);
+  }
+
+  if (!response.ok || !json.success || !json.data) {
+    throw new Error(json.error || `Failed to discover APIs (${response.status})`);
+  }
+
+  return json.data;
+}
