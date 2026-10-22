@@ -38,7 +38,12 @@ export type PackageManager =
   | "unknown";
 
 export interface DiscoveredProject {
+  /** Raw name from package.json / manifest / directory basename */
   name: string;
+  /** De-duplicated display name shown in the UI (may include parent qualifier) */
+  displayName?: string;
+  /** Parent breadcrumb qualifier, e.g. "AutoUpload" or "apps / web" */
+  namespace?: string;
   path: string;
   relativePath?: string;
   type: ProjectType;
@@ -47,6 +52,8 @@ export interface DiscoveredProject {
   gitRoot?: string;
   gitRemote?: string;
   isRoot?: boolean;
+  /** True if this project shares its raw name with ≥1 other project in the same scan */
+  hasNameCollision?: boolean;
 }
 
 export interface ProjectScanResponse {

@@ -699,42 +699,48 @@ export function ProjectsView({
       if (searchQuery.trim().length > 0) {
         const q = searchQuery.toLowerCase().trim();
         const matchName = p.name.toLowerCase().includes(q);
+        const matchDisplayName = (p.displayName || "").toLowerCase().includes(q);
+        const matchNamespace = (p.namespace || "").toLowerCase().includes(q);
         const matchPath = p.path.toLowerCase().includes(q);
         const matchRel = (p.relativePath || "").toLowerCase().includes(q);
         const matchType = p.type.toLowerCase().includes(q);
         const matchPkg = (p.packageManager || "").toLowerCase().includes(q);
-        return matchName || matchPath || matchRel || matchType || matchPkg;
+        return matchName || matchDisplayName || matchNamespace || matchPath || matchRel || matchType || matchPkg;
       }
       return true;
     })
     .sort((a, b) => {
+      // Use displayName for name sorts so qualified names sort predictably
+      const aLabel = a.displayName || a.name;
+      const bLabel = b.displayName || b.name;
+
       switch (sortBy) {
         case "name-desc":
-          return b.name.localeCompare(a.name);
+          return bLabel.localeCompare(aLabel);
         case "type":
-          return a.type.localeCompare(b.type) || a.name.localeCompare(b.name);
+          return a.type.localeCompare(b.type) || aLabel.localeCompare(bLabel);
         case "git-first": {
           if (a.isRoot && !b.isRoot) return -1;
           if (!a.isRoot && b.isRoot) return 1;
           const aGit = a.isGitRepo ? 1 : 0;
           const bGit = b.isGitRepo ? 1 : 0;
           if (aGit !== bGit) return bGit - aGit;
-          return a.name.localeCompare(b.name);
+          return aLabel.localeCompare(bLabel);
         }
         case "runnable-first": {
           const aRun = isRunnableProject(a) ? 1 : 0;
           const bRun = isRunnableProject(b) ? 1 : 0;
           if (aRun !== bRun) return bRun - aRun;
-          return a.name.localeCompare(b.name);
+          return aLabel.localeCompare(bLabel);
         }
         case "path":
           return (
             (a.relativePath || "").localeCompare(b.relativePath || "") ||
-            a.name.localeCompare(b.name)
+            aLabel.localeCompare(bLabel)
           );
         case "name-asc":
         default:
-          return a.name.localeCompare(b.name);
+          return aLabel.localeCompare(bLabel);
       }
     });
 
@@ -1139,6 +1145,10 @@ export function ProjectsView({
               <span>Reveal in Finder</span>
             </span>
             <span className="flex items-center gap-1.5">
+              <span className="text-[10px] text-amber-400/80 select-none">⚡</span>
+              <span>Name collision — hover for qualified path</span>
+            </span>
+            <span className="flex items-center gap-1.5">
               <span className="px-1.5 py-0.5 rounded font-mono text-[10px] text-violet-300 bg-violet-950/60 border border-violet-800/60 font-semibold uppercase">
                 Workspace Root
               </span>
@@ -1256,9 +1266,32 @@ export function ProjectsView({
             >
               <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
+                  {/* Namespace breadcrumb — shown only when there's a name collision */}
+                  {project.namespace && project.hasNameCollision && (
+                    <div className="flex items-center gap-1 mb-1">
+                      <span className="text-[10px] font-mono text-zinc-500 tracking-wide flex items-center gap-1">
+                        <span className="opacity-60">in</span>
+                        <span className="text-zinc-400 font-medium">{project.namespace}</span>
+                      </span>
+                    </div>
+                  )}
+
                   <div className="flex items-center flex-wrap gap-2">
-                    <h3 className="text-sm font-semibold text-zinc-100 tracking-tight">
-                      {project.name}
+                    <h3 className="text-sm font-semibold text-zinc-100 tracking-tight flex items-center gap-1.5">
+                      {/* Use displayName (qualified) when there's a collision, else just raw name */}
+                      <span>
+                        {project.namespace && project.hasNameCollision
+                          ? project.name
+                          : (project.displayName || project.name)}
+                      </span>
+                      {project.hasNameCollision && (
+                        <span
+                          title={`Name collision: multiple projects named "${project.name}" were found. Qualified as: ${project.displayName}`}
+                          className="text-[10px] text-amber-400/80 cursor-help select-none"
+                        >
+                          ⚡
+                        </span>
+                      )}
                     </h3>
 
                     {project.isRoot && (

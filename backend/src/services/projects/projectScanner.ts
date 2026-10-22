@@ -799,6 +799,9 @@ export async function scanProjectsDirectory(
     }
   }
 
+  // 4. Advanced Smart Naming: resolve displayName + namespace to fix name collisions
+  resolveDisplayNames(discoveredProjects, resolvedRoot);
+
   // Sort: workspace root first if present, then alphabetical by relativePath
   return discoveredProjects.sort((a, b) => {
     if (a.isRoot && !b.isRoot) return -1;
@@ -807,4 +810,169 @@ export async function scanProjectsDirectory(
     const bPath = b.relativePath || b.name;
     return aPath.localeCompare(bPath);
   });
+}
+
+// ---------------------------------------------------------------------------
+// Smart Naming Engine
+// ---------------------------------------------------------------------------
+
+/**
+ * Boilerplate directory segments too generic to serve as a unique project qualifier.
+ * The engine skips these and continues walking up the path hierarchy.
+ *
+ * Examples:
+ *   "Boiler_Code/packages/frontend" → skip "packages" → qualifier: "Boiler_Code"
+ *   "apps/web/frontend"             → skip "apps"     → qualifier: "web"
+ *   "MyProject/src/frontend"        → skip "src"      → qualifier: "MyProject"
+ */
+const GENERIC_DIR_SEGMENTS = new Set([
+  "apps",
+  "packages",
+  "libs",
+  "modules",
+  "services",
+  "src",
+  "source",
+  "app",
+  "core",
+  "common",
+  "shared",
+  "utils",
+  "helpers",
+  "config",
+  "scripts",
+  "tools",
+  "internal",
+  "external",
+  "public",
+  "private",
+  "main",
+  "root",
+  "projects",
+  "workspace",
+  "monorepo",
+]);
+
+/**
+ * Resolves `displayName`, `namespace`, and `hasNameCollision` for all projects.
+ *
+ * - Unique raw names → displayName = name, no namespace, hasNameCollision = false
+ * - Colliding raw names → compound parent qualifier from relativePath,
+ *   skipping generic boilerplate segments, increasing depth until all unique.
+ */
+function resolveDisplayNames(
+  projects: DiscoveredProject[],
+  workspaceRoot: string
+): void {
+  const byName = new Map<string, DiscoveredProject[]>();
+  for (const proj of projects) {
+    const key = proj.name.toLowerCase();
+    const existing = byName.get(key);
+    if (existing) {
+      existing.push(proj);
+    } else {
+      byName.set(key, [proj]);
+    }
+  }
+
+  for (const group of byName.values()) {
+    if (group.length === 1) {
+      group[0].displayName = group[0].name;
+      group[0].hasNameCollision = false;
+      continue;
+    }
+    for (const proj of group) {
+      proj.hasNameCollision = true;
+    }
+    resolveCollisionGroup(group, workspaceRoot);
+  }
+}
+
+/**
+ * Assigns unique `displayName` + `namespace` to each project in a collision group.
+ *
+ * Algorithm:
+ * 1. Parse relativePath ancestors (excluding the project's own directory).
+ * 2. Walk from deepest ancestor upward, skipping GENERIC_DIR_SEGMENTS.
+ * 3. Collect `levels` meaningful segments and join with " › ".
+ * 4. If displayNames are still not unique, increment `levels` and retry.
+ * 5. At MAX_LEVELS or if all paths exhausted, use full relativePath as tiebreaker.
+ */
+function resolveCollisionGroup(
+  group: DiscoveredProject[],
+  workspaceRoot: string
+): void {
+  function buildQualifier(
+    proj: DiscoveredProject,
+    levels: number
+  ): { namespace: string; displayName: string } {
+    const rel = proj.relativePath ?? "";
+
+    if (rel === "." || rel === "") {
+      return { namespace: "(root)", displayName: `${proj.name} (root)` };
+    }
+
+    const parts = rel.split("/");
+    // ancestors: all segments except the final (project) directory
+    const ancestors = parts.slice(0, Math.max(parts.length - 1, 0));
+
+    if (ancestors.length === 0) {
+      return { namespace: parts[0], displayName: `${parts[0]} › ${proj.name}` };
+    }
+
+    // Walk from deepest to shallowest, collect non-generic segments
+    const meaningful: string[] = [];
+    for (let i = ancestors.length - 1; i >= 0 && meaningful.length < levels; i--) {
+      const seg = ancestors[i];
+      if (!GENERIC_DIR_SEGMENTS.has(seg.toLowerCase())) {
+        meaningful.unshift(seg);
+      } else if (meaningful.length > 0) {
+        // Stop at a generic boundary once we have something meaningful
+        break;
+      }
+    }
+
+    // Fallback: nothing was meaningful, use the last ancestor raw
+    if (meaningful.length === 0) {
+      meaningful.push(ancestors[ancestors.length - 1]);
+    }
+
+    const namespace = meaningful.join(" › ");
+    return { namespace, displayName: `${namespace} › ${proj.name}` };
+  }
+
+  let levels = 1;
+  const MAX_LEVELS = 6;
+
+  while (levels <= MAX_LEVELS) {
+    const seen = new Map<string, DiscoveredProject[]>();
+    for (const proj of group) {
+      const { displayName } = buildQualifier(proj, levels);
+      const key = displayName.toLowerCase();
+      const g = seen.get(key);
+      if (g) g.push(proj);
+      else seen.set(key, [proj]);
+    }
+
+    const allUnique = [...seen.values()].every((g) => g.length === 1);
+
+    if (allUnique || levels === MAX_LEVELS) {
+      for (const proj of group) {
+        const { namespace, displayName } = buildQualifier(proj, levels);
+        proj.displayName = displayName;
+        proj.namespace = namespace;
+      }
+      // Last-resort tiebreaker: full relative path
+      if (!allUnique) {
+        for (const proj of group) {
+          const suffix = proj.relativePath ?? proj.path.replace(workspaceRoot, "");
+          proj.displayName = `${proj.name} (${suffix})`;
+          proj.namespace = suffix;
+        }
+      }
+      break;
+    }
+
+    levels++;
+  }
 }
