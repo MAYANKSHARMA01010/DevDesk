@@ -19,32 +19,17 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState<NavItemId>("projects");
   const [backendConnected, setBackendConnected] = useState<boolean>(true);
   const [runningProcessesCount, setRunningProcessesCount] = useState<number>(0);
-  const [sidebarVisible, setSidebarVisible] = useState<boolean>(true);
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(false);
 
-  // Restore sidebar preferences from localStorage after mount
+  // Restore sidebar collapse preference from localStorage after mount
   useEffect(() => {
     try {
-      const savedVisible = localStorage.getItem("devdesk_sidebar_visible");
-      if (savedVisible !== null) {
-        setSidebarVisible(savedVisible === "true");
-      }
       const savedCollapsed = localStorage.getItem("devdesk_sidebar_collapsed");
       if (savedCollapsed !== null) {
         setSidebarCollapsed(savedCollapsed === "true");
       }
     } catch {}
   }, []);
-
-  function handleToggleSidebar() {
-    setSidebarVisible((prev) => {
-      const next = !prev;
-      try {
-        localStorage.setItem("devdesk_sidebar_visible", String(next));
-      } catch {}
-      return next;
-    });
-  }
 
   function handleToggleCollapse() {
     setSidebarCollapsed((prev) => {
@@ -54,13 +39,6 @@ export default function Home() {
       } catch {}
       return next;
     });
-  }
-
-  function handleHideSidebar() {
-    setSidebarVisible(false);
-    try {
-      localStorage.setItem("devdesk_sidebar_visible", "false");
-    } catch {}
   }
 
   const [terminalSelection, setTerminalSelection] = useState<{
@@ -124,10 +102,10 @@ export default function Home() {
         return;
       }
 
-      // Cmd/Ctrl + B to toggle sidebar
+      // Cmd/Ctrl + B to toggle sidebar collapse
       if (e.key.toLowerCase() === "b") {
         e.preventDefault();
-        handleToggleSidebar();
+        handleToggleCollapse();
         return;
       }
 
@@ -230,36 +208,16 @@ export default function Home() {
         backendConnected={backendConnected}
         runningProcessesCount={runningProcessesCount}
         onOpenSettings={() => setActiveTab("settings")}
-        sidebarVisible={sidebarVisible}
-        onToggleSidebar={handleToggleSidebar}
       />
 
       {/* 2. Middle Body: Sidebar + Main Content */}
       <div className="flex flex-1 min-h-0 overflow-hidden relative">
-        {sidebarVisible && (
-          <Sidebar
-            activeTab={activeTab}
-            onSelectTab={setActiveTab}
-            collapsed={sidebarCollapsed}
-            onToggleCollapse={handleToggleCollapse}
-            onHide={handleHideSidebar}
-          />
-        )}
-
-        {!sidebarVisible && (
-          <button
-            type="button"
-            onClick={handleToggleSidebar}
-            title="Show Sidebar (⌘B)"
-            className="absolute top-2.5 left-2.5 z-30 p-1.5 rounded-md bg-zinc-950/90 hover:bg-zinc-800 text-zinc-400 hover:text-cyan-400 border border-zinc-700/80 shadow-lg backdrop-blur transition cursor-pointer flex items-center gap-1.5 group text-xs"
-          >
-            <svg className="w-4 h-4 text-cyan-400 group-hover:scale-110 transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <rect x="3" y="3" width="18" height="18" rx="2" />
-              <path d="M9 3v18" />
-            </svg>
-            <span className="hidden group-hover:inline text-[11px] font-medium text-zinc-300">Show Sidebar (⌘B)</span>
-          </button>
-        )}
+        <Sidebar
+          activeTab={activeTab}
+          onSelectTab={setActiveTab}
+          collapsed={sidebarCollapsed}
+          onToggleCollapse={handleToggleCollapse}
+        />
 
         <main className="flex-1 min-w-0 overflow-y-auto bg-zinc-900/40 relative">
           <div className={activeTab === "projects" ? "h-full w-full" : "hidden"}>

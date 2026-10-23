@@ -60,15 +60,31 @@ function loadEnvironment(): void {
 
 loadEnvironment();
 
-const BACKEND_URL = (
-  process.env.BACKEND_URL ||
+const HOSTED_API_URL = (
+  process.env.NEXT_PUBLIC_HOSTED_API_URL ||
+  process.env.HOSTED_API_URL ||
+  process.env.NEXT_PUBLIC_HOSTED_BACKEND_URL ||
+  process.env.HOSTED_BACKEND_URL ||
+  ""
+).trim().replace(/\/+$/, "");
+
+const LOCAL_API_URL = (
+  process.env.NEXT_PUBLIC_API_URL ||
+  process.env.API_URL ||
+  process.env.NEXT_PUBLIC_LOCAL_API_URL ||
+  process.env.LOCAL_API_URL ||
+  process.env.NEXT_PUBLIC_LOCAL_BACKEND_URL ||
+  process.env.LOCAL_BACKEND_URL ||
   process.env.NEXT_PUBLIC_BACKEND_URL ||
+  process.env.BACKEND_URL ||
   "http://127.0.0.1:5001"
-).replace(/\/+$/, "");
+).trim().replace(/\/+$/, "");
+
+// Hosted takes precedence; falls back to local API URL via OR (||)
+const BACKEND_URL = HOSTED_API_URL || LOCAL_API_URL || "http://127.0.0.1:5001";
 
 const IS_HOSTED_BACKEND =
-  process.env.HOSTED_BACKEND === "true" ||
-  process.env.REMOTE_BACKEND === "true" ||
+  Boolean(HOSTED_API_URL) ||
   !/^(?:https?:\/\/)?(?:localhost|127\.0\.0\.1)(?::\d+)?/i.test(BACKEND_URL);
 
 const isDev = process.env.NODE_ENV === "development" || !app.isPackaged;

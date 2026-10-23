@@ -9,7 +9,6 @@ interface SidebarProps {
   onSelectTab: (tab: NavItemId) => void;
   collapsed?: boolean;
   onToggleCollapse?: () => void;
-  onHide?: () => void;
 }
 
 function getNavIcon(id: NavItemId) {
@@ -73,7 +72,6 @@ export function Sidebar({
   onSelectTab,
   collapsed = false,
   onToggleCollapse,
-  onHide,
 }: SidebarProps) {
   if (collapsed) {
     return (
@@ -165,30 +163,21 @@ export function Sidebar({
         })}
       </nav>
 
-      {/* Footer with Collapse & Hide Controls */}
-      <div className="p-2 border-t border-zinc-800/80 flex items-center justify-between gap-1 text-xs">
-        {onToggleCollapse && (
+      {/* Footer with Collapse Control */}
+      {onToggleCollapse && (
+        <div className="p-2 border-t border-zinc-800/80 text-xs">
           <button
             onClick={onToggleCollapse}
-            title="Collapse to compact icon bar"
-            className="flex-1 flex items-center justify-center gap-1.5 px-2 py-1 rounded text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 border border-transparent hover:border-zinc-800 transition cursor-pointer text-[11px]"
+            title="Collapse Sidebar (⌘B)"
+            className="w-full flex items-center justify-center gap-2 px-2.5 py-1.5 rounded-md text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 border border-transparent hover:border-zinc-800 transition cursor-pointer text-xs font-medium"
           >
             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
             </svg>
             <span>Collapse</span>
           </button>
-        )}
-        {onHide && (
-          <button
-            onClick={onHide}
-            title="Completely hide sidebar (Press ⌘B to restore)"
-            className="px-2 py-1 rounded text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900 border border-transparent hover:border-zinc-800 transition cursor-pointer text-[11px]"
-          >
-            Hide
-          </button>
-        )}
-      </div>
+        </div>
+      )}
     </aside>
   );
 }

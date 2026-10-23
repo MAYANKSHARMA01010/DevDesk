@@ -36,24 +36,62 @@ function parseEnv(filePath) {
 }
 
 const rootEnv = parseEnv(rootEnvPath);
-const backendUrl = rootEnv.get("NEXT_PUBLIC_BACKEND_URL") || rootEnv.get("BACKEND_URL") || "http://localhost:5001";
-const frontendPort = rootEnv.get("NEXT_PUBLIC_PORT") || rootEnv.get("FRONTEND_PORT") || "3000";
-const isHosted = !/^(?:https?:\/\/)?(?:localhost|127\.0\.0\.1)(?::\d+)?/i.test(backendUrl);
 
-console.log(`[DevDesk Env Sync] Target Backend: ${backendUrl} (${isHosted ? "Hosted Cloud" : "Local"})`);
+// Dual Backend URLs (Hosted and Local API)
+const hostedApiUrl =
+  rootEnv.get("NEXT_PUBLIC_HOSTED_API_URL") ||
+  rootEnv.get("HOSTED_API_URL") ||
+  rootEnv.get("NEXT_PUBLIC_HOSTED_BACKEND_URL") ||
+  rootEnv.get("HOSTED_BACKEND_URL") ||
+  "";
 
-// 1. Sync frontend/.env and frontend/.env.local
-const frontendEnvPath = path.join(rootDir, "frontend/.env");
+const localApiUrl =
+  rootEnv.get("NEXT_PUBLIC_API_URL") ||
+  rootEnv.get("API_URL") ||
+  rootEnv.get("NEXT_PUBLIC_LOCAL_API_URL") ||
+  rootEnv.get("LOCAL_API_URL") ||
+  rootEnv.get("NEXT_PUBLIC_LOCAL_BACKEND_URL") ||
+  rootEnv.get("LOCAL_BACKEND_URL") ||
+  rootEnv.get("NEXT_PUBLIC_BACKEND_URL") ||
+  rootEnv.get("BACKEND_URL") ||
+  "http://localhost:5001";
+
+const frontendPort =
+  rootEnv.get("NEXT_PUBLIC_PORT") ||
+  rootEnv.get("PORT_FRONTEND") ||
+  rootEnv.get("FRONTEND_PORT") ||
+  "3000";
+
+// Active target URL: Hosted takes precedence via OR (||); falls back to local API URL
+const activeBackendUrl = hostedApiUrl || localApiUrl;
+const isHosted = Boolean(hostedApiUrl) || !/^(?:https?:\/\/)?(?:localhost|127\.0\.0\.1)(?::\d+)?/i.test(activeBackendUrl);
+
+console.log(`[DevDesk Env Sync] Active Target Backend: ${activeBackendUrl} (${isHosted ? "Hosted" : "Local"})`);
+
+// Safety check: Explicitly remove any .env.local file if it exists
 const frontendEnvLocalPath = path.join(rootDir, "frontend/.env.local");
+if (fs.existsSync(frontendEnvLocalPath)) {
+  fs.unlinkSync(frontendEnvLocalPath);
+  console.log("✓ Removed unwanted frontend/.env.local (DevDesk strictly uses .env only)");
+}
 
-const frontendContent = `# Auto-synced from root .env\nNEXT_PUBLIC_BACKEND_URL=${backendUrl}\nNEXT_PUBLIC_PORT=${frontendPort}\nNEXT_PUBLIC_APP_NAME=DevDesk\nNEXT_PUBLIC_APP_VERSION=1.0.0\n`;
+// 1. Sync frontend/.env ONLY (never .env.local)
+const frontendEnvPath = path.join(rootDir, "frontend/.env");
+const frontendContent = `# Auto-synced from root .env
+NEXT_PUBLIC_HOSTED_API_URL=${hostedApiUrl}
+NEXT_PUBLIC_API_URL=${localApiUrl}
+NEXT_PUBLIC_PORT=${frontendPort}
+`;
 fs.writeFileSync(frontendEnvPath, frontendContent);
-fs.writeFileSync(frontendEnvLocalPath, frontendContent);
-console.log("✓ Synced frontend/.env and frontend/.env.local");
+console.log("✓ Synced frontend/.env");
 
 // 2. Sync desktop/.env
 const desktopEnvPath = path.join(rootDir, "desktop/.env");
-const desktopContent = `# Auto-synced from root .env\nBACKEND_URL=${backendUrl}\nNEXT_PUBLIC_BACKEND_URL=${backendUrl}\nELECTRON_START_URL=http://localhost:${frontendPort}\nHOSTED_BACKEND=${isHosted}\n`;
+const desktopContent = `# Auto-synced from root .env
+NEXT_PUBLIC_HOSTED_API_URL=${hostedApiUrl}
+NEXT_PUBLIC_API_URL=${localApiUrl}
+ELECTRON_START_URL=http://localhost:${frontendPort}
+`;
 fs.writeFileSync(desktopEnvPath, desktopContent);
 console.log("✓ Synced desktop/.env");
 

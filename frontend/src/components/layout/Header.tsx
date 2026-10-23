@@ -6,16 +6,12 @@ interface HeaderProps {
   backendConnected?: boolean;
   runningProcessesCount?: number;
   onOpenSettings?: () => void;
-  sidebarVisible?: boolean;
-  onToggleSidebar?: () => void;
 }
 
 export function Header({
   backendConnected = true,
   runningProcessesCount = 0,
   onOpenSettings,
-  sidebarVisible = true,
-  onToggleSidebar,
 }: HeaderProps) {
   const [isDesktop, setIsDesktop] = useState(false);
 
@@ -26,23 +22,6 @@ export function Header({
   return (
     <header className="h-12 border-b border-zinc-800 bg-zinc-950 px-4 flex items-center justify-between select-none shrink-0">
       <div className="flex items-center gap-2.5">
-        {onToggleSidebar && (
-          <button
-            type="button"
-            onClick={onToggleSidebar}
-            className={`p-1.5 rounded-md border transition cursor-pointer ${
-              sidebarVisible
-                ? "text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 border-transparent hover:border-zinc-800"
-                : "text-cyan-400 bg-cyan-950/40 border-cyan-800/60 hover:bg-cyan-900/50"
-            }`}
-            title={sidebarVisible ? "Hide Sidebar (⌘B)" : "Show Sidebar (⌘B)"}
-          >
-            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <rect x="3" y="3" width="18" height="18" rx="2" />
-              <path d="M9 3v18" />
-            </svg>
-          </button>
-        )}
 
         <div className="flex items-center gap-2.5">
           {/* eslint-disable-next-line @next/next/no-img-element */}
