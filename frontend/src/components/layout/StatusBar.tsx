@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { getBackendDisplayLabel } from "@/config/env";
 
 interface StatusBarProps {
   statusText?: string;
@@ -23,7 +24,9 @@ export function StatusBar({
 
   const displayStatus =
     statusText ||
-    (backendConnected ? "Backend Connected (Port 5001)" : "Backend Disconnected");
+    (backendConnected
+      ? `Backend Connected (${getBackendDisplayLabel()})`
+      : "Backend Disconnected");
 
   return (
     <footer className="h-7 border-t border-zinc-800 bg-zinc-950 px-4 flex items-center justify-between text-[11px] font-mono text-zinc-400 select-none shrink-0">

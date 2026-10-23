@@ -23,6 +23,54 @@ protocol.registerSchemesAsPrivileged([
 let mainWindow: BrowserWindow | null = null;
 let backendChild: ChildProcess | null = null;
 
+function loadEnvironment(): void {
+  const envCandidates = [
+    path.join(__dirname, "../../.env"),
+    path.join(__dirname, "../.env"),
+    path.join(process.cwd(), ".env"),
+    path.join(process.resourcesPath, ".env"),
+  ];
+
+  for (const envPath of envCandidates) {
+    if (fsSync.existsSync(envPath)) {
+      try {
+        const content = fsSync.readFileSync(envPath, "utf8");
+        for (const line of content.split(/\r?\n/)) {
+          const trimmed = line.trim();
+          if (!trimmed || trimmed.startsWith("#")) continue;
+          const eqIdx = trimmed.indexOf("=");
+          if (eqIdx > 0) {
+            const key = trimmed.slice(0, eqIdx).trim();
+            let val = trimmed.slice(eqIdx + 1).trim();
+            if (
+              (val.startsWith('"') && val.endsWith('"')) ||
+              (val.startsWith("'") && val.endsWith("'"))
+            ) {
+              val = val.slice(1, -1);
+            }
+            if (!process.env[key]) {
+              process.env[key] = val;
+            }
+          }
+        }
+      } catch {}
+    }
+  }
+}
+
+loadEnvironment();
+
+const BACKEND_URL = (
+  process.env.BACKEND_URL ||
+  process.env.NEXT_PUBLIC_BACKEND_URL ||
+  "http://127.0.0.1:5001"
+).replace(/\/+$/, "");
+
+const IS_HOSTED_BACKEND =
+  process.env.HOSTED_BACKEND === "true" ||
+  process.env.REMOTE_BACKEND === "true" ||
+  !/^(?:https?:\/\/)?(?:localhost|127\.0\.0\.1)(?::\d+)?/i.test(BACKEND_URL);
+
 const isDev = process.env.NODE_ENV === "development" || !app.isPackaged;
 const FRONTEND_DEV_URL =
   process.env.ELECTRON_START_URL || "http://localhost:3000";
@@ -306,27 +354,20 @@ function checkPortOccupied(port: number): Promise<{ occupied: boolean; isDevDesk
 /**
  * Polls backend readiness endpoint until 200 OK or timeout.
  */
-function waitForBackendReady(timeoutMs = 12000): Promise<boolean> {
+async function waitForBackendReady(timeoutMs = 12000): Promise<boolean> {
+  const healthUrl = `${BACKEND_URL}/health`;
   const startTime = Date.now();
-  return new Promise((resolve) => {
-    const interval = setInterval(() => {
-      if (Date.now() - startTime > timeoutMs) {
-        clearInterval(interval);
-        resolve(false);
-        return;
+
+  while (Date.now() - startTime < timeoutMs) {
+    try {
+      const res = await fetch(healthUrl, { signal: AbortSignal.timeout(1000) });
+      if (res.ok) {
+        return true;
       }
-      const req = http.get("http://127.0.0.1:5001/health", { timeout: 800 }, (res) => {
-        if (res.statusCode === 200) {
-          clearInterval(interval);
-          resolve(true);
-        }
-      });
-      req.on("error", () => {});
-      req.on("timeout", () => {
-        req.destroy();
-      });
-    }, 250);
-  });
+    } catch {}
+    await new Promise((r) => setTimeout(r, 300));
+  }
+  return false;
 }
 
 /**
@@ -337,7 +378,11 @@ async function startProductionBackend(): Promise<{
   error?: string;
   suggestion?: string;
 }> {
-  if (isDev) {
+  // If running in development or connecting to a hosted backend, skip spawning local process
+  if (isDev || IS_HOSTED_BACKEND) {
+    if (IS_HOSTED_BACKEND) {
+      console.log(`[DevDesk] Operating in Hosted Cloud Backend mode -> ${BACKEND_URL}`);
+    }
     return { success: true };
   }
 
@@ -449,6 +494,9 @@ function cleanupBackendProcess(): void {
 }
 
 async function createWindow(): Promise<void> {
+  const iconPath = path.join(__dirname, "../build-resources/icon.png");
+  const hasIcon = fsSync.existsSync(iconPath);
+
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
@@ -456,6 +504,7 @@ async function createWindow(): Promise<void> {
     minHeight: 640,
     title: "DevDesk",
     backgroundColor: "#09090b",
+    icon: hasIcon ? iconPath : undefined,
     fullscreen: true,
     show: false,
     webPreferences: {
@@ -466,6 +515,12 @@ async function createWindow(): Promise<void> {
       webSecurity: true,
     },
   });
+
+  if (process.platform === "darwin" && app.dock && hasIcon) {
+    try {
+      app.dock.setIcon(iconPath);
+    } catch {}
+  }
 
   mainWindow.once("ready-to-show", () => {
     if (mainWindow) {

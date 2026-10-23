@@ -45,9 +45,12 @@ export function Header({
         )}
 
         <div className="flex items-center gap-2.5">
-          <div className="flex items-center justify-center w-6 h-6 rounded bg-zinc-800 border border-zinc-700 text-xs font-mono font-bold text-zinc-100">
-            D
-          </div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/icon.png"
+            alt="DevDesk"
+            className="w-6 h-6 rounded-md object-contain border border-zinc-700/60 shadow-sm"
+          />
           <span className="font-semibold text-sm tracking-tight text-zinc-100">
             DevDesk
           </span>

@@ -19,6 +19,7 @@ import {
   HttpMethod,
   KeyValuePair,
 } from "@/types/apiTester";
+import { BACKEND_URL } from "@/config/env";
 import { ApiCatalogSidebar } from "./ApiCatalogSidebar";
 import { ApiEndpointDetailsModal } from "./ApiEndpointDetailsModal";
 import {
@@ -103,7 +104,7 @@ export function ApiTesterView({ initialSelection }: ApiTesterViewProps = {}) {
   const [selectedProjectId, setSelectedProjectId] = useState<string>(
     initialSelection?.projectId || ""
   );
-  const [baseUrl, setBaseUrl] = useState<string>("http://localhost:5001");
+  const [baseUrl, setBaseUrl] = useState<string>(BACKEND_URL);
 
   // Keep workspaces updated via subscription
   useWorkspaceSubscription(setWorkspaces);
@@ -120,7 +121,7 @@ export function ApiTesterView({ initialSelection }: ApiTesterViewProps = {}) {
 
   // Request Configuration State
   const [method, setMethod] = useState<HttpMethod>("GET");
-  const [url, setUrl] = useState<string>("http://localhost:5001/health");
+  const [url, setUrl] = useState<string>(`${BACKEND_URL}/health`);
   const [requestTab, setRequestTab] = useState<
     "params" | "headers" | "body" | "example"
   >("example");
@@ -166,7 +167,7 @@ export function ApiTesterView({ initialSelection }: ApiTesterViewProps = {}) {
     headers: Record<string, string>;
     body: string;
   } | null>(() => {
-    return generateRealisticResponseExample("GET", "http://localhost:5001/health");
+    return generateRealisticResponseExample("GET", `${BACKEND_URL}/health`);
   });
   const [responseViewMode, setResponseViewMode] = useState<"example" | "live">("example");
 
@@ -668,7 +669,7 @@ export function ApiTesterView({ initialSelection }: ApiTesterViewProps = {}) {
               type="text"
               value={baseUrl}
               onChange={(e) => setBaseUrl(e.target.value)}
-              placeholder="http://localhost:5001"
+              placeholder={BACKEND_URL}
               className="w-40 px-2 py-1 bg-zinc-900 border border-zinc-700 rounded-md text-xs font-mono text-zinc-200 focus:outline-none focus:border-zinc-500"
             />
           </div>
@@ -738,7 +739,7 @@ export function ApiTesterView({ initialSelection }: ApiTesterViewProps = {}) {
                 }
               }}
               disabled={loading}
-              placeholder="http://localhost:5001/api/... or https://..."
+              placeholder={`${BACKEND_URL}/api/... or https://...`}
               className="flex-1 min-w-[240px] px-3.5 py-1.5 text-xs font-mono rounded-md bg-zinc-950 border border-zinc-800 text-zinc-200 placeholder-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-600 transition-all"
             />
 
@@ -1479,19 +1480,19 @@ export function ApiTesterView({ initialSelection }: ApiTesterViewProps = {}) {
                     {/* Quick Presets */}
                     <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
                       <button
-                        onClick={() => handleSelectPreset("GET", "http://localhost:5001/health")}
+                        onClick={() => handleSelectPreset("GET", `${BACKEND_URL}/health`)}
                         className="px-2.5 py-1 rounded bg-zinc-900 border border-zinc-800 text-[11px] text-zinc-400 hover:text-zinc-200 hover:border-zinc-700 transition-colors cursor-pointer"
                       >
                         Backend Health (GET)
                       </button>
                       <button
-                        onClick={() => handleSelectPreset("GET", "http://localhost:5001/api/workspaces")}
+                        onClick={() => handleSelectPreset("GET", `${BACKEND_URL}/api/workspaces`)}
                         className="px-2.5 py-1 rounded bg-zinc-900 border border-zinc-800 text-[11px] text-zinc-400 hover:text-zinc-200 hover:border-zinc-700 transition-colors cursor-pointer"
                       >
                         Workspaces (GET)
                       </button>
                       <button
-                        onClick={() => handleSelectPreset("GET", "http://localhost:5001/api/processes")}
+                        onClick={() => handleSelectPreset("GET", `${BACKEND_URL}/api/processes`)}
                         className="px-2.5 py-1 rounded bg-zinc-900 border border-zinc-800 text-[11px] text-zinc-400 hover:text-zinc-200 hover:border-zinc-700 transition-colors cursor-pointer"
                       >
                         Processes (GET)

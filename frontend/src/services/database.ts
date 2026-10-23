@@ -17,9 +17,7 @@ import {
   DatabaseTablesResponse,
   UpdateConnectionProfileInput,
 } from "@/types/database";
-
-const BACKEND_BASE_URL =
-  process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5001";
+import { BACKEND_URL as BACKEND_BASE_URL } from "@/config/env";
 
 /**
  * Fetches all saved database connection profiles from SQLite.

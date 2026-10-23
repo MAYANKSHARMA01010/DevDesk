@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { fetchDiagnostics, DiagnosticsData } from "@/services/diagnostics";
+import { BACKEND_URL, getBackendDisplayLabel } from "@/config/env";
 
 export function SettingsView() {
   const [diagnostics, setDiagnostics] = useState<DiagnosticsData | null>(null);
@@ -183,11 +184,17 @@ export function SettingsView() {
                   : "bg-rose-950/70 border border-rose-800 text-rose-300"
               }`}
             >
-              {diagnostics ? "Connected (:5001)" : "Offline"}
+              {diagnostics ? `Connected (${getBackendDisplayLabel()})` : "Offline"}
             </span>
           </div>
 
           <div className="space-y-2 text-xs">
+            <div className="flex justify-between py-1 border-b border-zinc-800/80">
+              <span className="text-zinc-400">Target Backend URL:</span>
+              <span className="font-mono text-cyan-400 break-all text-[11px] font-medium">
+                {BACKEND_URL}
+              </span>
+            </div>
             <div className="flex justify-between py-1 border-b border-zinc-800/80">
               <span className="text-zinc-400">Backend Node.js:</span>
               <span className="font-mono text-zinc-200">

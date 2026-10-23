@@ -8,9 +8,7 @@ import {
   EnvFileSaveResponse,
   EnvFileSaveResult,
 } from "@/types/env-editor";
-
-const BACKEND_BASE_URL =
-  process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5001";
+import { BACKEND_URL as BACKEND_BASE_URL } from "@/config/env";
 
 /**
  * Fetches the list of supported environment files for a project without exposing variable values.

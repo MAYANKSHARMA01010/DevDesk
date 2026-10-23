@@ -6,9 +6,7 @@ import {
   WorkspaceWithProjects,
 } from "@/types/project";
 import { broadcastWorkspacesChanged } from "./workspaceSync";
-
-const BACKEND_BASE_URL =
-  process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5001";
+import { BACKEND_URL as BACKEND_BASE_URL } from "@/config/env";
 
 /**
  * Retrieves all saved workspaces and their projects from SQLite via backend.

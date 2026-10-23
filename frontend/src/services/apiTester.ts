@@ -4,9 +4,7 @@ import {
   ApiTesterRequest,
   ApiTesterResponseResult,
 } from "@/types/apiTester";
-
-const BACKEND_BASE_URL =
-  process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5001";
+import { BACKEND_URL as BACKEND_BASE_URL } from "@/config/env";
 
 /**
  * Sends an HTTP request via the DevDesk backend HTTP client.
