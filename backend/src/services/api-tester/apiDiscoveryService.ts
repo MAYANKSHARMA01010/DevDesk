@@ -466,8 +466,8 @@ export class ApiDiscoveryService {
           // Analyze nearby handler lines for req.body, req.query, status codes
           const handlerSnippet = lines.slice(i, Math.min(lines.length, i + 35)).join("\n");
           const queryParams = this.extractQueryParams(handlerSnippet, commentInfo.rawComment);
-          const requestBody = this.extractRequestBody(method, handlerSnippet, commentInfo.rawComment);
-          const responses = this.extractResponses(handlerSnippet, commentInfo.rawComment);
+          const requestBody = this.extractRequestBody(method, fullRoutePath, handlerSnippet, commentInfo.rawComment);
+          const responses = this.extractResponses(method, fullRoutePath, handlerSnippet, commentInfo.rawComment);
 
           const fullUrl = `${baseUrl}${fullRoutePath}`;
           const howToUse = generateHowToUseSnippets(
@@ -546,8 +546,8 @@ export class ApiDiscoveryService {
 
           const handlerSnippet = lines.slice(i, Math.min(lines.length, i + 40)).join("\n");
           const queryParams = this.extractQueryParams(handlerSnippet, commentInfo.rawComment);
-          const requestBody = this.extractRequestBody(method, handlerSnippet, commentInfo.rawComment);
-          const responses = this.extractResponses(handlerSnippet, commentInfo.rawComment);
+          const requestBody = this.extractRequestBody(method, routePath, handlerSnippet, commentInfo.rawComment);
+          const responses = this.extractResponses(method, routePath, handlerSnippet, commentInfo.rawComment);
 
           const fullUrl = `${baseUrl}${routePath}`;
           const howToUse = generateHowToUseSnippets(
@@ -619,8 +619,8 @@ export class ApiDiscoveryService {
 
       for (const method of detectedMethods) {
         const queryParams = this.extractQueryParams(content);
-        const requestBody = this.extractRequestBody(method, content);
-        const responses = this.extractResponses(content);
+        const requestBody = this.extractRequestBody(method, routePath, content);
+        const responses = this.extractResponses(method, routePath, content);
 
         const fullUrl = `${baseUrl}${routePath}`;
         const howToUse = generateHowToUseSnippets(
@@ -685,8 +685,8 @@ export class ApiDiscoveryService {
 
           const handlerSnippet = lines.slice(i, Math.min(lines.length, i + 25)).join("\n");
           const queryParams = this.extractQueryParams(handlerSnippet);
-          const requestBody = this.extractRequestBody(method, handlerSnippet);
-          const responses = this.extractResponses(handlerSnippet);
+          const requestBody = this.extractRequestBody(method, fullRoutePath, handlerSnippet);
+          const responses = this.extractResponses(method, fullRoutePath, handlerSnippet);
 
           const fullUrl = `${baseUrl}${fullRoutePath}`;
           const howToUse = generateHowToUseSnippets(
@@ -746,8 +746,8 @@ export class ApiDiscoveryService {
           const pathParams = extractPathParams(routePath);
 
           const handlerSnippet = lines.slice(i, Math.min(lines.length, i + 30)).join("\n");
-          const requestBody = this.extractRequestBody(method, handlerSnippet);
-          const responses = this.extractResponses(handlerSnippet);
+          const requestBody = this.extractRequestBody(method, routePath, handlerSnippet);
+          const responses = this.extractResponses(method, routePath, handlerSnippet);
 
           const fullUrl = `${baseUrl}${routePath}`;
           const howToUse = generateHowToUseSnippets(
@@ -1028,13 +1028,14 @@ export class ApiDiscoveryService {
    */
   private extractRequestBody(
     method: HttpMethod,
+    routePath: string,
     snippet: string,
     comment?: string
   ): ApiRequestBodyInfo | undefined {
     if (!["POST", "PUT", "PATCH"].includes(method)) return undefined;
 
     const fields: ApiParamInfo[] = [];
-    const dummyObj: Record<string, any> = {};
+    let dummyObj: Record<string, any> = {};
 
     // Check destructuring: const { name, path, content } = req.body or await req.json()
     const bodyDestructure = snippet.match(
@@ -1074,30 +1075,84 @@ export class ApiDiscoveryService {
           fields.push({
             name: key,
             type,
-            required: !k.includes("="), // if has default = false/null then optional
+            required: !k.includes("="),
             sampleValue: String(sampleVal),
           });
         }
       }
     }
 
-    // Default sample if no destructuring found
+    // Semantic route keyword fallback if no destructuring found
     if (Object.keys(dummyObj).length === 0) {
-      if (snippet.includes("req.body") || snippet.includes("request.json()")) {
-        dummyObj["key"] = "value";
+      const lower = routePath.toLowerCase();
+      if (lower.includes("account")) {
+        dummyObj = {
+          name: "Acme Media Account",
+          platform: "youtube",
+          status: "active",
+          settings: {
+            autoUpload: true,
+            notifications: true,
+          },
+        };
+      } else if (lower.includes("video") || lower.includes("download")) {
+        dummyObj = {
+          videoUrl: "https://www.youtube.com/watch?v=sample123",
+          title: "Automated Workflow Demo",
+          resolution: "1080p",
+          format: "mp4",
+        };
+      } else if (lower.includes("post")) {
+        dummyObj = {
+          title: "Announcing Developer Tools v2.0",
+          caption: "Check out the latest features in DevDesk! #coding #developer #tools",
+          scheduledTime: "2026-10-25T14:30:00Z",
+          tags: ["devdesk", "automation", "tech"],
+        };
+      } else if (lower.includes("login") || lower.includes("auth")) {
+        dummyObj = {
+          email: "developer@example.com",
+          password: "SuperSecretPassword123!",
+        };
+      } else if (lower.includes("register") || lower.includes("signup")) {
+        dummyObj = {
+          username: "dev_user",
+          email: "developer@example.com",
+          password: "SuperSecretPassword123!",
+          role: "developer",
+        };
+      } else if (lower.includes("forgot-password") || lower.includes("reset-password")) {
+        dummyObj = {
+          email: "developer@example.com",
+        };
+      } else if (lower.includes("bulk")) {
+        dummyObj = {
+          action: "batch_process",
+          ids: ["item_101", "item_102", "item_103"],
+        };
+      } else if (lower.includes("workspace") || lower.includes("scan")) {
+        dummyObj = {
+          path: "/Users/developer/Projects/my-app",
+        };
+      } else {
+        dummyObj = {
+          name: "Sample Resource",
+          status: "active",
+          description: "Example request payload for testing this endpoint.",
+        };
+      }
+
+      for (const [k, v] of Object.entries(dummyObj)) {
         fields.push({
-          name: "key",
-          type: "string",
+          name: k,
+          type: typeof v,
           required: false,
-          sampleValue: "value",
+          sampleValue: typeof v === "object" ? JSON.stringify(v) : String(v),
         });
       }
     }
 
-    const sampleJson =
-      Object.keys(dummyObj).length > 0
-        ? JSON.stringify(dummyObj, null, 2)
-        : '{\n  "key": "value"\n}';
+    const sampleJson = JSON.stringify(dummyObj, null, 2);
 
     return {
       contentType: "application/json",
@@ -1110,9 +1165,141 @@ export class ApiDiscoveryService {
   /**
    * Extracts response status codes and sample returns.
    */
-  private extractResponses(snippet: string, comment?: string): ApiResponseInfo[] {
+  private extractResponses(
+    method: HttpMethod,
+    routePath: string,
+    snippet: string,
+    comment?: string
+  ): ApiResponseInfo[] {
     const responses: ApiResponseInfo[] = [];
     const foundCodes = new Set<number>();
+    const lower = routePath.toLowerCase();
+
+    // Helper to generate realistic 200/201 response JSON
+    const generateRealisticSuccessResponse = (statusCode: number) => {
+      if (method === "DELETE") {
+        return JSON.stringify(
+          {
+            success: true,
+            message: "Resource deleted successfully.",
+            deletedId: lower.includes("account")
+              ? "acc_1024"
+              : lower.includes("post")
+              ? "post_5012"
+              : lower.includes("video")
+              ? "vid_9901"
+              : "item_12345",
+          },
+          null,
+          2
+        );
+      }
+
+      if (lower.includes("account")) {
+        return JSON.stringify(
+          {
+            success: true,
+            account: {
+              id: "acc_1024",
+              name: "Acme Media Account",
+              platform: "youtube",
+              status: "active",
+              updatedAt: new Date().toISOString(),
+            },
+          },
+          null,
+          2
+        );
+      }
+
+      if (lower.includes("video") || lower.includes("download")) {
+        return JSON.stringify(
+          {
+            success: true,
+            video: {
+              id: "vid_9901",
+              title: "Automated Workflow Demo",
+              status: "ready",
+              downloadUrl: "https://storage.example.com/videos/vid_9901.mp4",
+            },
+          },
+          null,
+          2
+        );
+      }
+
+      if (lower.includes("post")) {
+        return JSON.stringify(
+          {
+            success: true,
+            post: {
+              id: "post_5012",
+              title: "Announcing Developer Tools v2.0",
+              status: "published",
+              publishedAt: new Date().toISOString(),
+            },
+          },
+          null,
+          2
+        );
+      }
+
+      if (lower.includes("login") || lower.includes("auth")) {
+        return JSON.stringify(
+          {
+            success: true,
+            token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+            user: {
+              id: "usr_8820",
+              email: "developer@example.com",
+            },
+          },
+          null,
+          2
+        );
+      }
+
+      if (lower === "/me" || lower.endsWith("/me")) {
+        return JSON.stringify(
+          {
+            success: true,
+            user: {
+              id: "usr_8820",
+              name: "Developer",
+              email: "developer@example.com",
+              role: "admin",
+            },
+          },
+          null,
+          2
+        );
+      }
+
+      if (lower.includes("forgot-password") || lower.includes("reset-password")) {
+        return JSON.stringify(
+          {
+            success: true,
+            message: "Password reset instructions dispatched.",
+          },
+          null,
+          2
+        );
+      }
+
+      return JSON.stringify(
+        {
+          success: true,
+          statusCode,
+          message: "Request processed successfully.",
+          data: {
+            id: "item_1001",
+            createdAt: new Date().toISOString(),
+          },
+        },
+        null,
+        2
+      );
+    };
 
     // Find status codes in res.status(200), res.status(404), status: 201
     const statusRegex = /(?:status\(|status:\s*)(\d{3})\)?/g;
@@ -1136,8 +1323,16 @@ export class ApiDiscoveryService {
           description: desc,
           sampleJson:
             code < 400
-              ? '{\n  "success": true,\n  "data": {}\n}'
-              : `{\n  "success": false,\n  "error": "${desc}"\n}`,
+              ? generateRealisticSuccessResponse(code)
+              : JSON.stringify(
+                  {
+                    success: false,
+                    statusCode: code,
+                    error: desc,
+                  },
+                  null,
+                  2
+                ),
         });
       }
     }
@@ -1145,9 +1340,9 @@ export class ApiDiscoveryService {
     // Always ensure at least 200 OK is listed if none detected
     if (responses.length === 0) {
       responses.push({
-        statusCode: 200,
+        statusCode: method === "POST" ? 201 : 200,
         description: "Success response",
-        sampleJson: '{\n  "success": true,\n  "data": {}\n}',
+        sampleJson: generateRealisticSuccessResponse(method === "POST" ? 201 : 200),
       });
     }
 

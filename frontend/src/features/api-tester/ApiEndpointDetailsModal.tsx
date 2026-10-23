@@ -80,7 +80,7 @@ export function ApiEndpointDetailsModal({
       : endpoint.howToUse.python;
 
   return (
-    <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-5 overflow-y-auto">
+    <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-5 overflow-y-auto no-scrollbar">
       <div className="bg-zinc-950 border border-zinc-800 rounded-xl max-w-3xl w-full my-auto shadow-2xl flex flex-col max-h-[90vh] overflow-hidden animate-in fade-in zoom-in-95 duration-150">
         {/* 1. Modal Header */}
         <div className="p-4 sm:p-5 bg-zinc-900/90 border-b border-zinc-800 flex items-start justify-between gap-4 shrink-0">
@@ -126,7 +126,7 @@ export function ApiEndpointDetailsModal({
         </div>
 
         {/* 2. Modal Scrollable Content Body */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 text-zinc-200 text-xs">
+        <div className="flex-1 overflow-y-auto no-scrollbar p-4 sm:p-6 space-y-6 text-zinc-200 text-xs">
           {/* Source Location Bar */}
           <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 rounded-lg bg-zinc-900/60 border border-zinc-800 text-xs font-mono">
             <div className="flex items-center gap-2 truncate">
@@ -243,7 +243,7 @@ export function ApiEndpointDetailsModal({
               </div>
 
               {endpoint.requestBody.sampleJson && (
-                <div className="rounded-lg bg-zinc-900/70 border border-zinc-800 p-3 font-mono text-xs overflow-x-auto">
+                <div className="rounded-lg bg-zinc-900/70 border border-zinc-800 p-3 font-mono text-xs overflow-x-auto no-scrollbar">
                   <pre className="text-emerald-300 select-all">
                     {endpoint.requestBody.sampleJson}
                   </pre>
@@ -276,7 +276,7 @@ export function ApiEndpointDetailsModal({
                   </div>
 
                   {resp.sampleJson && (
-                    <pre className="text-[11px] font-mono text-zinc-300 bg-zinc-950 p-2 rounded border border-zinc-800/80 overflow-x-auto select-all">
+                    <pre className="text-[11px] font-mono text-zinc-300 bg-zinc-950 p-2 rounded border border-zinc-800/80 overflow-x-auto no-scrollbar select-all">
                       {resp.sampleJson}
                     </pre>
                   )}
@@ -338,7 +338,7 @@ export function ApiEndpointDetailsModal({
             </div>
 
             {/* Code Snippet Box */}
-            <div className="rounded-lg bg-zinc-950 border border-zinc-800 p-3 font-mono text-xs overflow-x-auto">
+            <div className="rounded-lg bg-zinc-950 border border-zinc-800 p-3 font-mono text-xs overflow-x-auto no-scrollbar">
               <pre className="text-zinc-200 select-all leading-relaxed">
                 {currentCodeSnippet}
               </pre>

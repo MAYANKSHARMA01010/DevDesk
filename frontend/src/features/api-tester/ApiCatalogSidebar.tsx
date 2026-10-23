@@ -156,7 +156,7 @@ export function ApiCatalogSidebar({
         </div>
 
         {/* Method Filter Pills */}
-        <div className="flex items-center gap-1 overflow-x-auto pb-0.5">
+        <div className="flex items-center gap-1 overflow-x-auto no-scrollbar pb-0.5">
           {["ALL", "GET", "POST", "PUT", "DELETE"].map((m) => {
             const isSelected = selectedMethod === m;
             return (
@@ -177,7 +177,7 @@ export function ApiCatalogSidebar({
       </div>
 
       {/* Endpoints List Area */}
-      <div className="flex-1 overflow-y-auto p-2 space-y-3">
+      <div className="flex-1 overflow-y-auto no-scrollbar p-2 space-y-3">
         {loading ? (
           <div className="flex flex-col items-center justify-center py-12 text-center text-zinc-500">
             <div className="w-5 h-5 rounded-full border-2 border-zinc-700 border-t-zinc-300 animate-spin mb-2" />

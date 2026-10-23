@@ -19,6 +19,11 @@ import {
 } from "@/types/apiTester";
 import { ApiCatalogSidebar } from "./ApiCatalogSidebar";
 import { ApiEndpointDetailsModal } from "./ApiEndpointDetailsModal";
+import {
+  resolveSampleUrl,
+  generateRealisticRequestBody,
+  generateRealisticResponseExample,
+} from "./apiExampleGenerator";
 
 const HTTP_METHODS: HttpMethod[] = [
   "GET",
@@ -143,6 +148,24 @@ export function ApiTesterView({ initialSelection }: ApiTesterViewProps = {}) {
   const [responseTab, setResponseTab] = useState<"body" | "headers">("body");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [copyFeedback, setCopyFeedback] = useState<boolean>(false);
+
+  // Expected Response Example state & Mode
+  const [expectedResponse, setExpectedResponse] = useState<{
+    statusCode: number;
+    statusText: string;
+    headers: Record<string, string>;
+    body: string;
+  } | null>(() => {
+    return generateRealisticResponseExample("GET", "http://localhost:5001/health");
+  });
+  const [responseViewMode, setResponseViewMode] = useState<"example" | "live">("example");
+
+  // Synchronize expected response when method or URL changes without a live response
+  useEffect(() => {
+    if (!response) {
+      setExpectedResponse(generateRealisticResponseExample(method, url));
+    }
+  }, [method, url, response]);
 
   // 1. Initial Load: Workspaces & Restoring Selection
   useEffect(() => {
@@ -279,7 +302,8 @@ export function ApiTesterView({ initialSelection }: ApiTesterViewProps = {}) {
   const handleLoadEndpointIntoTester = useCallback(
     (endpoint: DiscoveredApiEndpoint, customBaseUrl?: string) => {
       const activeBase = (customBaseUrl || baseUrl).replace(/\/+$/, "");
-      const fullUrl = `${activeBase}${endpoint.path}`;
+      // Resolve dynamic route tokens e.g. :account_id -> acc_1024
+      const fullUrl = resolveSampleUrl(endpoint.path, activeBase);
 
       setMethod(endpoint.method);
       setUrl(fullUrl);
@@ -312,16 +336,27 @@ export function ApiTesterView({ initialSelection }: ApiTesterViewProps = {}) {
         );
       }
 
-      // Pre-fill body for POST/PUT/PATCH/DELETE
-      if (
-        ["POST", "PUT", "PATCH", "DELETE"].includes(endpoint.method) &&
-        endpoint.requestBody?.sampleJson
-      ) {
-        setBody(endpoint.requestBody.sampleJson);
+      // Pre-fill body for POST/PUT/PATCH/DELETE with realistic example payload
+      if (["POST", "PUT", "PATCH", "DELETE"].includes(endpoint.method)) {
+        const sampleBody = generateRealisticRequestBody(
+          endpoint.method,
+          endpoint.path,
+          endpoint.requestBody?.sampleJson
+        );
+        setBody(sampleBody);
         setRequestTab("body");
-      } else if (!["POST", "PUT", "PATCH", "DELETE"].includes(endpoint.method)) {
+      } else {
         setBody("");
       }
+
+      // Generate realistic expected response example preview
+      const expRes = generateRealisticResponseExample(
+        endpoint.method,
+        endpoint.path,
+        endpoint.responses?.[0]?.sampleJson
+      );
+      setExpectedResponse(expRes);
+      setResponseViewMode("example");
     },
     [baseUrl]
   );
@@ -420,6 +455,7 @@ export function ApiTesterView({ initialSelection }: ApiTesterViewProps = {}) {
     try {
       const res = await executeApiRequest(payload);
       setResponse(res);
+      setResponseViewMode("live");
     } catch (err: unknown) {
       setErrorMessage(
         err instanceof Error ? err.message : "Failed to execute request"
@@ -448,14 +484,34 @@ export function ApiTesterView({ initialSelection }: ApiTesterViewProps = {}) {
   function handleClearResponse() {
     setResponse(null);
     setErrorMessage(null);
+    setResponseViewMode("example");
   }
 
-  // Copy Response Body
-  function handleCopyBody() {
-    if (!response?.body) return;
-    navigator.clipboard.writeText(response.body);
+  // Copy Response Body (Live or Example)
+  function handleCopyResponseBody() {
+    const textToCopy =
+      responseViewMode === "live" && response
+        ? getFormattedResponseBody()
+        : expectedResponse?.body || "";
+    if (!textToCopy) return;
+    navigator.clipboard.writeText(textToCopy);
     setCopyFeedback(true);
     setTimeout(() => setCopyFeedback(false), 2000);
+  }
+
+  // Insert intelligent example body for current route & method
+  function handleInsertExampleBody() {
+    const sample = generateRealisticRequestBody(method, url);
+    setBody(sample);
+    setRequestTab("body");
+  }
+
+  // Select Quick Preset
+  function handleSelectPreset(presetMethod: HttpMethod, presetUrl: string) {
+    setMethod(presetMethod);
+    setUrl(presetUrl);
+    setExpectedResponse(generateRealisticResponseExample(presetMethod, presetUrl));
+    setResponseViewMode("example");
   }
 
   function getFormattedResponseBody(): string {
@@ -722,6 +778,14 @@ export function ApiTesterView({ initialSelection }: ApiTesterViewProps = {}) {
 
                 {requestTab === "body" && allowsBody && (
                   <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleInsertExampleBody}
+                      className="px-2 py-0.5 rounded text-[11px] font-medium bg-cyan-950/80 text-cyan-300 border border-cyan-800/60 hover:bg-cyan-900/80 hover:text-cyan-200 transition-colors cursor-pointer"
+                      title="Insert realistic example payload for this endpoint"
+                    >
+                      ✨ Insert Example
+                    </button>
                     {body.trim().length > 0 && (
                       <span
                         className={`text-[11px] font-mono ${
@@ -743,7 +807,7 @@ export function ApiTesterView({ initialSelection }: ApiTesterViewProps = {}) {
               </div>
 
               {/* Request Tab Contents */}
-              <div className="flex-1 overflow-auto p-3">
+              <div className="flex-1 overflow-auto no-scrollbar p-3">
                 {/* TAB 1: PARAMS */}
                 {requestTab === "params" && (
                   <div className="space-y-2">
@@ -849,7 +913,7 @@ export function ApiTesterView({ initialSelection }: ApiTesterViewProps = {}) {
                           onChange={(e) => setBody(e.target.value)}
                           placeholder='{\n  "key": "value"\n}'
                           rows={12}
-                          className="flex-1 w-full p-3 font-mono text-xs rounded bg-zinc-900 border border-zinc-800 text-zinc-200 placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-zinc-600 resize-none"
+                          className="flex-1 w-full p-3 font-mono text-xs rounded bg-zinc-900 border border-zinc-800 text-zinc-200 placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-zinc-600 resize-none no-scrollbar"
                         />
                         {!jsonValidation.valid && (
                           <p className="text-[11px] text-rose-400 mt-1 font-mono">
@@ -866,11 +930,43 @@ export function ApiTesterView({ initialSelection }: ApiTesterViewProps = {}) {
             {/* RIGHT PANEL: Response Viewer */}
             <div className="flex flex-col min-h-0 rounded-lg bg-zinc-950 border border-zinc-800 shadow-md overflow-hidden">
               {/* Response Status Bar */}
-              <div className="px-4 py-2 bg-zinc-900/90 border-b border-zinc-800 flex items-center justify-between text-xs select-none shrink-0">
+              <div className="px-4 py-2 bg-zinc-900/90 border-b border-zinc-800 flex items-center justify-between text-xs select-none shrink-0 flex-wrap gap-2">
                 <div className="flex items-center gap-2">
+                  {/* Mode Switcher: Live Response vs Expected Example */}
+                  <div className="flex items-center bg-zinc-950 p-0.5 rounded-md border border-zinc-800">
+                    {response && (
+                      <button
+                        onClick={() => setResponseViewMode("live")}
+                        className={`px-2.5 py-1 rounded text-xs font-medium transition cursor-pointer flex items-center gap-1.5 ${
+                          responseViewMode === "live"
+                            ? "bg-zinc-800 text-white shadow-xs"
+                            : "text-zinc-400 hover:text-zinc-200"
+                        }`}
+                      >
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                        <span>Live Response</span>
+                      </button>
+                    )}
+                    <button
+                      onClick={() => setResponseViewMode("example")}
+                      className={`px-2.5 py-1 rounded text-xs font-medium transition cursor-pointer flex items-center gap-1.5 ${
+                        responseViewMode === "example"
+                          ? "bg-cyan-950/80 text-cyan-300 border border-cyan-800/60 shadow-xs"
+                          : "text-zinc-400 hover:text-zinc-200"
+                      }`}
+                      title="View expected response schema & example output"
+                    >
+                      <span>⚡</span>
+                      <span>Expected Example</span>
+                    </button>
+                  </div>
+
+                  <div className="h-4 w-[1px] bg-zinc-800 mx-1 hidden sm:block" />
+
+                  {/* Sub-tabs: Body vs Headers */}
                   <button
                     onClick={() => setResponseTab("body")}
-                    className={`px-3 py-1 rounded-md font-medium text-xs transition-colors cursor-pointer ${
+                    className={`px-2.5 py-1 rounded-md font-medium text-xs transition-colors cursor-pointer ${
                       responseTab === "body"
                         ? "bg-zinc-800 text-white shadow-sm border border-zinc-700"
                         : "text-zinc-400 hover:text-zinc-200"
@@ -880,19 +976,25 @@ export function ApiTesterView({ initialSelection }: ApiTesterViewProps = {}) {
                   </button>
                   <button
                     onClick={() => setResponseTab("headers")}
-                    className={`px-3 py-1 rounded-md font-medium text-xs transition-colors cursor-pointer ${
+                    className={`px-2.5 py-1 rounded-md font-medium text-xs transition-colors cursor-pointer ${
                       responseTab === "headers"
                         ? "bg-zinc-800 text-white shadow-sm border border-zinc-700"
                         : "text-zinc-400 hover:text-zinc-200"
                     }`}
                   >
-                    Headers ({response ? Object.keys(response.headers).length : 0})
+                    Headers (
+                    {responseViewMode === "live" && response
+                      ? Object.keys(response.headers).length
+                      : expectedResponse
+                      ? Object.keys(expectedResponse.headers).length
+                      : 0}
+                    )
                   </button>
                 </div>
 
-                {/* Metadata (Status, Time, Size) */}
-                {response && (
-                  <div className="flex items-center gap-3 text-xs font-mono">
+                {/* Metadata Badges & Actions */}
+                {responseViewMode === "live" && response ? (
+                  <div className="flex items-center gap-2.5 text-xs font-mono">
                     <span
                       className={`px-2 py-0.5 rounded text-[11px] font-bold border shadow-sm ${getStatusBadgeClass(
                         response.status
@@ -911,26 +1013,135 @@ export function ApiTesterView({ initialSelection }: ApiTesterViewProps = {}) {
                     )}
 
                     <button
-                      onClick={handleCopyBody}
+                      onClick={handleCopyResponseBody}
                       disabled={!response.body}
                       className="px-2 py-0.5 rounded text-[11px] bg-zinc-800 text-zinc-300 border border-zinc-700 hover:bg-zinc-700 hover:text-white transition-colors cursor-pointer"
-                      title="Copy body to clipboard"
+                      title="Copy response body"
                     >
                       {copyFeedback ? "Copied!" : "Copy"}
                     </button>
                   </div>
-                )}
+                ) : expectedResponse ? (
+                  <div className="flex items-center gap-2 text-xs font-mono">
+                    <span
+                      className={`px-2 py-0.5 rounded text-[11px] font-bold border shadow-sm ${getStatusBadgeClass(
+                        expectedResponse.statusCode
+                      )}`}
+                    >
+                      {expectedResponse.statusCode} {expectedResponse.statusText}
+                    </span>
+
+                    <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-cyan-950/60 text-cyan-400 border border-cyan-800/50 uppercase tracking-wider">
+                      Expected Schema
+                    </span>
+
+                    <button
+                      onClick={handleCopyResponseBody}
+                      className="px-2 py-0.5 rounded text-[11px] bg-zinc-800 text-zinc-300 border border-zinc-700 hover:bg-zinc-700 hover:text-white transition-colors cursor-pointer"
+                      title="Copy example response"
+                    >
+                      {copyFeedback ? "Copied!" : "Copy Example"}
+                    </button>
+                  </div>
+                ) : null}
               </div>
 
               {/* Response Content View */}
-              <div className="flex-1 overflow-auto p-4 font-mono text-xs leading-relaxed">
+              <div className="flex-1 overflow-auto no-scrollbar p-4 font-mono text-xs leading-relaxed">
                 {loading ? (
                   <div className="h-full flex flex-col items-center justify-center text-center text-zinc-500">
                     <div className="w-8 h-8 rounded-full border-2 border-zinc-700 border-t-zinc-300 animate-spin mb-3" />
                     <p className="text-sm font-medium text-zinc-300">Sending HTTP request...</p>
                     <p className="text-xs text-zinc-500 mt-1">Awaiting response from target server</p>
                   </div>
-                ) : !response ? (
+                ) : responseViewMode === "example" && expectedResponse ? (
+                  /* EXPECTED / EXAMPLE RESPONSE PREVIEW */
+                  <div className="h-full flex flex-col min-h-0">
+                    <div className="mb-3 px-3.5 py-2 rounded-lg bg-cyan-950/30 border border-cyan-800/50 text-cyan-300 text-xs flex items-center justify-between gap-3 shrink-0">
+                      <div className="flex items-center gap-2.5">
+                        <span className="text-base">💡</span>
+                        <div>
+                          <p className="font-semibold text-cyan-200">
+                            Expected Response Example Preview
+                          </p>
+                          <p className="text-[11px] text-cyan-400/90 mt-0.5">
+                            This is an example schema of what this endpoint returns on success. Click <strong>Send</strong> to execute live call.
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={handleSendRequest}
+                        disabled={loading}
+                        className="px-3 py-1.5 rounded-md bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-sm transition cursor-pointer flex items-center gap-1.5 shrink-0"
+                      >
+                        <span>🚀 Send Live</span>
+                      </button>
+                    </div>
+
+                    {responseTab === "body" ? (
+                      <div className="flex-1 overflow-auto no-scrollbar select-text bg-zinc-900/40 rounded-lg border border-zinc-800/80 p-3.5">
+                        <pre className="whitespace-pre-wrap text-emerald-300/95 font-mono text-xs leading-relaxed">
+                          {expectedResponse.body}
+                        </pre>
+                      </div>
+                    ) : (
+                      <div className="flex-1 overflow-auto no-scrollbar select-text bg-zinc-900/40 rounded-lg border border-zinc-800/80">
+                        <table className="w-full text-left text-xs border-collapse">
+                          <thead>
+                            <tr className="border-b border-zinc-800 text-zinc-400 font-mono text-[11px] uppercase bg-zinc-900/60">
+                              <th className="py-2 px-3 font-semibold">Header</th>
+                              <th className="py-2 px-3 font-semibold">Expected Value</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-zinc-800/50">
+                            {Object.entries(expectedResponse.headers).map(([key, value]) => (
+                              <tr key={key} className="hover:bg-zinc-900/40">
+                                <td className="py-2 px-3 text-cyan-400 font-medium font-mono">{key}</td>
+                                <td className="py-2 px-3 text-zinc-300 font-mono break-all">{value}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                ) : responseViewMode === "live" && response ? (
+                  responseTab === "body" ? (
+                    /* LIVE TAB 1: RESPONSE BODY */
+                    <div className="h-full select-text overflow-auto no-scrollbar">
+                      {!response.body ? (
+                        <div className="h-full flex items-center justify-center text-zinc-500 italic">
+                          (Empty response body)
+                        </div>
+                      ) : (
+                        <pre className="whitespace-pre-wrap text-zinc-300">
+                          {getFormattedResponseBody()}
+                        </pre>
+                      )}
+                    </div>
+                  ) : (
+                    /* LIVE TAB 2: RESPONSE HEADERS */
+                    <div className="select-text overflow-auto no-scrollbar">
+                      <table className="w-full text-left text-xs border-collapse">
+                        <thead>
+                          <tr className="border-b border-zinc-800 text-zinc-500 font-mono text-[11px] uppercase">
+                            <th className="py-2 px-3 font-semibold">Header</th>
+                            <th className="py-2 px-3 font-semibold">Value</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-zinc-800/50">
+                          {Object.entries(response.headers).map(([key, value]) => (
+                            <tr key={key} className="hover:bg-zinc-900/40">
+                              <td className="py-2 px-3 text-cyan-400 font-medium font-mono">{key}</td>
+                              <td className="py-2 px-3 text-zinc-300 font-mono break-all">{value}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )
+                ) : (
+                  /* EMPTY STATE FALLBACK */
                   <div className="h-full flex flex-col items-center justify-center text-center text-zinc-500 p-8">
                     <div className="w-12 h-12 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center text-sm font-mono text-zinc-400 mb-4 shadow-sm">
                       ⚡
@@ -943,66 +1154,24 @@ export function ApiTesterView({ initialSelection }: ApiTesterViewProps = {}) {
                     {/* Quick Presets */}
                     <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
                       <button
-                        onClick={() => {
-                          setMethod("GET");
-                          setUrl("http://localhost:5001/health");
-                        }}
+                        onClick={() => handleSelectPreset("GET", "http://localhost:5001/health")}
                         className="px-2.5 py-1 rounded bg-zinc-900 border border-zinc-800 text-[11px] text-zinc-400 hover:text-zinc-200 hover:border-zinc-700 transition-colors cursor-pointer"
                       >
                         Backend Health (GET)
                       </button>
                       <button
-                        onClick={() => {
-                          setMethod("GET");
-                          setUrl("http://localhost:5001/api/workspaces");
-                        }}
+                        onClick={() => handleSelectPreset("GET", "http://localhost:5001/api/workspaces")}
                         className="px-2.5 py-1 rounded bg-zinc-900 border border-zinc-800 text-[11px] text-zinc-400 hover:text-zinc-200 hover:border-zinc-700 transition-colors cursor-pointer"
                       >
                         Workspaces (GET)
                       </button>
                       <button
-                        onClick={() => {
-                          setMethod("GET");
-                          setUrl("http://localhost:5001/api/processes");
-                        }}
+                        onClick={() => handleSelectPreset("GET", "http://localhost:5001/api/processes")}
                         className="px-2.5 py-1 rounded bg-zinc-900 border border-zinc-800 text-[11px] text-zinc-400 hover:text-zinc-200 hover:border-zinc-700 transition-colors cursor-pointer"
                       >
                         Processes (GET)
                       </button>
                     </div>
-                  </div>
-                ) : responseTab === "body" ? (
-                  /* TAB 1: RESPONSE BODY */
-                  <div className="h-full select-text">
-                    {!response.body ? (
-                      <div className="h-full flex items-center justify-center text-zinc-500 italic">
-                        (Empty response body)
-                      </div>
-                    ) : (
-                      <pre className="whitespace-pre-wrap text-zinc-300">
-                        {getFormattedResponseBody()}
-                      </pre>
-                    )}
-                  </div>
-                ) : (
-                  /* TAB 2: RESPONSE HEADERS */
-                  <div className="select-text">
-                    <table className="w-full text-left text-xs border-collapse">
-                      <thead>
-                        <tr className="border-b border-zinc-800 text-zinc-500 font-mono text-[11px] uppercase">
-                          <th className="py-2 px-3 font-semibold">Header</th>
-                          <th className="py-2 px-3 font-semibold">Value</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-zinc-800/50">
-                        {Object.entries(response.headers).map(([key, value]) => (
-                          <tr key={key} className="hover:bg-zinc-900/40">
-                            <td className="py-2 px-3 text-cyan-400 font-medium font-mono">{key}</td>
-                            <td className="py-2 px-3 text-zinc-300 font-mono break-all">{value}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
                   </div>
                 )}
               </div>
