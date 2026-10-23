@@ -731,25 +731,25 @@ export function ProjectsView({
     switch (type) {
       case "Fullstack":
         return (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-gradient-to-r from-indigo-950/90 to-purple-950/90 text-indigo-300 border border-indigo-700/60 shadow-xs">
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-[rgba(166,181,138,0.12)] text-[#A6B58A] border border-[#A6B58A]/35 shadow-xs">
             <span className="text-[10px]">⚡</span> Fullstack
           </span>
         );
       case "AI / ML / Deep Learning":
         return (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-gradient-to-r from-emerald-950/90 to-teal-950/90 text-emerald-300 border border-emerald-700/60 shadow-xs">
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-[rgba(139,167,190,0.12)] text-[#8BA7BE] border border-[#8BA7BE]/35 shadow-xs">
             <span className="text-[10px]">🧠</span> AI / ML / DL
           </span>
         );
       case "Python / FastAPI":
         return (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium bg-teal-950/80 text-teal-300 border border-teal-800/60 shadow-xs">
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium bg-[rgba(166,181,138,0.12)] text-[#A6B58A] border border-[#A6B58A]/35 shadow-xs">
             <span className="text-[10px]">⚡</span> FastAPI
           </span>
         );
       case "Python / Django":
         return (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium bg-emerald-950/80 text-emerald-300 border border-emerald-800/60 shadow-xs">
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium bg-[rgba(130,181,138,0.12)] text-[#82B58A] border border-[#82B58A]/35 shadow-xs">
             <span className="text-[10px]">🐍</span> Django
           </span>
         );
@@ -815,7 +815,7 @@ export function ProjectsView({
         );
       case "Go":
         return (
-          <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-cyan-950/70 text-cyan-300 border border-cyan-800/60">
+          <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-[rgba(139,167,190,0.15)] text-[#8BA7BE] border border-[#8BA7BE]/40">
             Go
           </span>
         );
@@ -833,7 +833,7 @@ export function ProjectsView({
         );
       case "PHP":
         return (
-          <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-indigo-950/70 text-indigo-300 border border-indigo-800/60">
+          <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-[rgba(139,167,190,0.12)] text-[#8BA7BE] border border-[#8BA7BE]/35">
             PHP
           </span>
         );
@@ -894,7 +894,7 @@ export function ProjectsView({
         );
       case "go":
         return (
-          <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-mono font-medium bg-cyan-950/60 text-cyan-300 border border-cyan-800/50">
+          <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-mono font-medium bg-[rgba(139,167,190,0.15)] text-[#8BA7BE] border border-[#8BA7BE]/40">
             go
           </span>
         );
@@ -921,7 +921,7 @@ export function ProjectsView({
         );
       case "composer":
         return (
-          <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-mono font-medium bg-indigo-950/60 text-indigo-300 border border-indigo-800/50">
+          <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-mono font-medium bg-[rgba(139,167,190,0.12)] text-[#8BA7BE] border border-[#8BA7BE]/35">
             composer
           </span>
         );
@@ -949,9 +949,9 @@ export function ProjectsView({
               ? `Git Repository (Initialized)\nRemote: ${project.gitRemote}\nClick to open Git Control (branches, diffs, commits)`
               : "Git Repository (Initialized)\nClick to open Git Control (branches, diffs, commits)"
           }
-          className="inline-flex items-center justify-center p-1 rounded text-[11px] font-mono font-medium bg-emerald-950/70 text-emerald-300 border border-emerald-800/60 hover:bg-emerald-900/60 hover:border-emerald-700 cursor-pointer transition shadow-xs"
+          className="inline-flex items-center justify-center p-1 rounded text-[11px] font-mono font-medium bg-[rgba(130,181,138,0.12)] text-[#82B58A] border border-[#82B58A]/35 hover:bg-[rgba(130,181,138,0.2)] hover:border-[#82B58A]/60 cursor-pointer transition shadow-xs"
         >
-          <svg className="w-3.5 h-3.5 text-emerald-400 shrink-0" fill="currentColor" viewBox="0 0 16 16">
+          <svg className="w-3.5 h-3.5 text-[#82B58A] shrink-0" fill="currentColor" viewBox="0 0 16 16">
             <path fillRule="evenodd" d="M11.75 2.5a.75.75 0 100 1.5.75.75 0 000-1.5zm-2.25.75a2.25 2.25 0 113 2.122V6A2.5 2.5 0 0110 8.5H6a1 1 0 00-1 1v1.128a2.251 2.251 0 11-1.5 0V5.372a2.25 2.25 0 111.5 0v1.836A2.492 2.492 0 016 7h4a1 1 0 001-1v-.628A2.25 2.25 0 019.5 3.25zM4.25 12a.75.75 0 100 1.5.75.75 0 000-1.5zM3.5 3.25a.75.75 0 111.5 0 .75.75 0 01-1.5 0z" />
           </svg>
         </span>
@@ -1293,8 +1293,8 @@ export function ProjectsView({
                 onClick={clearCategories}
                 className={`px-2.5 py-1 rounded-md transition cursor-pointer select-none ${
                   selectedCategories.length === 0
-                    ? "bg-zinc-800 text-zinc-100 font-semibold border border-zinc-700 shadow-xs"
-                    : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900 border border-transparent"
+                    ? "bg-[#252C26] text-[#ECEFE8] font-semibold border border-[#303931] shadow-xs"
+                    : "text-[#A7AEA2] hover:text-[#ECEFE8] hover:bg-[#252C26] border border-transparent"
                 }`}
                 title="Show all projects without category restrictions"
               >
@@ -1306,8 +1306,8 @@ export function ProjectsView({
                   onClick={() => toggleCategory("fullstack")}
                   className={`px-2.5 py-1 rounded-md transition cursor-pointer flex items-center gap-1 select-none ${
                     selectedCategories.includes("fullstack")
-                      ? "bg-indigo-950/90 text-indigo-200 font-medium border border-indigo-600/90 shadow-xs"
-                      : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900 border border-transparent"
+                      ? "bg-[rgba(166,181,138,0.12)] text-[#A6B58A] font-medium border border-[#A6B58A]/35 shadow-xs"
+                      : "text-[#A7AEA2] hover:text-[#ECEFE8] hover:bg-[#252C26] border border-transparent"
                   }`}
                   title={
                     selectedCategories.includes("fullstack")
@@ -1318,7 +1318,7 @@ export function ProjectsView({
                   <span>⚡</span>
                   <span>Fullstack ({fullstackCount})</span>
                   {selectedCategories.includes("fullstack") && (
-                    <span className="text-indigo-400 text-[10px]">✓</span>
+                    <span className="text-[#A6B58A] text-[10px]">✓</span>
                   )}
                 </button>
               )}
@@ -1328,8 +1328,8 @@ export function ProjectsView({
                   onClick={() => toggleCategory("aiml")}
                   className={`px-2.5 py-1 rounded-md transition cursor-pointer flex items-center gap-1 select-none ${
                     selectedCategories.includes("aiml")
-                      ? "bg-emerald-950/90 text-emerald-200 font-medium border border-emerald-600/90 shadow-xs"
-                      : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900 border border-transparent"
+                      ? "bg-[rgba(166,181,138,0.12)] text-[#A6B58A] font-medium border border-[#A6B58A]/35 shadow-xs"
+                      : "text-[#A7AEA2] hover:text-[#ECEFE8] hover:bg-[#252C26] border border-transparent"
                   }`}
                   title={
                     selectedCategories.includes("aiml")
@@ -1340,7 +1340,7 @@ export function ProjectsView({
                   <span>🧠</span>
                   <span>AI / ML / DL ({aimlCount})</span>
                   {selectedCategories.includes("aiml") && (
-                    <span className="text-emerald-400 text-[10px]">✓</span>
+                    <span className="text-[#A6B58A] text-[10px]">✓</span>
                   )}
                 </button>
               )}
@@ -1349,8 +1349,8 @@ export function ProjectsView({
                 onClick={() => toggleCategory("git")}
                 className={`px-2.5 py-1 rounded-md transition cursor-pointer flex items-center gap-1 select-none ${
                   selectedCategories.includes("git")
-                    ? "bg-emerald-950/90 text-emerald-200 font-medium border border-emerald-600/90 shadow-xs"
-                    : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900 border border-transparent"
+                    ? "bg-[rgba(166,181,138,0.12)] text-[#A6B58A] font-medium border border-[#A6B58A]/35 shadow-xs"
+                    : "text-[#A7AEA2] hover:text-[#ECEFE8] hover:bg-[#252C26] border border-transparent"
                 }`}
                 title={
                   selectedCategories.includes("git")
@@ -1361,7 +1361,7 @@ export function ProjectsView({
                 <span>⎇</span>
                 <span>Git Repos ({gitCount})</span>
                 {selectedCategories.includes("git") && (
-                  <span className="text-emerald-400 text-[10px]">✓</span>
+                  <span className="text-[#A6B58A] text-[10px]">✓</span>
                 )}
               </button>
               <button
@@ -1369,8 +1369,8 @@ export function ProjectsView({
                 onClick={() => toggleCategory("runnable")}
                 className={`px-2.5 py-1 rounded-md transition cursor-pointer flex items-center gap-1 select-none ${
                   selectedCategories.includes("runnable")
-                    ? "bg-cyan-950/90 text-cyan-200 font-medium border border-cyan-600/90 shadow-xs"
-                    : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900 border border-transparent"
+                    ? "bg-[rgba(166,181,138,0.12)] text-[#A6B58A] font-medium border border-[#A6B58A]/35 shadow-xs"
+                    : "text-[#A7AEA2] hover:text-[#ECEFE8] hover:bg-[#252C26] border border-transparent"
                 }`}
                 title={
                   selectedCategories.includes("runnable")
@@ -1381,7 +1381,7 @@ export function ProjectsView({
                 <span>&gt;_</span>
                 <span>Runnable ({runnableCount})</span>
                 {selectedCategories.includes("runnable") && (
-                  <span className="text-cyan-400 text-[10px]">✓</span>
+                  <span className="text-[#A6B58A] text-[10px]">✓</span>
                 )}
               </button>
               <button
@@ -1389,8 +1389,8 @@ export function ProjectsView({
                 onClick={() => toggleCategory("nested")}
                 className={`px-2.5 py-1 rounded-md transition cursor-pointer flex items-center gap-1 select-none ${
                   selectedCategories.includes("nested")
-                    ? "bg-zinc-800 text-zinc-100 font-medium border border-zinc-600 shadow-xs"
-                    : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900 border border-transparent"
+                    ? "bg-[rgba(166,181,138,0.12)] text-[#A6B58A] font-medium border border-[#A6B58A]/35 shadow-xs"
+                    : "text-[#A7AEA2] hover:text-[#ECEFE8] hover:bg-[#252C26] border border-transparent"
                 }`}
                 title={
                   selectedCategories.includes("nested")
@@ -1400,14 +1400,14 @@ export function ProjectsView({
               >
                 <span>Nested ({nestedCount})</span>
                 {selectedCategories.includes("nested") && (
-                  <span className="text-zinc-400 text-[10px]">✓</span>
+                  <span className="text-[#A6B58A] text-[10px]">✓</span>
                 )}
               </button>
             </div>
           </div>
 
           {/* Row 2: Multi-Sort Selectors, Type Filter, Package Manager Filter & Default IDE */}
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-2.5 p-2 rounded-lg bg-zinc-900/50 border border-zinc-800/80 text-xs">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-2.5 p-2 rounded-lg bg-[#171B17] border border-[#303931] text-xs">
             <div className="flex items-center gap-1.5 flex-wrap min-w-0">
               {/* Unified Multi-Sort Manager */}
               <div className="relative" ref={sortManagerRef}>
@@ -1421,18 +1421,18 @@ export function ProjectsView({
                   }`}
                   title="Configure multi-level sorting (sort by multiple fields in priority order with custom ASC / DESC)"
                 >
-                  <span className="text-cyan-400">⇅</span>
+                  <span className="text-[#A6B58A]">⇅</span>
                   <span className="font-semibold">Sort ({sortRules.length})</span>
-                  <span className="text-zinc-500 text-[10px]">▾</span>
+                  <span className="text-[#747D72] text-[10px]">▾</span>
                 </button>
 
                 {/* Popover / Panel for Sort Rules */}
                 {showSortManager && (
-                  <div className="absolute left-0 top-full mt-2 w-[340px] sm:w-[380px] bg-zinc-900 border border-zinc-700/80 rounded-xl p-4 shadow-2xl z-40 text-xs animate-in fade-in duration-150">
-                    <div className="flex items-center justify-between pb-2.5 border-b border-zinc-800 mb-3">
+                  <div className="absolute left-0 top-full mt-2 w-[340px] sm:w-[380px] bg-[#1D231E] border border-[#303931] rounded-lg p-4 shadow-2xl z-40 text-xs animate-in fade-in duration-150">
+                    <div className="flex items-center justify-between pb-2.5 border-b border-[#303931] mb-3">
                       <div>
-                        <h4 className="font-semibold text-zinc-100 flex items-center gap-1.5">
-                          <span className="text-cyan-400">⇅</span>
+                        <h4 className="font-semibold text-[#ECEFE8] flex items-center gap-1.5">
+                          <span className="text-[#A6B58A]">⇅</span>
                           <span>Multi-Level Sorting</span>
                         </h4>
                         <p className="text-[11px] text-zinc-400 mt-0.5">
@@ -1480,7 +1480,7 @@ export function ProjectsView({
                             <button
                               type="button"
                               onClick={() => toggleRuleDirection(rule.id)}
-                              className="px-2 py-1 rounded bg-zinc-900 border border-zinc-800 hover:border-zinc-700 text-cyan-400 hover:text-cyan-300 font-mono text-[11px] font-semibold transition cursor-pointer shrink-0"
+                              className="px-2 py-1 rounded bg-[#252C26] border border-[#303931] hover:border-[#A6B58A]/40 text-[#A6B58A] hover:text-[#BAC7A3] font-mono text-[11px] font-semibold transition cursor-pointer shrink-0"
                               title={`Current: ${isAsc ? meta?.ascLabel : meta?.descLabel}. Click to toggle.`}
                             >
                               {isAsc ? `↑ ${meta?.ascLabel}` : `↓ ${meta?.descLabel}`}
@@ -1647,7 +1647,7 @@ export function ProjectsView({
                       <button
                         type="button"
                         onClick={() => toggleRuleDirection(rule.id)}
-                        className="text-cyan-400 hover:text-cyan-300 font-mono font-bold px-1 rounded hover:bg-zinc-800 cursor-pointer"
+                        className="text-[#A6B58A] hover:text-[#BAC7A3] font-mono font-bold px-1 rounded hover:bg-[#252C26] cursor-pointer"
                         title={`Click to switch to ${isAsc ? meta?.descLabel : meta?.ascLabel}`}
                       >
                         {isAsc ? "↑" : "↓"}
@@ -1656,7 +1656,7 @@ export function ProjectsView({
                         <button
                           type="button"
                           onClick={() => removeSortRule(rule.id)}
-                          className="text-zinc-500 hover:text-rose-400 text-[10px] ml-0.5 cursor-pointer px-0.5 rounded hover:bg-zinc-800"
+                          className="text-[#747D72] hover:text-[#D98279] text-[10px] ml-0.5 cursor-pointer px-0.5 rounded hover:bg-[#252C26]"
                           title="Remove this sort level"
                         >
                           ✕
@@ -1673,7 +1673,7 @@ export function ProjectsView({
                       addNextSortRule();
                       setShowSortManager(true);
                     }}
-                    className="px-2 py-0.5 rounded border border-dashed border-zinc-700 hover:border-zinc-500 text-zinc-400 hover:text-zinc-200 text-[11px] transition cursor-pointer flex items-center gap-1"
+                    className="px-2 py-0.5 rounded border border-dashed border-[#303931] hover:border-[#A6B58A]/50 text-[#A7AEA2] hover:text-[#ECEFE8] text-[11px] transition cursor-pointer flex items-center gap-1"
                     title="Add another sort criterion"
                   >
                     <span>+</span>
@@ -1697,8 +1697,8 @@ export function ProjectsView({
                     }}
                     className={`px-2.5 py-1 rounded-md text-xs font-medium border flex items-center gap-1.5 transition cursor-pointer select-none ${
                       selectedTypes.length > 0
-                        ? "bg-cyan-950/70 text-cyan-200 border-cyan-700/80 shadow-xs"
-                        : "bg-zinc-900 text-zinc-200 border-zinc-800 hover:border-zinc-700 hover:text-white"
+                        ? "bg-[rgba(166,181,138,0.12)] text-[#A6B58A] border border-[#A6B58A]/35 shadow-xs"
+                        : "bg-[#252C26] text-[#ECEFE8] border-[#303931] hover:border-[#303931]"
                     }`}
                     title="Filter by one or more frameworks / types"
                   >
@@ -1710,29 +1710,29 @@ export function ProjectsView({
                         ? selectedTypes[0]
                         : `Types (${selectedTypes.length})`}
                     </span>
-                    <span className="text-zinc-500 text-[10px]">▾</span>
+                    <span className="text-[#747D72] text-[10px]">▾</span>
                   </button>
 
                   {/* Type Filter Dropdown Panel */}
                   {showTypeFilter && (
-                    <div className="absolute right-0 top-full mt-2 w-64 bg-zinc-900 border border-zinc-700/80 rounded-xl p-3 shadow-2xl z-40 text-xs animate-in fade-in duration-150">
-                      <div className="flex items-center justify-between pb-2 border-b border-zinc-800 mb-2">
-                        <span className="font-semibold text-zinc-200 flex items-center gap-1">
+                    <div className="absolute right-0 top-full mt-2 w-64 bg-[#1D231E] border border-[#303931] rounded-lg p-3 shadow-2xl z-40 text-xs animate-in fade-in duration-150">
+                      <div className="flex items-center justify-between pb-2 border-b border-[#303931] mb-2">
+                        <span className="font-semibold text-[#ECEFE8] flex items-center gap-1">
                           <span>🏷️</span> Framework / Type
                         </span>
                         <div className="flex items-center gap-1.5 text-[10px]">
                           <button
                             type="button"
                             onClick={() => setSelectedTypes(availableTypes)}
-                            className="text-cyan-400 hover:text-cyan-300 hover:underline cursor-pointer"
+                            className="text-[#A6B58A] hover:text-[#BAC7A3] hover:underline cursor-pointer"
                           >
                             All
                           </button>
-                          <span className="text-zinc-600">|</span>
+                          <span className="text-[#303931]">|</span>
                           <button
                             type="button"
                             onClick={() => setSelectedTypes([])}
-                            className="text-zinc-400 hover:text-zinc-200 hover:underline cursor-pointer"
+                            className="text-[#A7AEA2] hover:text-[#ECEFE8] hover:underline cursor-pointer"
                           >
                             Clear
                           </button>
@@ -1748,8 +1748,8 @@ export function ProjectsView({
                               key={t}
                               className={`flex items-center justify-between gap-2 px-2 py-1.5 rounded cursor-pointer transition select-none ${
                                 isSelected
-                                  ? "bg-cyan-950/40 text-cyan-200 font-medium border border-cyan-800/40"
-                                  : "text-zinc-300 hover:bg-zinc-800/80"
+                                  ? "bg-[rgba(166,181,138,0.12)] text-[#A6B58A] font-medium border border-[#A6B58A]/35"
+                                  : "text-[#ECEFE8] hover:bg-[#252C26]"
                               }`}
                             >
                               <div className="flex items-center gap-2 min-w-0">
@@ -1757,11 +1757,11 @@ export function ProjectsView({
                                   type="checkbox"
                                   checked={isSelected}
                                   onChange={() => toggleType(t)}
-                                  className="rounded border-zinc-700 bg-zinc-900 text-cyan-500 focus:ring-0 focus:ring-offset-0 cursor-pointer"
+                                  className="rounded border-[#303931] bg-[#171B17] text-[#A6B58A] focus:ring-0 focus:ring-offset-0 cursor-pointer"
                                 />
                                 <span className="truncate text-xs">{t}</span>
                               </div>
-                              <span className="text-[10px] px-1.5 py-0.2 rounded bg-zinc-800 text-zinc-400 font-mono shrink-0">
+                              <span className="text-[10px] px-1.5 py-0.2 rounded bg-[#252C26] text-[#A7AEA2] font-mono shrink-0">
                                 {count}
                               </span>
                             </label>
@@ -1785,8 +1785,8 @@ export function ProjectsView({
                     }}
                     className={`px-2.5 py-1 rounded-md text-xs font-medium border flex items-center gap-1.5 transition cursor-pointer select-none ${
                       selectedPkgs.length > 0
-                        ? "bg-emerald-950/70 text-emerald-200 border-emerald-700/80 shadow-xs"
-                        : "bg-zinc-900 text-zinc-200 border-zinc-800 hover:border-zinc-700 hover:text-white"
+                        ? "bg-[rgba(166,181,138,0.12)] text-[#A6B58A] border-[#A6B58A]/35 shadow-xs"
+                        : "bg-[#252C26] text-[#ECEFE8] border-[#303931] hover:border-[#A6B58A]/40"
                     }`}
                     title="Filter by one or more package managers"
                   >
@@ -1798,29 +1798,29 @@ export function ProjectsView({
                         ? selectedPkgs[0]
                         : `Pkg (${selectedPkgs.length})`}
                     </span>
-                    <span className="text-zinc-500 text-[10px]">▾</span>
+                    <span className="text-[#747D72] text-[10px]">▾</span>
                   </button>
 
                   {/* Package Manager Dropdown Panel */}
                   {showPkgFilter && (
-                    <div className="absolute right-0 top-full mt-2 w-56 bg-zinc-900 border border-zinc-700/80 rounded-xl p-3 shadow-2xl z-40 text-xs animate-in fade-in duration-150">
-                      <div className="flex items-center justify-between pb-2 border-b border-zinc-800 mb-2">
-                        <span className="font-semibold text-zinc-200 flex items-center gap-1">
+                    <div className="absolute right-0 top-full mt-2 w-56 bg-[#1D231E] border border-[#303931] rounded-xl p-3 shadow-2xl z-40 text-xs animate-in fade-in duration-150">
+                      <div className="flex items-center justify-between pb-2 border-b border-[#303931] mb-2">
+                        <span className="font-semibold text-[#ECEFE8] flex items-center gap-1">
                           <span>📦</span> Package Manager
                         </span>
                         <div className="flex items-center gap-1.5 text-[10px]">
                           <button
                             type="button"
                             onClick={() => setSelectedPkgs(availablePkgs)}
-                            className="text-cyan-400 hover:text-cyan-300 hover:underline cursor-pointer"
+                            className="text-[#A6B58A] hover:text-[#BAC7A3] hover:underline cursor-pointer"
                           >
                             All
                           </button>
-                          <span className="text-zinc-600">|</span>
+                          <span className="text-[#747D72]">|</span>
                           <button
                             type="button"
                             onClick={() => setSelectedPkgs([])}
-                            className="text-zinc-400 hover:text-zinc-200 hover:underline cursor-pointer"
+                            className="text-[#A7AEA2] hover:text-[#ECEFE8] hover:underline cursor-pointer"
                           >
                             Clear
                           </button>
@@ -1836,8 +1836,8 @@ export function ProjectsView({
                               key={pm}
                               className={`flex items-center justify-between gap-2 px-2 py-1.5 rounded cursor-pointer transition select-none ${
                                 isSelected
-                                  ? "bg-emerald-950/40 text-emerald-200 font-medium border border-emerald-800/40"
-                                  : "text-zinc-300 hover:bg-zinc-800/80"
+                                  ? "bg-[rgba(166,181,138,0.12)] text-[#A6B58A] font-medium border border-[#A6B58A]/35"
+                                  : "text-[#ECEFE8] hover:bg-[#252C26]"
                               }`}
                             >
                               <div className="flex items-center gap-2 min-w-0">
@@ -1845,11 +1845,11 @@ export function ProjectsView({
                                   type="checkbox"
                                   checked={isSelected}
                                   onChange={() => togglePkg(pm)}
-                                  className="rounded border-zinc-700 bg-zinc-900 text-emerald-500 focus:ring-0 focus:ring-offset-0 cursor-pointer"
+                                  className="rounded border-[#303931] bg-[#171B17] text-[#A6B58A] focus:ring-0 focus:ring-offset-0 cursor-pointer"
                                 />
                                 <span className="truncate text-xs">{pm}</span>
                               </div>
-                              <span className="text-[10px] px-1.5 py-0.2 rounded bg-zinc-800 text-zinc-400 font-mono shrink-0">
+                              <span className="text-[10px] px-1.5 py-0.2 rounded bg-[#252C26] text-[#A7AEA2] font-mono shrink-0">
                                 {count}
                               </span>
                             </label>
@@ -1916,11 +1916,11 @@ export function ProjectsView({
                   key={t}
                   type="button"
                   onClick={() => toggleType(t)}
-                  className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] bg-cyan-950/60 hover:bg-cyan-900/60 text-cyan-200 border border-cyan-800/60 transition cursor-pointer"
+                  className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] bg-[rgba(166,181,138,0.12)] hover:bg-[rgba(166,181,138,0.18)] text-[#A6B58A] border border-[#A6B58A]/35 transition cursor-pointer"
                   title={`Remove type filter: ${t}`}
                 >
                   <span>🏷️ {t}</span>
-                  <span className="text-cyan-400 hover:text-cyan-100">✕</span>
+                  <span className="text-[#A6B58A] hover:text-[#ECEFE8]">✕</span>
                 </button>
               ))}
 
@@ -1930,11 +1930,11 @@ export function ProjectsView({
                   key={pm}
                   type="button"
                   onClick={() => togglePkg(pm)}
-                  className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] bg-emerald-950/60 hover:bg-emerald-900/60 text-emerald-200 border border-emerald-800/60 transition cursor-pointer"
+                  className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] bg-[rgba(166,181,138,0.12)] hover:bg-[rgba(166,181,138,0.18)] text-[#A6B58A] border border-[#A6B58A]/35 transition cursor-pointer"
                   title={`Remove package manager filter: ${pm}`}
                 >
                   <span>📦 {pm}</span>
-                  <span className="text-emerald-400 hover:text-emerald-100">✕</span>
+                  <span className="text-[#A6B58A] hover:text-[#ECEFE8]">✕</span>
                 </button>
               ))}
 
@@ -1969,16 +1969,16 @@ export function ProjectsView({
           )}
 
           {/* Row 3: Legend / Indicator Guide with concise symbol labels */}
-          <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 px-3 py-1.5 rounded-lg bg-zinc-900/30 border border-zinc-800/50 text-[11px] text-zinc-400">
-            <span className="text-zinc-500 font-semibold uppercase text-[10px] tracking-wider">
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 px-3 py-1.5 rounded-lg bg-[#171B17] border border-[#303931] text-[11px] text-[#A7AEA2]">
+            <span className="text-[#747D72] font-semibold uppercase text-[10px] tracking-wider">
               Symbols:
             </span>
             <span
               className="flex items-center gap-1.5 cursor-help"
               title="Git Repository (click symbol on project card to open in Git Control)"
             >
-              <span className="inline-flex items-center justify-center p-1 rounded font-mono text-[10px] bg-emerald-950/70 text-emerald-300 border border-emerald-800/60 font-medium shadow-xs">
-                <svg className="w-3 h-3 text-emerald-400 shrink-0" fill="currentColor" viewBox="0 0 16 16">
+              <span className="inline-flex items-center justify-center p-1 rounded font-mono text-[10px] bg-[rgba(130,181,138,0.12)] text-[#82B58A] border border-[#82B58A]/35 font-medium shadow-xs">
+                <svg className="w-3 h-3 text-[#82B58A] shrink-0" fill="currentColor" viewBox="0 0 16 16">
                   <path fillRule="evenodd" d="M11.75 2.5a.75.75 0 100 1.5.75.75 0 000-1.5zm-2.25.75a2.25 2.25 0 113 2.122V6A2.5 2.5 0 0110 8.5H6a1 1 0 00-1 1v1.128a2.251 2.251 0 11-1.5 0V5.372a2.25 2.25 0 111.5 0v1.836A2.492 2.492 0 016 7h4a1 1 0 001-1v-.628A2.25 2.25 0 019.5 3.25zM4.25 12a.75.75 0 100 1.5.75.75 0 000-1.5zM3.5 3.25a.75.75 0 111.5 0 .75.75 0 01-1.5 0z" />
                 </svg>
               </span>
@@ -1988,7 +1988,7 @@ export function ProjectsView({
               className="flex items-center gap-1.5 cursor-help"
               title="Terminal (click symbol to run project scripts in Terminal)"
             >
-              <span className="inline-flex items-center justify-center px-1.5 py-0.5 rounded font-mono text-[11px] font-bold text-cyan-300 bg-cyan-950/60 border border-cyan-800/60 shadow-xs">
+              <span className="inline-flex items-center justify-center px-1.5 py-0.5 rounded font-mono text-[11px] font-bold text-[#A6B58A] bg-[rgba(166,181,138,0.12)] border border-[#A6B58A]/35 shadow-xs">
                 &gt;_
               </span>
               <span>Terminal</span>
@@ -1997,7 +1997,7 @@ export function ProjectsView({
               className="flex items-center gap-1.5 cursor-help"
               title={`Open in ${currentIdeConfig.name} (change default IDE in toolbar above)`}
             >
-              <span className="inline-flex items-center justify-center px-1.5 py-0.5 rounded text-xs bg-zinc-800 border border-zinc-700 shadow-xs">
+              <span className="inline-flex items-center justify-center px-1.5 py-0.5 rounded text-xs bg-[#252C26] border border-[#303931] shadow-xs">
                 {currentIdeConfig.icon}
               </span>
               <span>Open in IDE</span>
@@ -2006,8 +2006,8 @@ export function ProjectsView({
               className="flex items-center gap-1.5 cursor-help"
               title="Reveal directory in Finder"
             >
-              <span className="inline-flex items-center justify-center p-1 rounded bg-zinc-800 border border-zinc-700 shadow-xs">
-                <svg className="w-3 h-3 text-zinc-300 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <span className="inline-flex items-center justify-center p-1 rounded bg-[#252C26] border border-[#303931] shadow-xs">
+                <svg className="w-3 h-3 text-[#A7AEA2] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
                 </svg>
               </span>
@@ -2024,7 +2024,7 @@ export function ProjectsView({
               className="flex items-center gap-1.5 cursor-help"
               title="Top-level parent directory of this workspace"
             >
-              <span className="px-1.5 py-0.5 rounded font-mono text-[10px] text-violet-300 bg-violet-950/60 border border-violet-800/60 font-semibold uppercase">
+              <span className="px-1.5 py-0.5 rounded font-mono text-[10px] text-[#A6B58A] bg-[rgba(166,181,138,0.12)] border border-[#A6B58A]/35 font-semibold uppercase">
                 Root
               </span>
               <span>Workspace Root</span>
@@ -2037,38 +2037,31 @@ export function ProjectsView({
 
       {/* State A: Scanning Active Workspace / Splash Waiting Screen */}
       {status === "scanning" && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 animate-in fade-in duration-200">
-          <div className="bg-gradient-to-b from-zinc-900 via-zinc-900/95 to-zinc-950 border border-zinc-700/80 rounded-2xl max-w-lg w-full p-8 shadow-2xl relative overflow-hidden flex flex-col items-center text-center">
-            {/* Ambient Background Glow */}
-            <div className="absolute -top-24 -left-24 w-48 h-48 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none" />
-            <div className="absolute -bottom-24 -right-24 w-48 h-48 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
-
-            {/* Glowing Pulse Radar Animation */}
-            <div className="relative w-24 h-24 mb-6 flex items-center justify-center">
-              <div className="absolute inset-0 rounded-full border-2 border-cyan-500/30 animate-ping opacity-30" />
-              <div className="absolute inset-1 rounded-full border-2 border-transparent border-t-cyan-400 border-r-indigo-500 animate-spin" />
-              <div className="w-16 h-16 rounded-full bg-zinc-800/90 border border-zinc-700 flex items-center justify-center text-2xl shadow-inner relative z-10">
-                <span>⚡</span>
-              </div>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 animate-in fade-in duration-150">
+          <div className="bg-[#1D231E] border border-[#303931] rounded-xl max-w-lg w-full p-8 shadow-2xl relative flex flex-col items-center text-center">
+            {/* Minimal Spinner */}
+            <div className="relative w-14 h-14 mb-5 flex items-center justify-center">
+              <div className="w-12 h-12 rounded-full border-2 border-[#303931] border-t-[#A6B58A] animate-spin" />
+              <span className="absolute text-sm text-[#A6B58A]">⚡</span>
             </div>
 
             {/* Title & Mode */}
-            <h3 className="text-lg font-bold text-zinc-100 tracking-tight">
+            <h3 className="text-base font-semibold text-[#ECEFE8] tracking-tight">
               {scanDepth === 0 || scanDepth >= 20
                 ? "Complete Deep Scan In Progress"
                 : "Scanning Workspace Directories"}
             </h3>
 
             {/* Target Path */}
-            <div className="mt-3 px-3 py-1.5 rounded-lg bg-zinc-950/80 border border-zinc-800 max-w-full">
-              <span className="text-xs font-mono text-zinc-300 truncate block select-all">
+            <div className="mt-3 px-3 py-1.5 rounded bg-[#171B17] border border-[#303931] max-w-full">
+              <span className="text-xs font-mono text-[#A7AEA2] truncate block select-all">
                 {scanningTarget || activeWorkspace?.rootPath || "Selected Workspace Directory"}
               </span>
             </div>
 
             {/* Depth & Timer Metrics Bar */}
             <div className="mt-4 flex items-center justify-center gap-3 text-xs">
-              <span className="px-2.5 py-1 rounded-md bg-zinc-800 border border-zinc-700/80 text-zinc-300 flex items-center gap-1.5 font-medium">
+              <span className="px-2.5 py-1 rounded bg-[#252C26] border border-[#303931] text-[#ECEFE8] flex items-center gap-1.5 font-medium">
                 <span>🔍</span>
                 <span>
                   {scanDepth === 0
@@ -2077,14 +2070,14 @@ export function ProjectsView({
                 </span>
               </span>
 
-              <span className="px-2.5 py-1 rounded-md bg-zinc-800 border border-zinc-700/80 text-cyan-300 font-mono flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
+              <span className="px-2.5 py-1 rounded bg-[#252C26] border border-[#303931] text-[#A6B58A] font-mono flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-[#82B58A]" />
                 <span>Elapsed: {formatSeconds(scanElapsedSeconds)}</span>
               </span>
             </div>
 
             {/* Dynamic Status / Progress Note based on elapsed seconds */}
-            <p className="mt-5 text-xs text-zinc-400 max-w-sm leading-relaxed min-h-[36px] flex items-center justify-center">
+            <p className="mt-5 text-xs text-[#A7AEA2] max-w-sm leading-relaxed min-h-[36px] flex items-center justify-center">
               {scanElapsedSeconds < 3
                 ? "Indexing directory hierarchy and detecting project boundaries..."
                 : scanElapsedSeconds < 7
@@ -2095,7 +2088,7 @@ export function ProjectsView({
             </p>
 
             {/* Safety Notice */}
-            <div className="mt-6 pt-4 border-t border-zinc-800/80 text-[11px] text-zinc-500 flex items-center gap-2">
+            <div className="mt-6 pt-4 border-t border-[#303931] text-[11px] text-[#747D72] flex items-center gap-2">
               <span>🛡️</span>
               <span>Automatically skips node_modules, build outputs, and .git internals for speed.</span>
             </div>
@@ -2222,7 +2215,7 @@ export function ProjectsView({
                     </h3>
 
                     {project.isRoot && (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-mono font-semibold uppercase tracking-wider bg-violet-950/80 text-violet-300 border border-violet-800/70">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-mono font-semibold uppercase tracking-wider bg-[rgba(166,181,138,0.12)] text-[#A6B58A] border border-[#A6B58A]/35">
                         Workspace Root
                       </span>
                     )}
@@ -2264,7 +2257,7 @@ export function ProjectsView({
                           projectId: project.id,
                         })
                       }
-                      className="px-2.5 py-1.5 rounded-md text-xs font-mono font-bold text-cyan-300 bg-cyan-950/40 border border-cyan-800/50 hover:bg-cyan-900/60 transition-all flex items-center justify-center cursor-pointer shadow-xs"
+                      className="px-2.5 py-1.5 rounded-md text-xs font-mono font-bold text-[#A6B58A] bg-[#252C26] border border-[#303931] hover:border-[#A6B58A]/50 hover:bg-[rgba(166,181,138,0.12)] transition-all flex items-center justify-center cursor-pointer shadow-xs"
                       title="Run scripts in Terminal"
                     >
                       &gt;_
@@ -2324,7 +2317,7 @@ export function ProjectsView({
                                 <span>{ide.name}</span>
                               </span>
                               {ide.id === defaultIde ? (
-                                <span className="text-[10px] font-mono text-emerald-400 font-semibold">
+                                <span className="text-[10px] font-mono text-[#A6B58A] font-semibold">
                                   Default
                                 </span>
                               ) : (

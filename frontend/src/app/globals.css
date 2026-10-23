@@ -1,41 +1,160 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  color-scheme: dark;
+  --canvas: #111411;
+  --sidebar: #171B17;
+  --header: #171B17;
+  --card: #1D231E;
+  --panel: #1D231E;
+  --elevated: #252C26;
+  --border: #303931;
+  --divider: #303931;
+  
+  --accent: #A6B58A;
+  --accent-hover: #BAC7A3;
+  --accent-subtle: rgba(166, 181, 138, 0.12);
+
+  --text-primary: #ECEFE8;
+  --text-secondary: #A7AEA2;
+  --text-muted: #747D72;
+
+  --success: #82B58A;
+  --warning: #D9AE67;
+  --error: #D98279;
+  --info: #8BA7BE;
+
+  --background: #111411;
+  --foreground: #ECEFE8;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+@theme {
+  --color-canvas: #111411;
+  --color-sidebar: #171B17;
+  --color-header: #171B17;
+  --color-card: #1D231E;
+  --color-panel: #1D231E;
+  --color-elevated: #252C26;
+  --color-border: #303931;
+  --color-divider: #303931;
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-moss: #A6B58A;
+  --color-moss-hover: #BAC7A3;
+  --color-moss-subtle: rgba(166, 181, 138, 0.12);
+
+  --color-accent: #A6B58A;
+  --color-accent-hover: #BAC7A3;
+  --color-accent-subtle: rgba(166, 181, 138, 0.12);
+
+  --color-text-primary: #ECEFE8;
+  --color-text-secondary: #A7AEA2;
+  --color-text-muted: #747D72;
+
+  --color-status-success: #82B58A;
+  --color-status-warning: #D9AE67;
+  --color-status-error: #D98279;
+  --color-status-info: #8BA7BE;
+
+  /* Remap standard palette scales so any component using zinc / status colors seamlessly adopts the Moss & Graphite tokens */
+  --color-zinc-950: #111411;
+  --color-zinc-900: #171B17;
+  --color-zinc-850: #1a201b;
+  --color-zinc-800: #1D231E;
+  --color-zinc-750: #212822;
+  --color-zinc-700: #252C26;
+  --color-zinc-650: #2b332c;
+  --color-zinc-600: #303931;
+  --color-zinc-500: #747D72;
+  --color-zinc-400: #A7AEA2;
+  --color-zinc-300: #c5ccc0;
+  --color-zinc-200: #dce1d7;
+  --color-zinc-100: #ECEFE8;
+  --color-zinc-50: #F4F6F1;
+
+  --color-neutral-950: #111411;
+  --color-neutral-900: #171B17;
+  --color-neutral-800: #1D231E;
+  --color-neutral-700: #252C26;
+  --color-neutral-600: #303931;
+  --color-neutral-500: #747D72;
+  --color-neutral-400: #A7AEA2;
+  --color-neutral-100: #ECEFE8;
+
+  --color-cyan-400: #A6B58A;
+  --color-cyan-300: #BAC7A3;
+  --color-cyan-500: #8c9c72;
+  --color-cyan-950: #171B17;
+  --color-cyan-900: #1D231E;
+  --color-cyan-800: #303931;
+
+  --color-emerald-500: #82B58A;
+  --color-emerald-400: #82B58A;
+  --color-emerald-950: #171B17;
+  --color-emerald-900: #1D231E;
+  --color-emerald-800: #303931;
+
+  --color-amber-500: #D9AE67;
+  --color-amber-400: #D9AE67;
+  --color-amber-950: #211c14;
+  --color-amber-900: #31281b;
+  --color-amber-800: #493b26;
+
+  --color-rose-500: #D98279;
+  --color-rose-400: #D98279;
+  --color-rose-950: #211615;
+  --color-rose-900: #331f1e;
+  --color-rose-800: #4d2b29;
+
+  --color-blue-400: #8BA7BE;
+  --color-blue-500: #8BA7BE;
+  --color-blue-950: #141c22;
+  --color-blue-900: #1a252e;
+  --color-blue-800: #293946;
+
+  --color-sky-400: #8BA7BE;
+  --color-sky-500: #8BA7BE;
+  --color-sky-950: #141c22;
+  --color-sky-900: #1a252e;
+  --color-sky-800: #293946;
+
+  --font-sans: var(--font-geist-sans), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: #111411;
+  color: #ECEFE8;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
 }
 
-/* Hide scrollbar globally across browsers while preserving smooth scrolling */
+::selection {
+  background: rgba(166, 181, 138, 0.28);
+  color: #ECEFE8;
+}
+
+/* Custom Scrollbars: subtle and subdued for engineering tool */
 * {
-  scrollbar-width: none !important; /* Firefox */
-  -ms-overflow-style: none !important; /* IE and Edge */
+  scrollbar-width: thin;
+  scrollbar-color: #303931 transparent;
 }
 
 *::-webkit-scrollbar {
-  display: none !important; /* Chrome, Safari, Opera */
-  width: 0px !important;
-  height: 0px !important;
-  background: transparent !important;
+  width: 6px;
+  height: 6px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background-color: #303931;
+  border-radius: 3px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background-color: #434f44;
 }
 
 .no-scrollbar::-webkit-scrollbar {
@@ -49,6 +168,12 @@ body {
   scrollbar-width: none !important;
 }
 
+/* Focus outline utility matching Moss & Graphite */
+:focus-visible {
+  outline: 1.5px solid #A6B58A;
+  outline-offset: 1px;
+}
+
 /* Hide Next.js floating dev indicator badge in dev mode */
 nextjs-portal,
 [data-nextjs-toast],
@@ -56,5 +181,3 @@ nextjs-portal,
 [data-next-badge] {
   display: none !important;
 }
-
-

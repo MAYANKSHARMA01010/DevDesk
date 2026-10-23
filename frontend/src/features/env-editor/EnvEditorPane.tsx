@@ -591,7 +591,7 @@ export function EnvEditorPane({
                   type="checkbox"
                   checked={onlyProjectsWithEnv}
                   onChange={(e) => setOnlyProjectsWithEnv(e.target.checked)}
-                  className="rounded bg-zinc-900 border-zinc-700 text-cyan-500 focus:ring-0 cursor-pointer"
+                  className="rounded bg-[#252C26] border-[#303931] text-[#A6B58A] focus:ring-0 cursor-pointer"
                 />
                 <span className="text-[11px] hidden sm:inline">
                   With .env ({projectsWithEnv.length}/{availableProjects.length})
@@ -815,15 +815,15 @@ export function EnvEditorPane({
                   <button
                     onClick={() => setShowSaveConfirmModal(true)}
                     disabled={!isDirty || savingFile}
-                    className={`px-3 py-1 rounded text-xs font-medium flex items-center gap-1.5 transition-all cursor-pointer ${
+                    className={`px-3 py-1 rounded text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
                       isDirty
-                        ? "bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm"
-                        : "bg-zinc-800 text-zinc-500 cursor-not-allowed border border-zinc-700"
+                        ? "bg-[#A6B58A] hover:bg-[#BAC7A3] text-[#111411] shadow-xs"
+                        : "bg-[#252C26] text-[#747D72] cursor-not-allowed border border-[#303931]"
                     }`}
                   >
                     {savingFile ? "Saving..." : "Save"}
                     {isDirty && (
-                      <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#111411]" />
                     )}
                   </button>
                 </>

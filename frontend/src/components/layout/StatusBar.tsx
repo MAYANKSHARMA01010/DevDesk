@@ -29,27 +29,27 @@ export function StatusBar({
       : "Backend Disconnected");
 
   return (
-    <footer className="h-7 border-t border-zinc-800 bg-zinc-950 px-4 flex items-center justify-between text-[11px] font-mono text-zinc-400 select-none shrink-0">
+    <footer className="h-7 border-t border-[#303931] bg-[#171B17] px-4 flex items-center justify-between text-[11px] font-mono text-[#747D72] select-none shrink-0">
       <div className="flex items-center gap-4">
         <div className="flex items-center gap-2">
           <span
             className={`w-1.5 h-1.5 rounded-full ${
-              backendConnected ? "bg-emerald-500" : "bg-rose-500 animate-pulse"
+              backendConnected ? "bg-[#82B58A]" : "bg-[#D98279]"
             }`}
           />
-          <span className={backendConnected ? "text-zinc-300" : "text-rose-400"}>
+          <span className={backendConnected ? "text-[#ECEFE8]" : "text-[#D98279]"}>
             {displayStatus}
           </span>
         </div>
 
         {backendConnected && (
-          <div className="hidden sm:flex items-center gap-1.5 text-zinc-500 border-l border-zinc-800 pl-4">
+          <div className="hidden sm:flex items-center gap-1.5 text-[#747D72] border-l border-[#303931] pl-4">
             <span>Processes:</span>
             <span
               className={
                 runningProcessesCount > 0
-                  ? "text-cyan-400 font-semibold"
-                  : "text-zinc-400"
+                  ? "text-[#A6B58A] font-medium"
+                  : "text-[#A7AEA2]"
               }
             >
               {runningProcessesCount} active
@@ -58,17 +58,17 @@ export function StatusBar({
         )}
       </div>
 
-      <div className="flex items-center gap-4 text-zinc-400">
+      <div className="flex items-center gap-4 text-[#747D72]">
         <div className="hidden md:flex items-center gap-1.5">
-          <span className="text-zinc-500">Env:</span>
-          <span className="text-zinc-300">
+          <span>Env:</span>
+          <span className="text-[#A7AEA2]">
             {isDesktop ? "Electron Native" : "Web Browser"}
           </span>
         </div>
 
         <div className="flex items-center gap-1.5">
-          <span className="text-zinc-500">UI Port:</span>
-          <span className="text-zinc-200 font-semibold">{port}</span>
+          <span>UI Port:</span>
+          <span className="text-[#ECEFE8] font-medium">{port}</span>
         </div>
       </div>
     </footer>

@@ -836,27 +836,24 @@ export function TerminalView({ isActive, initialSelection }: TerminalViewProps =
             <div
               key={tab.id}
               onClick={() => setActiveTabId(tab.id)}
-              className={`group flex items-center gap-2 px-3 py-1.5 rounded-t-lg border-t border-x text-xs cursor-pointer select-none transition-all ${
+              className={`group flex items-center gap-2 px-3 py-1.5 rounded-t-md border-t border-x text-xs cursor-pointer select-none transition-all ${
                 isActive
-                  ? "bg-zinc-900 border-zinc-700 text-zinc-100 font-medium shadow-sm"
-                  : "bg-zinc-950/60 border-transparent text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/50"
+                  ? "bg-[#1D231E] border-t-2 border-t-[#A6B58A] border-x-[#303931] border-b-0 text-[#ECEFE8] font-medium shadow-xs"
+                  : "bg-[#171B17]/60 border-transparent text-[#A7AEA2] hover:text-[#ECEFE8] hover:bg-[#1D231E]/50"
               }`}
               title={`Click to switch. Double-click to rename.\nStatus: ${tab.status}`}
             >
               {/* Status indicator dot */}
-              <span className="relative flex h-2 w-2 shrink-0">
-                {isTabRunning && (
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                )}
+              <span className="flex h-2 w-2 shrink-0 items-center justify-center">
                 <span
-                  className={`relative inline-flex rounded-full h-2 w-2 ${
+                  className={`inline-flex rounded-full h-1.5 w-1.5 ${
                     isTabRunning
-                      ? "bg-emerald-500"
+                      ? "bg-[#82B58A]"
                       : isTabStarting
-                      ? "bg-amber-400"
+                      ? "bg-[#D9AE67]"
                       : isTabFailed
-                      ? "bg-rose-500"
-                      : "bg-zinc-600"
+                      ? "bg-[#D98279]"
+                      : "bg-[#747D72]"
                   }`}
                 />
               </span>
@@ -991,10 +988,10 @@ export function TerminalView({ isActive, initialSelection }: TerminalViewProps =
               <button
                 onClick={handleStart}
                 disabled={actionLoading || !activeTab?.projectId}
-                className="px-3.5 py-1.5 rounded-md text-xs font-semibold text-emerald-950 bg-emerald-400 hover:bg-emerald-300 disabled:opacity-50 transition shadow-sm flex items-center gap-1.5 cursor-pointer"
+                className="px-3.5 py-1.5 rounded-md text-xs font-semibold text-[#111411] bg-[#A6B58A] hover:bg-[#BAC7A3] disabled:opacity-50 transition shadow-xs flex items-center gap-1.5 cursor-pointer"
               >
                 {actionLoading ? (
-                  <span className="w-3 h-3 rounded-full border border-emerald-950 border-t-transparent animate-spin" />
+                  <span className="w-3 h-3 rounded-full border border-[#111411] border-t-transparent animate-spin" />
                 ) : (
                   <span>▶</span>
                 )}
@@ -1005,10 +1002,10 @@ export function TerminalView({ isActive, initialSelection }: TerminalViewProps =
                 <button
                   onClick={handleStop}
                   disabled={actionLoading}
-                  className="px-3.5 py-1.5 rounded-md text-xs font-semibold text-rose-100 bg-rose-700/80 hover:bg-rose-600 disabled:opacity-50 transition shadow-sm flex items-center gap-1.5 cursor-pointer"
+                  className="px-3.5 py-1.5 rounded-md text-xs font-semibold text-[#111411] bg-[#D98279] hover:bg-[#e09189] disabled:opacity-50 transition shadow-xs flex items-center gap-1.5 cursor-pointer"
                 >
                   {actionLoading ? (
-                    <span className="w-3 h-3 rounded-full border border-rose-200 border-t-transparent animate-spin" />
+                    <span className="w-3 h-3 rounded-full border border-[#111411] border-t-transparent animate-spin" />
                   ) : (
                     <span>⏹</span>
                   )}
@@ -1017,7 +1014,7 @@ export function TerminalView({ isActive, initialSelection }: TerminalViewProps =
                 <button
                   onClick={handleRestart}
                   disabled={actionLoading}
-                  className="px-3 py-1.5 rounded-md text-xs font-medium text-amber-200 bg-amber-950/60 border border-amber-800/60 hover:bg-amber-900/60 disabled:opacity-50 transition flex items-center gap-1 cursor-pointer"
+                  className="px-3 py-1.5 rounded-md text-xs font-medium text-[#D9AE67] bg-[rgba(217,174,103,0.12)] border border-[#D9AE67]/35 hover:bg-[rgba(217,174,103,0.2)] disabled:opacity-50 transition flex items-center gap-1 cursor-pointer"
                 >
                   <span>↻</span>
                   <span>Restart</span>
@@ -1104,8 +1101,8 @@ export function TerminalView({ isActive, initialSelection }: TerminalViewProps =
                       disabled={isRunning}
                       className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-mono font-medium transition cursor-pointer ${
                         isSelected
-                          ? "bg-cyan-500/20 text-cyan-200 border border-cyan-500/50 shadow-xs"
-                          : "bg-zinc-950 text-zinc-300 border border-zinc-800 hover:border-zinc-700 hover:bg-zinc-900"
+                          ? "bg-[rgba(166,181,138,0.12)] text-[#A6B58A] border border-[#A6B58A]/35 shadow-xs"
+                          : "bg-[#252C26] text-[#A7AEA2] border border-[#303931] hover:text-[#ECEFE8] hover:bg-[#303931]/60"
                       } disabled:opacity-50`}
                       title={`Command: ${def}`}
                     >
@@ -1119,7 +1116,7 @@ export function TerminalView({ isActive, initialSelection }: TerminalViewProps =
           ) : (
             /* Custom Command Input (Shown when in Custom mode OR when project has no detected scripts) */
             <div className="flex items-center gap-2">
-              <span className="text-xs font-mono text-cyan-400 font-bold">&gt;_</span>
+              <span className="text-xs font-mono text-[#A6B58A] font-bold">&gt;_</span>
               <input
                 type="text"
                 value={activeTab?.customCommand || ""}
@@ -1131,9 +1128,9 @@ export function TerminalView({ isActive, initialSelection }: TerminalViewProps =
                 }}
                 disabled={isRunning}
                 placeholder="Enter command to execute in project directory (e.g. pnpm test, python3 app.py, cargo run, git status)..."
-                className="flex-1 px-3 py-1.5 rounded-md bg-zinc-950 border border-zinc-800 text-zinc-100 placeholder-zinc-600 text-xs font-mono focus:outline-none focus:border-cyan-500/70 disabled:opacity-50"
+                className="flex-1 px-3 py-1.5 rounded-md bg-[#252C26] border border-[#303931] text-[#ECEFE8] placeholder-[#747D72] text-xs font-mono focus:outline-none focus:border-[#A6B58A] disabled:opacity-50"
               />
-              <span className="text-[11px] text-zinc-500 hidden sm:inline">Press Enter to run</span>
+              <span className="text-[11px] text-[#747D72] hidden sm:inline">Press Enter to run</span>
             </div>
           )}
         </div>
@@ -1193,7 +1190,7 @@ export function TerminalView({ isActive, initialSelection }: TerminalViewProps =
 
             {/* Detected Ports */}
             {activeProcess?.ports && activeProcess.ports.length > 0 && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono bg-cyan-950/70 text-cyan-300 border border-cyan-800/60">
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono bg-[rgba(166,181,138,0.12)] text-[#A6B58A] border border-[#A6B58A]/35">
                 <span>PORT:</span>
                 <span>{activeProcess.ports.join(", ")}</span>
               </span>
@@ -1243,10 +1240,10 @@ export function TerminalView({ isActive, initialSelection }: TerminalViewProps =
                     <span
                       className={`text-[10px] select-none shrink-0 uppercase px-1 rounded ${
                         isSys
-                          ? "text-cyan-400 bg-cyan-950/40"
+                          ? "text-[#8BA7BE] bg-[rgba(139,167,190,0.12)]"
                           : isErr
-                          ? "text-rose-400 bg-rose-950/40"
-                          : "text-zinc-500"
+                          ? "text-[#D98279] bg-[rgba(217,130,121,0.12)]"
+                          : "text-[#747D72]"
                       }`}
                     >
                       {log.stream}
@@ -1254,10 +1251,10 @@ export function TerminalView({ isActive, initialSelection }: TerminalViewProps =
                     <span
                       className={`whitespace-pre-wrap break-all flex-1 ${
                         isSys
-                          ? "text-cyan-300 font-semibold"
+                          ? "text-[#8BA7BE] font-semibold"
                           : isErr
-                          ? "text-rose-300"
-                          : "text-zinc-200"
+                          ? "text-[#D98279]"
+                          : "text-[#ECEFE8]"
                       }`}
                     >
                       {log.message}

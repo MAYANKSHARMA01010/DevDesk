@@ -412,8 +412,8 @@ export function EnvEditorView({
             onClick={handleToggleSplitView}
             className={`px-2.5 py-1.5 rounded-md text-xs font-medium border transition flex items-center gap-1.5 cursor-pointer shadow-xs ${
               isSplitView
-                ? "bg-zinc-800 text-cyan-400 border-cyan-800/80 hover:bg-zinc-700"
-                : "text-zinc-300 bg-zinc-900 hover:bg-zinc-800 border-zinc-700"
+                ? "bg-[rgba(166,181,138,0.12)] text-[#A6B58A] border border-[#A6B58A]/35"
+                : "text-[#ECEFE8] bg-[#252C26] hover:bg-[#303931] border-[#303931]"
             }`}
             title={
               isSplitView
@@ -427,7 +427,7 @@ export function EnvEditorView({
           {/* New Tab Button */}
           <button
             onClick={handleAddTab}
-            className="px-2.5 py-1.5 rounded-md text-xs font-medium text-zinc-100 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 transition flex items-center gap-1.5 cursor-pointer shadow-xs"
+            className="px-2.5 py-1.5 rounded-md text-xs font-semibold text-[#111411] bg-[#A6B58A] hover:bg-[#BAC7A3] border border-transparent transition flex items-center gap-1.5 cursor-pointer shadow-xs"
             title="Open a new environment session tab"
           >
             <span className="text-sm font-bold leading-none">+</span>
@@ -437,7 +437,7 @@ export function EnvEditorView({
       </div>
 
       {/* 2. Multi-Env Tab Bar (Consistent with TerminalView) */}
-      <div className="flex items-center gap-1 overflow-x-auto pb-1 mb-2 border-b border-zinc-800/80 shrink-0">
+      <div className="flex items-center gap-1 overflow-x-auto pb-1 mb-2 border-b border-[#303931] shrink-0">
         {tabs.map((tab, idx) => {
           const isActive = tab.id === activeTabId;
           const isSplitActive = isSplitView && tab.id === splitTabId;
@@ -448,25 +448,22 @@ export function EnvEditorView({
               onClick={() => {
                 setActiveTabId(tab.id);
               }}
-              className={`group flex items-center gap-2 px-3 py-1.5 rounded-t-lg border-t border-x text-xs cursor-pointer select-none transition-all ${
+              className={`group flex items-center gap-2 px-3 py-1.5 rounded-t-md border-t border-x text-xs cursor-pointer select-none transition-all ${
                 isActive
-                  ? "bg-zinc-900 border-zinc-700 text-zinc-100 font-medium shadow-sm"
+                  ? "bg-[#1D231E] border-t-2 border-t-[#A6B58A] border-x-[#303931] border-b-0 text-[#ECEFE8] font-medium shadow-xs"
                   : isSplitActive
-                  ? "bg-zinc-900/60 border-zinc-700/60 text-cyan-300 font-medium"
-                  : "bg-zinc-950/60 border-transparent text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/50"
+                  ? "bg-[#1D231E] border-t border-x-[#303931] text-[#A6B58A] font-medium"
+                  : "bg-[#171B17]/60 border-transparent text-[#A7AEA2] hover:text-[#ECEFE8] hover:bg-[#1D231E]/50"
               }`}
               title={`Click to switch. Double-click to rename.\n${
                 tab.isDirty ? "Status: Unsaved changes" : "Status: Clean"
               }`}
             >
               {/* Status indicator dot */}
-              <span className="relative flex h-2 w-2 shrink-0">
-                {tab.isDirty && (
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
-                )}
+              <span className="flex h-2 w-2 shrink-0 items-center justify-center">
                 <span
-                  className={`relative inline-flex rounded-full h-2 w-2 ${
-                    tab.isDirty ? "bg-amber-400" : "bg-emerald-500"
+                  className={`inline-flex rounded-full h-1.5 w-1.5 ${
+                    tab.isDirty ? "bg-[#D9AE67]" : "bg-[#82B58A]"
                   }`}
                 />
               </span>
@@ -541,7 +538,7 @@ export function EnvEditorView({
             <div className="flex-1 flex flex-col h-full min-h-0 border border-zinc-800 rounded-lg overflow-hidden bg-zinc-950/70">
               <div className="px-3 py-1.5 bg-zinc-900/90 border-b border-zinc-800 flex items-center justify-between text-xs font-mono text-zinc-300 shrink-0">
                 <div className="flex items-center gap-2">
-                  <span className="font-semibold text-cyan-400">Left Pane:</span>
+                  <span className="font-semibold text-[#A6B58A]">Left Pane:</span>
                   <span className="text-zinc-100 font-medium">
                     {activeTab?.title || "Active Session"}
                   </span>

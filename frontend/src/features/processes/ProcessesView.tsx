@@ -322,32 +322,32 @@ export function ProcessesView({
         {/* Card 1: System Listening Ports */}
         <div
           onClick={() => setViewMode("ports")}
-          className={`p-3.5 rounded-lg border flex items-center justify-between shadow-sm cursor-pointer transition-all ${
+          className={`p-3.5 rounded-lg border flex items-center justify-between shadow-xs cursor-pointer transition-all ${
             viewMode === "ports"
-              ? "bg-zinc-900/90 border-cyan-800/80 ring-1 ring-cyan-500/30"
-              : "bg-zinc-900/50 border-zinc-800 hover:border-zinc-700"
+              ? "bg-[#1D231E] border-[#A6B58A]/50 ring-1 ring-[#A6B58A]/30"
+              : "bg-[#1D231E] border-[#303931] hover:border-[#A6B58A]/30"
           }`}
         >
           <div>
-            <div className="text-[11px] font-medium text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
+            <div className="text-[11px] font-medium text-[#A7AEA2] uppercase tracking-wider flex items-center gap-1.5">
               <span>Listening Ports</span>
-              <span className="text-[10px] text-cyan-400 font-mono">● Live</span>
+              <span className="text-[10px] text-[#A6B58A] font-mono">● Live</span>
             </div>
-            <div className="text-lg font-semibold text-cyan-400 mt-0.5">
+            <div className="text-lg font-semibold text-[#ECEFE8] mt-0.5">
               {systemPorts.length > 0 ? (
                 <span>{systemPorts.length} Active Sockets</span>
               ) : (
                 "None Detected"
               )}
             </div>
-            <div className="text-[11px] font-mono text-zinc-500 mt-0.5 truncate max-w-[240px]">
+            <div className="text-[11px] font-mono text-[#747D72] mt-0.5 truncate max-w-[240px]">
               {topListeningPorts.length > 0
                 ? topListeningPorts.slice(0, 5).map((p) => `:${p}`).join(", ") +
                   (topListeningPorts.length > 5 ? ` +${topListeningPorts.length - 5}` : "")
                 : "No open sockets"}
             </div>
           </div>
-          <div className="w-9 h-9 rounded-md bg-cyan-950/50 border border-cyan-800/60 flex items-center justify-center text-cyan-400 text-sm">
+          <div className="w-9 h-9 rounded-md bg-[#252C26] border border-[#303931] flex items-center justify-center text-[#A6B58A] text-sm">
             🌐
           </div>
         </div>
@@ -355,48 +355,48 @@ export function ProcessesView({
         {/* Card 2: DevDesk Managed Services */}
         <div
           onClick={() => setViewMode("managed")}
-          className={`p-3.5 rounded-lg border flex items-center justify-between shadow-sm cursor-pointer transition-all ${
+          className={`p-3.5 rounded-lg border flex items-center justify-between shadow-xs cursor-pointer transition-all ${
             viewMode === "managed"
-              ? "bg-zinc-900/90 border-emerald-800/80 ring-1 ring-emerald-500/30"
-              : "bg-zinc-900/50 border-zinc-800 hover:border-zinc-700"
+              ? "bg-[#1D231E] border-[#82B58A]/50 ring-1 ring-[#82B58A]/30"
+              : "bg-[#1D231E] border-[#303931] hover:border-[#82B58A]/30"
           }`}
         >
           <div>
-            <div className="text-[11px] font-medium text-zinc-400 uppercase tracking-wider">
+            <div className="text-[11px] font-medium text-[#A7AEA2] uppercase tracking-wider">
               Managed Services
             </div>
-            <div className="text-lg font-semibold text-zinc-100 mt-0.5">
+            <div className="text-lg font-semibold text-[#ECEFE8] mt-0.5">
               {processes.length}{" "}
-              <span className="text-xs font-normal text-emerald-400">
+              <span className="text-xs font-normal text-[#82B58A]">
                 ({activeManagedCount} running)
               </span>
             </div>
-            <div className="text-[11px] text-zinc-500 mt-0.5">
+            <div className="text-[11px] text-[#747D72] mt-0.5">
               Started from DevDesk Terminal
             </div>
           </div>
-          <div className="w-9 h-9 rounded-md bg-zinc-800/80 border border-zinc-700/60 flex items-center justify-center text-zinc-400 text-sm">
+          <div className="w-9 h-9 rounded-md bg-[#252C26] border border-[#303931] flex items-center justify-center text-[#A7AEA2] text-sm">
             ⚙️
           </div>
         </div>
 
         {/* Card 3: Localhost Quick Summary */}
-        <div className="p-3.5 rounded-lg bg-zinc-900/50 border border-zinc-800 flex items-center justify-between shadow-sm">
+        <div className="p-3.5 rounded-lg bg-[#1D231E] border border-[#303931] flex items-center justify-between shadow-xs">
           <div>
-            <div className="text-[11px] font-medium text-zinc-400 uppercase tracking-wider">
+            <div className="text-[11px] font-medium text-[#A7AEA2] uppercase tracking-wider">
               Web & App Ports
             </div>
-            <div className="text-lg font-semibold text-emerald-400 mt-0.5">
+            <div className="text-lg font-semibold text-[#82B58A] mt-0.5">
               {systemPorts.filter((p) => p.port >= 3000 && p.port <= 9999).length} Servers
             </div>
-            <div className="text-[11px] font-mono text-zinc-500 mt-0.5 truncate max-w-[240px]">
+            <div className="text-[11px] font-mono text-[#747D72] mt-0.5 truncate max-w-[240px]">
               {systemPorts
                 .filter((p) => [3000, 5000, 5001, 5173, 8000, 8080].includes(p.port))
                 .map((p) => `:${p.port}`)
                 .join(", ") || "Ports 3000-9999"}
             </div>
           </div>
-          <div className="w-9 h-9 rounded-md bg-emerald-950/40 border border-emerald-800/50 flex items-center justify-center text-emerald-400 text-sm">
+          <div className="w-9 h-9 rounded-md bg-[#252C26] border border-[#303931] flex items-center justify-center text-[#82B58A] text-sm">
             ⚡
           </div>
         </div>
@@ -439,8 +439,8 @@ export function ProcessesView({
           onClick={() => setViewMode("ports")}
           className={`px-3.5 py-1.5 rounded-md text-xs font-medium transition cursor-pointer flex items-center gap-2 ${
             viewMode === "ports"
-              ? "bg-cyan-950/70 text-cyan-200 border border-cyan-800/80 shadow-xs"
-              : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900 border border-transparent"
+              ? "bg-[rgba(166,181,138,0.12)] text-[#A6B58A] border border-[#A6B58A]/35 shadow-xs"
+              : "text-[#A7AEA2] hover:text-[#ECEFE8] hover:bg-[#252C26] border border-transparent"
           }`}
         >
           <span>🌐</span>
@@ -451,8 +451,8 @@ export function ProcessesView({
           onClick={() => setViewMode("managed")}
           className={`px-3.5 py-1.5 rounded-md text-xs font-medium transition cursor-pointer flex items-center gap-2 ${
             viewMode === "managed"
-              ? "bg-zinc-800 text-zinc-100 border border-zinc-700 shadow-xs"
-              : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900 border border-transparent"
+              ? "bg-[rgba(166,181,138,0.12)] text-[#A6B58A] border border-[#A6B58A]/35 shadow-xs"
+              : "text-[#A7AEA2] hover:text-[#ECEFE8] hover:bg-[#252C26] border border-transparent"
           }`}
         >
           <span>⚙️</span>
@@ -578,11 +578,11 @@ export function ProcessesView({
                     const isKilling = killingPid === p.pid;
 
                     return (
-                      <tr key={`${p.port}-${p.pid}`} className="hover:bg-zinc-900/40 transition-colors">
+                      <tr key={`${p.port}-${p.pid}`} className="hover:bg-[#252C26]/40 transition-colors">
                         {/* Port Column */}
                         <td className="py-3 px-4 font-mono">
                           <div className="flex items-center gap-2">
-                            <span className="px-2 py-0.5 rounded text-xs font-bold text-cyan-300 bg-cyan-950/70 border border-cyan-800/60 shadow-xs">
+                            <span className="px-2 py-0.5 rounded text-xs font-bold text-[#A6B58A] bg-[#252C26] border border-[#303931] shadow-xs">
                               :{p.port}
                             </span>
                             {isLocal && (
@@ -590,13 +590,13 @@ export function ProcessesView({
                                 href={`http://localhost:${p.port}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="text-zinc-500 hover:text-cyan-400 text-xs transition"
+                                className="text-[#747D72] hover:text-[#A6B58A] text-xs transition"
                                 title={`Open http://localhost:${p.port} in browser`}
                               >
                                 ↗
                               </a>
                             )}
-                            <span className="text-[10px] text-zinc-500">({p.address})</span>
+                            <span className="text-[10px] text-[#747D72]">({p.address})</span>
                           </div>
                         </td>
 
@@ -758,7 +758,7 @@ export function ProcessesView({
                                   href={`http://localhost:${port}`}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-mono font-bold bg-cyan-950/70 text-cyan-300 border border-cyan-800/60 hover:bg-cyan-900/60 transition"
+                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-mono font-bold bg-[#252C26] text-[#A6B58A] border border-[#303931] hover:border-[#A6B58A]/40 transition"
                                 >
                                   <span>:{port}</span>
                                   <span className="text-[9px] opacity-70">↗</span>
@@ -822,31 +822,31 @@ export function ProcessesView({
       {/* 6. Kill Confirmation Modal */}
       {confirmKillTarget && (
         <div className="fixed inset-0 bg-black/75 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in">
-          <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-5 max-w-md w-full shadow-2xl text-zinc-100">
-            <div className="flex items-center gap-2 text-rose-400 font-semibold text-base mb-2">
+          <div className="bg-[#1D231E] border border-[#303931] rounded-lg p-5 max-w-md w-full shadow-2xl text-[#ECEFE8]">
+            <div className="flex items-center gap-2 text-[#D98279] font-semibold text-base mb-2">
               <span>⚠️</span>
               <span>Terminate Process</span>
             </div>
 
-            <p className="text-xs text-zinc-300 leading-relaxed mb-3">
+            <p className="text-xs text-[#A7AEA2] leading-relaxed mb-3">
               Are you sure you want to kill process{" "}
-              <strong className="text-white font-mono">{confirmKillTarget.processName}</strong> (PID:{" "}
-              <strong className="text-cyan-300 font-mono">{confirmKillTarget.pid}</strong>) listening on port{" "}
-              <strong className="text-cyan-300 font-mono">:{confirmKillTarget.port}</strong>?
+              <strong className="text-[#ECEFE8] font-mono">{confirmKillTarget.processName}</strong> (PID:{" "}
+              <strong className="text-[#A6B58A] font-mono">{confirmKillTarget.pid}</strong>) listening on port{" "}
+              <strong className="text-[#A6B58A] font-mono">:{confirmKillTarget.port}</strong>?
             </p>
 
             {confirmKillTarget.cwd && (
-              <div className="mb-3 p-2 rounded bg-zinc-950 border border-zinc-800 text-[11px] font-mono text-zinc-400 truncate">
-                <span className="text-zinc-500 uppercase text-[10px] block font-sans">Location:</span>
-                <span className="text-zinc-200 select-all">{confirmKillTarget.cwd}</span>
+              <div className="mb-3 p-2 rounded bg-[#252C26] border border-[#303931] text-[11px] font-mono text-[#A7AEA2] truncate">
+                <span className="text-[#747D72] uppercase text-[10px] block font-sans">Location:</span>
+                <span className="text-[#ECEFE8] select-all">{confirmKillTarget.cwd}</span>
               </div>
             )}
 
-            <div className="flex items-center justify-end gap-2 pt-2 border-t border-zinc-800">
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#303931]">
               <button
                 type="button"
                 onClick={() => setConfirmKillTarget(null)}
-                className="px-3 py-1.5 rounded text-xs font-medium text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 transition cursor-pointer"
+                className="px-3 py-1.5 rounded text-xs font-medium text-[#A7AEA2] hover:text-[#ECEFE8] hover:bg-[#252C26] transition cursor-pointer"
               >
                 Cancel
               </button>
@@ -854,7 +854,7 @@ export function ProcessesView({
                 type="button"
                 onClick={() => handleKillSystemProcess(confirmKillTarget.pid, false)}
                 disabled={killingPid !== null}
-                className="px-3 py-1.5 rounded text-xs font-semibold text-rose-200 bg-rose-900 hover:bg-rose-800 transition cursor-pointer disabled:opacity-50"
+                className="px-3 py-1.5 rounded text-xs font-semibold text-[#111411] bg-[#D98279] hover:bg-[#e09189] transition cursor-pointer disabled:opacity-50"
               >
                 {killingPid === confirmKillTarget.pid ? "Terminating..." : "Kill Process"}
               </button>

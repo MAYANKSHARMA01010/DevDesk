@@ -202,7 +202,7 @@ export default function Home() {
   }
 
   return (
-    <div className="flex flex-col h-screen w-screen overflow-hidden bg-zinc-950 text-zinc-100 font-sans">
+    <div className="flex flex-col h-screen w-screen overflow-hidden bg-[#111411] text-[#ECEFE8] font-sans">
       {/* 1. Header Shell */}
       <Header
         backendConnected={backendConnected}
@@ -219,7 +219,7 @@ export default function Home() {
           onToggleCollapse={handleToggleCollapse}
         />
 
-        <main className="flex-1 min-w-0 overflow-y-auto bg-zinc-900/40 relative">
+        <main className="flex-1 min-w-0 overflow-y-auto bg-[#111411] relative">
           <div className={activeTab === "projects" ? "h-full w-full" : "hidden"}>
             <ProjectsView
               isActive={activeTab === "projects"}

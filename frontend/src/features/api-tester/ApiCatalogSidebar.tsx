@@ -18,17 +18,17 @@ interface ApiCatalogSidebarProps {
 function getMethodBadgeClass(method: HttpMethod): string {
   switch (method) {
     case "GET":
-      return "text-cyan-400 border-cyan-800/80 bg-cyan-950/40";
+      return "text-[#8BA7BE] border-[#8BA7BE]/40 bg-[rgba(139,167,190,0.12)]";
     case "POST":
-      return "text-emerald-400 border-emerald-800/80 bg-emerald-950/40";
+      return "text-[#82B58A] border-[#82B58A]/40 bg-[rgba(130,181,138,0.12)]";
     case "PUT":
-      return "text-amber-400 border-amber-800/80 bg-amber-950/40";
+      return "text-[#D9AE67] border-[#D9AE67]/40 bg-[rgba(217,174,103,0.12)]";
     case "PATCH":
-      return "text-violet-400 border-violet-800/80 bg-violet-950/40";
+      return "text-[#A6B58A] border-[#A6B58A]/40 bg-[rgba(166,181,138,0.12)]";
     case "DELETE":
-      return "text-rose-400 border-rose-800/80 bg-rose-950/40";
+      return "text-[#D98279] border-[#D98279]/40 bg-[rgba(217,130,121,0.12)]";
     default:
-      return "text-zinc-400 border-zinc-700 bg-zinc-800/40";
+      return "text-[#A7AEA2] border-[#303931] bg-[#252C26]";
   }
 }
 
@@ -297,7 +297,7 @@ export function ApiCatalogSidebar({
                                   e.stopPropagation();
                                   onAnalyzeEndpoint(ep);
                                 }}
-                                className="px-1.5 py-0.5 rounded text-[10px] font-medium text-cyan-400 hover:bg-cyan-950/80 border border-cyan-800/50 transition cursor-pointer"
+                                className="px-1.5 py-0.5 rounded text-[10px] font-medium text-[#A6B58A] hover:bg-[rgba(166,181,138,0.12)] border border-[#303931] hover:border-[#A6B58A]/35 transition cursor-pointer"
                                 title="View complete details analysis (request, response, how to use)"
                               >
                                 🔍 Details
