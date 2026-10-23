@@ -195,8 +195,90 @@ export class ApiDiscoveryService {
       );
     }
 
+    // Deduplicate endpoints by HTTP Method + Normalized Path and merge richer metadata
+    const uniqueMap = new Map<string, DiscoveredApiEndpoint>();
+
+    for (const ep of endpoints) {
+      const normalizedPath = cleanPath(ep.path);
+      const dedupeKey = `${ep.method.toUpperCase()}:${normalizedPath}`;
+
+      if (!uniqueMap.has(dedupeKey)) {
+        uniqueMap.set(dedupeKey, ep);
+      } else {
+        const existing = uniqueMap.get(dedupeKey)!;
+
+        // Prefer non-"General" category
+        if (existing.category === "General" && ep.category && ep.category !== "General") {
+          existing.category = ep.category;
+        }
+
+        // Prefer endpoint with description
+        if (!existing.description && ep.description) {
+          existing.description = ep.description;
+          existing.name = ep.name;
+        }
+
+        // Prefer endpoint with request body
+        if (!existing.requestBody && ep.requestBody) {
+          existing.requestBody = ep.requestBody;
+        }
+
+        // Merge query params
+        if (ep.queryParams && ep.queryParams.length > 0) {
+          const existingNames = new Set((existing.queryParams || []).map((q) => q.name));
+          for (const q of ep.queryParams) {
+            if (!existingNames.has(q.name)) {
+              if (!existing.queryParams) existing.queryParams = [];
+              existing.queryParams.push(q);
+            }
+          }
+        }
+
+        // Merge path params
+        if (ep.pathParams && ep.pathParams.length > 0) {
+          const existingNames = new Set((existing.pathParams || []).map((p) => p.name));
+          for (const p of ep.pathParams) {
+            if (!existingNames.has(p.name)) {
+              if (!existing.pathParams) existing.pathParams = [];
+              existing.pathParams.push(p);
+            }
+          }
+        }
+
+        // Prefer sourceFile in routes/ or controllers/ over root index/server
+        if (
+          existing.sourceFile &&
+          !/routes?|controllers?|api/i.test(existing.sourceFile) &&
+          ep.sourceFile &&
+          /routes?|controllers?|api/i.test(ep.sourceFile)
+        ) {
+          existing.sourceFile = ep.sourceFile;
+          existing.sourceLine = ep.sourceLine;
+        }
+      }
+    }
+
+    // Ensure all endpoints have clean, guaranteed unique IDs
+    const uniqueEndpoints = Array.from(uniqueMap.values());
+    const seenIds = new Set<string>();
+
+    for (const ep of uniqueEndpoints) {
+      const pathSlug = ep.path
+        .replace(/[^a-zA-Z0-9]/g, "-")
+        .replace(/-+/g, "-")
+        .replace(/^-|-$/g, "");
+      const baseId = `api-${ep.method.toLowerCase()}-${pathSlug || "root"}`;
+      let uniqueId = baseId;
+      let counter = 1;
+      while (seenIds.has(uniqueId)) {
+        uniqueId = `${baseId}-${counter++}`;
+      }
+      seenIds.add(uniqueId);
+      ep.id = uniqueId;
+    }
+
     // Sort endpoints alphabetically by path, then method
-    endpoints.sort((a, b) => {
+    uniqueEndpoints.sort((a, b) => {
       if (a.path !== b.path) return a.path.localeCompare(b.path);
       return a.method.localeCompare(b.method);
     });
@@ -208,8 +290,8 @@ export class ApiDiscoveryService {
       framework,
       detectedPort: port,
       baseUrlSuggestion,
-      endpointsCount: endpoints.length,
-      endpoints,
+      endpointsCount: uniqueEndpoints.length,
+      endpoints: uniqueEndpoints,
     };
   }
 
@@ -325,21 +407,78 @@ export class ApiDiscoveryService {
    * Handles nested router prefixes (e.g. /api + /workspaces = /api/workspaces)
    */
   private scanExpressRouterMounts(codeFiles: string[]): Map<string, string> {
-    const mountMap = new Map<string, string>(); // base filename -> mount path prefix
-    const parentRouterMap = new Map<string, string>(); // child base filename -> parent router instance name
-    const fileOfRouter = new Map<string, string>(); // base filename -> file path
+    const mountMap = new Map<string, string>(); // base filename, var name, file path -> mount path prefix
+    const parentRouterMap = new Map<string, string>(); // child name -> parent router instance name
+    const fileOfRouter = new Map<string, string>(); // child name -> file path
 
+    // Standard router mount: app.use("/api/auth", authRouter) or apiRouter.use("/cart", cartRouter)
     const mountRegex =
-      /([a-zA-Z0-9_]+)\.use\s*\(\s*["']([^"']+)["']\s*,\s*([a-zA-Z0-9_]+)\s*\)/g;
+      /([a-zA-Z0-9_$]+)\.use\s*\(\s*["']([^"']+)["']\s*,\s*([a-zA-Z0-9_$]+)\s*\)/g;
 
-    // Pass 1: Collect direct mounts and imports
+    // Inline require mount: app.use("/api/auth", require("./routes/authRoute.js"))
+    const inlineRequireRegex =
+      /([a-zA-Z0-9_$]+)\.use\s*\(\s*["']([^"']+)["']\s*,\s*require\s*\(\s*["']([^"']+)["']\s*\)\s*\)/g;
+
     for (const filePath of codeFiles) {
       if (!/\.(ts|js|mjs)$/.test(filePath)) continue;
       try {
         const stat = fs.statSync(filePath);
         if (stat.size > MAX_FILE_SIZE_BYTES) continue;
         const content = fs.readFileSync(filePath, "utf8");
+        const dir = path.dirname(filePath);
 
+        const registerMount = (
+          parentInstance: string,
+          mountPath: string,
+          routerIdentifier: string,
+          importPath?: string
+        ) => {
+          const cleanMount = cleanPath(mountPath);
+
+          // 1. By variable / identifier name
+          mountMap.set(routerIdentifier, cleanMount);
+          parentRouterMap.set(routerIdentifier, parentInstance);
+          fileOfRouter.set(routerIdentifier, filePath);
+
+          if (importPath) {
+            const rawBase = path.basename(importPath).replace(/\.(js|ts|mjs|tsx|jsx)$/, "");
+            mountMap.set(rawBase, cleanMount);
+            mountMap.set(rawBase.toLowerCase(), cleanMount);
+            parentRouterMap.set(rawBase, parentInstance);
+            fileOfRouter.set(rawBase, filePath);
+
+            // Stripped resource name (e.g. authRoute -> auth, addressRoutes -> address)
+            const strippedBase = rawBase
+              .replace(/(?:Routes?|Router|Controller)$/i, "")
+              .toLowerCase();
+            if (strippedBase) {
+              mountMap.set(strippedBase, cleanMount);
+            }
+
+            // Resolve exact absolute file paths
+            if (importPath.startsWith(".")) {
+              const absCandidate = path.resolve(dir, importPath).replace(/\\/g, "/");
+              mountMap.set(absCandidate, cleanMount);
+              mountMap.set(absCandidate.replace(/\.(js|ts|mjs|tsx|jsx)$/, ""), cleanMount);
+              for (const ext of [".js", ".ts", ".mjs"]) {
+                mountMap.set(absCandidate + ext, cleanMount);
+              }
+            }
+          }
+        };
+
+        // 1. Inline require mounts: app.use("/api/auth", require("./routes/authRoute"))
+        let inlineM: RegExpExecArray | null;
+        inlineRequireRegex.lastIndex = 0;
+        while ((inlineM = inlineRequireRegex.exec(content)) !== null) {
+          const parentInstance = inlineM[1];
+          const mountPath = inlineM[2];
+          const reqPath = inlineM[3];
+          const rawBase = path.basename(reqPath).replace(/\.(js|ts|mjs|tsx|jsx)$/, "");
+          registerMount(parentInstance, mountPath, rawBase, reqPath);
+        }
+
+        // 2. Variable mounts: app.use("/api/auth", authRouter)
         let m: RegExpExecArray | null;
         mountRegex.lastIndex = 0;
         while ((m = mountRegex.exec(content)) !== null) {
@@ -347,20 +486,19 @@ export class ApiDiscoveryService {
           const mountPath = m[2];
           const routerVar = m[3];
 
-          // Trace import for routerVar in this file
-          const importRegex = new RegExp(
-            `import\\s+${routerVar}\\s+from\\s+["']\\.?\\/?([^"']+)["']`,
+          // Trace import/require for routerVar in this file:
+          // - const authRouter = require("./routes/authRoute.js")
+          // - const { authRouter } = require("./routes/authRoute.js")
+          // - import authRouter from "./routes/authRoute.js"
+          // - import { authRouter } from "./routes/authRoute.js"
+          const requireRegex = new RegExp(
+            `(?:import\\s+(?:${routerVar}|\\{[^}]*\\b${routerVar}\\b[^}]*\\})\\s+from|(?:const|let|var)\\s+(?:${routerVar}|\\{[^}]*\\b${routerVar}\\b[^}]*\\})\\s*=\\s*require\\s*\\()\\s*["']([^"']+)["']`,
             "i"
           );
-          const impMatch = content.match(importRegex);
-          const baseName =
-            impMatch && impMatch[1]
-              ? path.basename(impMatch[1]).replace(/\.(js|ts|mjs)$/, "")
-              : routerVar;
+          const reqMatch = content.match(requireRegex);
+          const importPath = reqMatch && reqMatch[1] ? reqMatch[1] : undefined;
 
-          mountMap.set(baseName, cleanPath(mountPath));
-          parentRouterMap.set(baseName, parentInstance);
-          fileOfRouter.set(baseName, filePath);
+          registerMount(parentInstance, mountPath, routerVar, importPath);
         }
       } catch {
         // ignore read error
@@ -408,6 +546,7 @@ export class ApiDiscoveryService {
    * Parses Express / Connect route definitions:
    * router.get('/path', handler)
    * app.post('/api/users', handler)
+   * productRouter.get('/items', handler)
    */
   private parseExpressRoute(
     filePath: string,
@@ -422,84 +561,181 @@ export class ApiDiscoveryService {
       if (stat.size > MAX_FILE_SIZE_BYTES) return;
       const content = fs.readFileSync(filePath, "utf8");
 
-      // Check if this file has a known mount prefix
       const fileBaseName = path.basename(filePath).replace(/\.(ts|js|mjs|tsx|jsx)$/, "");
-      let prefix = routerMountMap.get(fileBaseName) || "";
+      const normalizedPath = filePath.replace(/\\/g, "/");
+      const normalizedNoExt = normalizedPath.replace(/\.(ts|js|mjs|tsx|jsx)$/, "");
+      const resourceBase = fileBaseName
+        .replace(/(?:Routes?|Router|Controller)$/i, "")
+        .toLowerCase();
+
+      // Look up mount prefix: exact file path -> normalized -> base name -> resource name
+      let prefix =
+        routerMountMap.get(filePath) ||
+        routerMountMap.get(normalizedPath) ||
+        routerMountMap.get(normalizedNoExt) ||
+        routerMountMap.get(fileBaseName) ||
+        routerMountMap.get(fileBaseName.toLowerCase()) ||
+        routerMountMap.get(resourceBase) ||
+        "";
+
+      // Fallback prefix: if this is a route/controller file without explicit app.use found,
+      // prevent routes from polluting root / and colliding with other route files
+      if (!prefix) {
+        const isRouteFile =
+          /\/routes?\/|\/controllers?\/|\/endpoints?\//i.test(normalizedPath) &&
+          !/^(?:index|app|server|main)$/i.test(fileBaseName);
+
+        if (isRouteFile && resourceBase) {
+          const hasApiPrefix =
+            Array.from(routerMountMap.values()).some((v) => v.startsWith("/api")) ||
+            relativePath.includes("backend");
+          prefix = cleanPath(hasApiPrefix ? `/api/${resourceBase}` : `/${resourceBase}`);
+        }
+      }
+
       if (prefix && !prefix.startsWith("/api") && relativePath.includes("backend")) {
         prefix = cleanPath(`/api/${prefix}`);
       }
 
+      // Discover router variable names declared in this file
+      const routerVarNames = new Set<string>([
+        "router",
+        "app",
+        "server",
+        "api",
+        "routes",
+        "v1",
+        "v2",
+        "r",
+      ]);
+
+      // Add declared router identifiers: const authRouter = express.Router(), etc.
+      const routerDeclRegex =
+        /(?:const|let|var)\s+([a-zA-Z0-9_$]+)\s*=\s*(?:express\.)?(?:Router|express)\s*\(/g;
+      let declM: RegExpExecArray | null;
+      while ((declM = routerDeclRegex.exec(content)) !== null) {
+        routerVarNames.add(declM[1]);
+      }
+
+      // Add any variable in file ending with Router or Route (e.g. productRouter)
+      const routeWordRegex = /\b([a-zA-Z0-9_$]*(?:router|route))\b/gi;
+      let wordM: RegExpExecArray | null;
+      while ((wordM = routeWordRegex.exec(content)) !== null) {
+        routerVarNames.add(wordM[1]);
+      }
+
+      const routerPattern = Array.from(routerVarNames)
+        .map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+        .join("|");
+
       const lines = content.split(/\r?\n/);
-      const routeRegex =
-        /(?:router|app)\.(get|post|put|patch|delete|options|head)\s*\(\s*["'`]?([^"'`,\s)]*)["'`]?/g;
+
+      // 1. Direct route calls: router.get('/path', handler)
+      const routeRegex = new RegExp(
+        `(?:${routerPattern})\\.(get|post|put|patch|delete|options|head)\\s*\\(\\s*["'\`]?([^"'\`\\s,)]*)["'\`]?`,
+        "g"
+      );
+
+      // 2. Chained route calls: router.route('/path').get(h1).post(h2)
+      const chainedRouteRegex = new RegExp(
+        `(?:${routerPattern})\\.route\\s*\\(\\s*["'\`]?([^"'\`\\s,)]*)["'\`]?\\s*\\)((?:\\s*\\.(?:get|post|put|patch|delete|options|head)\\s*\\([^)]*\\))+)`,
+        "g"
+      );
+
+      const processEndpoint = (
+        method: HttpMethod,
+        subPath: string,
+        lineIndex: number
+      ) => {
+        let fullRoutePath = cleanPath(
+          prefix ? `${prefix}/${subPath || "/"}` : (subPath || "/")
+        );
+        if (!fullRoutePath.startsWith("/")) {
+          fullRoutePath = "/" + fullRoutePath;
+        }
+        fullRoutePath = normalizeDynamicParam(fullRoutePath);
+
+        const commentInfo = this.extractPrecedingComment(lines, lineIndex);
+
+        const derivedCat = this.deriveCategoryFromPath(fullRoutePath);
+        const isEntryFile = /^(?:index|app|server|main)$/i.test(resourceBase);
+        const fileCat = resourceBase && !isEntryFile ? resourceBase.charAt(0).toUpperCase() + resourceBase.slice(1) : "";
+        const category = derivedCat || fileCat || "General";
+
+        const pathParams = extractPathParams(fullRoutePath);
+        const handlerSnippet = lines
+          .slice(lineIndex, Math.min(lines.length, lineIndex + 35))
+          .join("\n");
+        const queryParams = this.extractQueryParams(handlerSnippet, commentInfo.rawComment);
+        const requestBody = this.extractRequestBody(
+          method,
+          fullRoutePath,
+          handlerSnippet,
+          commentInfo.rawComment
+        );
+        const responses = this.extractResponses(
+          method,
+          fullRoutePath,
+          handlerSnippet,
+          commentInfo.rawComment
+        );
+
+        const fullUrl = `${baseUrl}${fullRoutePath}`;
+        const howToUse = generateHowToUseSnippets(
+          method,
+          fullUrl,
+          requestBody?.sampleJson
+        );
+
+        const name = commentInfo.title || `${method} ${fullRoutePath}`;
+        const fileSlug = fileBaseName.toLowerCase().replace(/[^a-z0-9]/g, "-");
+
+        endpoints.push({
+          id: `exp-${fileSlug}-${method.toLowerCase()}-${fullRoutePath.replace(/[^a-zA-Z0-9]/g, "-")}-${lineIndex + 1}`,
+          method,
+          path: fullRoutePath,
+          name,
+          description: commentInfo.description || undefined,
+          category: category.charAt(0).toUpperCase() + category.slice(1),
+          sourceFile: relativePath,
+          sourceLine: lineIndex + 1,
+          pathParams,
+          queryParams,
+          headers: [
+            { key: "Content-Type", value: "application/json" },
+            { key: "Accept", value: "application/json" },
+          ],
+          requestBody,
+          responses,
+          howToUse,
+          framework: "express",
+        });
+      };
 
       for (let i = 0; i < lines.length; i++) {
         const line = lines[i];
+
+        // Match direct route definitions
         let match: RegExpExecArray | null;
         routeRegex.lastIndex = 0;
-
         while ((match = routeRegex.exec(line)) !== null) {
           const method = match[1].toUpperCase() as HttpMethod;
           const subPath = match[2] || "/";
+          processEndpoint(method, subPath, i);
+        }
 
-          // Calculate full route path
-          let fullRoutePath = cleanPath(
-            prefix ? `${prefix}/${subPath}` : subPath
-          );
-          if (!fullRoutePath.startsWith("/")) {
-            fullRoutePath = "/" + fullRoutePath;
+        // Match chained route definitions: router.route('/path').get(...).post(...)
+        let chainedMatch: RegExpExecArray | null;
+        chainedRouteRegex.lastIndex = 0;
+        while ((chainedMatch = chainedRouteRegex.exec(line)) !== null) {
+          const subPath = chainedMatch[1] || "/";
+          const chainPart = chainedMatch[2];
+          const chainMethodRegex = /\.(get|post|put|patch|delete|options|head)\s*\(/g;
+          let methodM: RegExpExecArray | null;
+          while ((methodM = chainMethodRegex.exec(chainPart)) !== null) {
+            const method = methodM[1].toUpperCase() as HttpMethod;
+            processEndpoint(method, subPath, i);
           }
-          fullRoutePath = normalizeDynamicParam(fullRoutePath);
-
-          // Extract documentation comments right above line
-          const commentInfo = this.extractPrecedingComment(lines, i);
-
-          // Category derived from file name or route prefix
-          const category =
-            this.deriveCategoryFromPath(fullRoutePath) ||
-            fileBaseName.replace(/Routes?|Controller/i, "") ||
-            "General";
-
-          // Path params
-          const pathParams = extractPathParams(fullRoutePath);
-
-          // Analyze nearby handler lines for req.body, req.query, status codes
-          const handlerSnippet = lines.slice(i, Math.min(lines.length, i + 35)).join("\n");
-          const queryParams = this.extractQueryParams(handlerSnippet, commentInfo.rawComment);
-          const requestBody = this.extractRequestBody(method, fullRoutePath, handlerSnippet, commentInfo.rawComment);
-          const responses = this.extractResponses(method, fullRoutePath, handlerSnippet, commentInfo.rawComment);
-
-          const fullUrl = `${baseUrl}${fullRoutePath}`;
-          const howToUse = generateHowToUseSnippets(
-            method,
-            fullUrl,
-            requestBody?.sampleJson
-          );
-
-          const name =
-            commentInfo.title ||
-            `${method} ${fullRoutePath}`;
-
-          endpoints.push({
-            id: `exp-${method.toLowerCase()}-${fullRoutePath.replace(/[^a-zA-Z0-9]/g, "-")}-${i + 1}`,
-            method,
-            path: fullRoutePath,
-            name,
-            description: commentInfo.description || undefined,
-            category: category.charAt(0).toUpperCase() + category.slice(1),
-            sourceFile: relativePath,
-            sourceLine: i + 1,
-            pathParams,
-            queryParams,
-            headers: [
-              { key: "Content-Type", value: "application/json" },
-              { key: "Accept", value: "application/json" },
-            ],
-            requestBody,
-            responses,
-            howToUse,
-            framework: "express",
-          });
         }
       }
     } catch {
@@ -1356,13 +1592,23 @@ export class ApiDiscoveryService {
    * /api/processes -> "Processes"
    */
   private deriveCategoryFromPath(routePath: string): string {
-    const segments = routePath.split("/").filter(Boolean);
-    if (segments.length === 0) return "General";
-    if (segments[0] === "api" && segments.length > 1) {
+    const segments = routePath
+      .split("/")
+      .filter(
+        (s) =>
+          s.length > 0 &&
+          !s.startsWith(":") &&
+          !s.startsWith("{") &&
+          !s.startsWith("[") &&
+          !s.startsWith("*")
+      );
+    if (segments.length === 0) return "";
+    if (segments[0].toLowerCase() === "api" && segments.length > 1) {
       const seg = segments[1];
       return seg.charAt(0).toUpperCase() + seg.slice(1);
     }
     const first = segments[0];
+    if (first.toLowerCase() === "api") return "";
     return first.charAt(0).toUpperCase() + first.slice(1);
   }
 }

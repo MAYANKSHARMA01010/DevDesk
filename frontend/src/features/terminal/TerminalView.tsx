@@ -126,6 +126,8 @@ export function TerminalView({ isActive, initialSelection }: TerminalViewProps =
   const activeScripts = activeTab?.projectId
     ? projectScriptsCache[activeTab.projectId] || {}
     : {};
+  const scriptKeys = Object.keys(activeScripts);
+  const hasDetectedScripts = scriptKeys.length > 0;
 
   // Active process object for currently active tab
   const activeProcess = activeTab?.processId
@@ -368,9 +370,17 @@ export function TerminalView({ isActive, initialSelection }: TerminalViewProps =
         const discovered = await fetchProjectScripts(projId);
         if (!mounted) return;
         setProjectScriptsCache((prev) => ({ ...prev, [projId]: discovered }));
+        const keys = Object.keys(discovered);
+        if (keys.length === 0) {
+          updateActiveTab({ isCustom: true });
+        } else if (!activeTab?.script && keys.length > 0) {
+          const preferred = keys.find((k) => ["dev", "start", "serve", "test"].includes(k)) || keys[0];
+          updateActiveTab({ script: preferred });
+        }
       } catch {
         if (!mounted) return;
         setProjectScriptsCache((prev) => ({ ...prev, [projId]: {} }));
+        updateActiveTab({ isCustom: true });
       } finally {
         if (mounted) setLoadingScripts(false);
       }
@@ -600,11 +610,16 @@ export function TerminalView({ isActive, initialSelection }: TerminalViewProps =
   async function handleStart() {
     if (!activeTab || !activeTab.projectId) return;
 
-    const commandToRun = activeTab.isCustom ? activeTab.customCommand.trim() : "";
-    const scriptToRun = activeTab.isCustom ? "" : activeTab.script;
+    const isCustomMode = activeTab.isCustom || !hasDetectedScripts;
+    const commandToRun = isCustomMode ? activeTab.customCommand.trim() : "";
+    const scriptToRun = !isCustomMode ? activeTab.script : "";
 
     if (!commandToRun && !scriptToRun) {
-      setErrorMessage("Please select a script or enter a custom command to run.");
+      setErrorMessage(
+        hasDetectedScripts
+          ? "Please select a script or enter a custom command to run."
+          : "Please enter a command to execute in the project directory."
+      );
       return;
     }
 
@@ -786,7 +801,6 @@ export function TerminalView({ isActive, initialSelection }: TerminalViewProps =
 
   const isRunning =
     activeTab?.status === "running" || activeTab?.status === "starting";
-  const scriptKeys = Object.keys(activeScripts);
 
   return (
     <div className="flex flex-col h-full p-6 text-zinc-100 w-full overflow-hidden">
@@ -939,30 +953,36 @@ export function TerminalView({ isActive, initialSelection }: TerminalViewProps =
             </div>
 
             {/* Mode Toggle: Detected Scripts vs Custom Command */}
-            <div className="inline-flex rounded-md border border-zinc-800 bg-zinc-950 p-0.5 text-[11px]">
-              <button
-                type="button"
-                onClick={() => updateActiveTab({ isCustom: false })}
-                className={`px-2 py-0.5 rounded font-medium transition cursor-pointer ${
-                  !activeTab?.isCustom
-                    ? "bg-zinc-800 text-zinc-100 shadow-xs"
-                    : "text-zinc-400 hover:text-zinc-200"
-                }`}
-              >
-                Auto-Detected Scripts
-              </button>
-              <button
-                type="button"
-                onClick={() => updateActiveTab({ isCustom: true })}
-                className={`px-2 py-0.5 rounded font-medium transition cursor-pointer ${
-                  activeTab?.isCustom
-                    ? "bg-zinc-800 text-zinc-100 shadow-xs"
-                    : "text-zinc-400 hover:text-zinc-200"
-                }`}
-              >
+            {hasDetectedScripts ? (
+              <div className="inline-flex rounded-md border border-zinc-800 bg-zinc-950 p-0.5 text-[11px]">
+                <button
+                  type="button"
+                  onClick={() => updateActiveTab({ isCustom: false })}
+                  className={`px-2 py-0.5 rounded font-medium transition cursor-pointer ${
+                    !activeTab?.isCustom
+                      ? "bg-zinc-800 text-zinc-100 shadow-xs"
+                      : "text-zinc-400 hover:text-zinc-200"
+                  }`}
+                >
+                  Auto-Detected Scripts
+                </button>
+                <button
+                  type="button"
+                  onClick={() => updateActiveTab({ isCustom: true })}
+                  className={`px-2 py-0.5 rounded font-medium transition cursor-pointer ${
+                    activeTab?.isCustom
+                      ? "bg-zinc-800 text-zinc-100 shadow-xs"
+                      : "text-zinc-400 hover:text-zinc-200"
+                  }`}
+                >
+                  Custom Command
+                </button>
+              </div>
+            ) : (
+              <span className="px-2 py-1 rounded text-[11px] font-mono text-zinc-400 bg-zinc-900 border border-zinc-800">
                 Custom Command
-              </button>
-            </div>
+              </span>
+            )}
           </div>
 
           {/* Action buttons (Start, Stop, Restart, Clear) */}
@@ -1064,46 +1084,40 @@ export function TerminalView({ isActive, initialSelection }: TerminalViewProps =
 
         {/* Row B: Script selector OR Custom Command input */}
         <div className="pt-2 border-t border-zinc-800/60">
-          {!activeTab?.isCustom ? (
+          {loadingScripts ? (
+            <div className="flex items-center gap-2 text-xs text-zinc-500 italic py-0.5">
+              <span className="w-2.5 h-2.5 rounded-full border border-zinc-500 border-t-transparent animate-spin" />
+              <span>Scanning project files for scripts...</span>
+            </div>
+          ) : !activeTab?.isCustom && hasDetectedScripts ? (
             /* Auto-detected Scripts */
             <div className="flex flex-wrap items-center gap-2">
               <span className="text-[11px] text-zinc-400 font-medium">Detected Scripts:</span>
-
-              {loadingScripts ? (
-                <span className="text-xs text-zinc-500 italic">Scanning project files...</span>
-              ) : scriptKeys.length > 0 ? (
-                <div className="flex flex-wrap items-center gap-1.5">
-                  {scriptKeys.map((key) => {
-                    const isSelected = activeTab?.script === key;
-                    const def = activeScripts[key];
-                    return (
-                      <button
-                        key={key}
-                        onClick={() => handleSelectScript(key)}
-                        disabled={isRunning}
-                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-mono font-medium transition cursor-pointer ${
-                          isSelected
-                            ? "bg-cyan-500/20 text-cyan-200 border border-cyan-500/50 shadow-xs"
-                            : "bg-zinc-950 text-zinc-300 border border-zinc-800 hover:border-zinc-700 hover:bg-zinc-900"
-                        } disabled:opacity-50`}
-                        title={`Command: ${def}`}
-                      >
-                        <span>{getScriptIcon(key, def)}</span>
-                        <span>{key}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              ) : (
-                <span className="text-xs text-zinc-500">
-                  {activeTab?.projectId
-                    ? "No standard scripts detected. Switch to 'Custom Command' to run any command."
-                    : "Select a project above to discover scripts."}
-                </span>
-              )}
+              <div className="flex flex-wrap items-center gap-1.5">
+                {scriptKeys.map((key) => {
+                  const isSelected = activeTab?.script === key;
+                  const def = activeScripts[key];
+                  return (
+                    <button
+                      key={key}
+                      onClick={() => handleSelectScript(key)}
+                      disabled={isRunning}
+                      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-mono font-medium transition cursor-pointer ${
+                        isSelected
+                          ? "bg-cyan-500/20 text-cyan-200 border border-cyan-500/50 shadow-xs"
+                          : "bg-zinc-950 text-zinc-300 border border-zinc-800 hover:border-zinc-700 hover:bg-zinc-900"
+                      } disabled:opacity-50`}
+                      title={`Command: ${def}`}
+                    >
+                      <span>{getScriptIcon(key, def)}</span>
+                      <span>{key}</span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           ) : (
-            /* Custom Command Input */
+            /* Custom Command Input (Shown when in Custom mode OR when project has no detected scripts) */
             <div className="flex items-center gap-2">
               <span className="text-xs font-mono text-cyan-400 font-bold">&gt;_</span>
               <input

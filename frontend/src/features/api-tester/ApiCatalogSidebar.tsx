@@ -46,9 +46,32 @@ export function ApiCatalogSidebar({
   const [selectedMethod, setSelectedMethod] = useState<string>("ALL");
   const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set());
 
+  // Deduplicate endpoints by HTTP Method + Path to guarantee no duplicate cards
+  const uniqueEndpoints = useMemo(() => {
+    const map = new Map<string, DiscoveredApiEndpoint>();
+    for (const ep of endpoints) {
+      const key = `${ep.method.toUpperCase()}:${ep.path}`;
+      if (!map.has(key)) {
+        map.set(key, ep);
+      } else {
+        const existing = map.get(key)!;
+        if (existing.category === "General" && ep.category && ep.category !== "General") {
+          existing.category = ep.category;
+        }
+        if (!existing.description && ep.description) {
+          existing.description = ep.description;
+        }
+        if (!existing.requestBody && ep.requestBody) {
+          existing.requestBody = ep.requestBody;
+        }
+      }
+    }
+    return Array.from(map.values());
+  }, [endpoints]);
+
   // Filter endpoints by search query & HTTP method
   const filteredEndpoints = useMemo(() => {
-    return endpoints.filter((ep) => {
+    return uniqueEndpoints.filter((ep) => {
       const matchMethod =
         selectedMethod === "ALL" || ep.method === selectedMethod;
       const matchQuery =
@@ -60,7 +83,7 @@ export function ApiCatalogSidebar({
 
       return matchMethod && matchQuery;
     });
-  }, [endpoints, searchQuery, selectedMethod]);
+  }, [uniqueEndpoints, searchQuery, selectedMethod]);
 
   // Group filtered endpoints by category
   const groupedCategories = useMemo(() => {
@@ -93,7 +116,7 @@ export function ApiCatalogSidebar({
           <span>📑</span>
         </button>
         <span className="text-[10px] font-mono text-zinc-500 mt-4 [writing-mode:vertical-lr] tracking-widest uppercase">
-          APIs ({endpoints.length})
+          APIs ({uniqueEndpoints.length})
         </span>
       </div>
     );
@@ -108,7 +131,7 @@ export function ApiCatalogSidebar({
             Discovered APIs
           </span>
           <span className="px-1.5 py-0.2 rounded text-[10px] font-mono bg-zinc-800 text-zinc-400 border border-zinc-700">
-            {endpoints.length}
+            {uniqueEndpoints.length}
           </span>
         </div>
 
@@ -224,12 +247,12 @@ export function ApiCatalogSidebar({
                 {/* Endpoints under this category */}
                 {!isCategoryCollapsed && (
                   <div className="space-y-1 pl-1">
-                    {items.map((ep) => {
+                    {items.map((ep, epIdx) => {
                       const isActive = activeEndpointId === ep.id;
 
                       return (
                         <div
-                          key={ep.id}
+                          key={ep.id ? `${ep.id}-${epIdx}` : `ep-${epIdx}`}
                           className={`group p-2 rounded-md border transition flex flex-col gap-1 cursor-pointer ${
                             isActive
                               ? "bg-zinc-900 border-zinc-700 shadow-xs"
