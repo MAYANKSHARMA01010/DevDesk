@@ -18,17 +18,17 @@ interface ApiCatalogSidebarProps {
 function getMethodBadgeClass(method: HttpMethod): string {
   switch (method) {
     case "GET":
-      return "text-[#8BA7BE] border-[#8BA7BE]/40 bg-[rgba(139,167,190,0.12)]";
+      return "text-[#8CA9CF] border-[#8CA9CF]/40 bg-[rgba(140,169,207,0.12)]";
     case "POST":
-      return "text-[#82B58A] border-[#82B58A]/40 bg-[rgba(130,181,138,0.12)]";
+      return "text-[#77B58A] border-[#77B58A]/40 bg-[rgba(119,181,138,0.12)]";
     case "PUT":
-      return "text-[#D9AE67] border-[#D9AE67]/40 bg-[rgba(217,174,103,0.12)]";
+      return "text-[#E0B36D] border-[#E0B36D]/40 bg-[rgba(224,179,109,0.12)]";
     case "PATCH":
-      return "text-[#A6B58A] border-[#A6B58A]/40 bg-[rgba(166,181,138,0.12)]";
+      return "text-[#A6BDE0] border-[#A6BDE0]/40 bg-[rgba(166,189,224,0.12)]";
     case "DELETE":
-      return "text-[#D98279] border-[#D98279]/40 bg-[rgba(217,130,121,0.12)]";
+      return "text-[#E18B8B] border-[#E18B8B]/40 bg-[rgba(225,139,139,0.12)]";
     default:
-      return "text-[#A7AEA2] border-[#303931] bg-[#252C26]";
+      return "text-[#A5ADBA] border-[#303642] bg-[#272D38]";
   }
 }
 
@@ -255,8 +255,8 @@ export function ApiCatalogSidebar({
                           key={ep.id ? `${ep.id}-${epIdx}` : `ep-${epIdx}`}
                           className={`group p-2 rounded-md border transition flex flex-col gap-1 cursor-pointer ${
                             isActive
-                              ? "bg-zinc-900 border-zinc-700 shadow-xs"
-                              : "bg-zinc-950/60 border-zinc-900 hover:bg-zinc-900/50 hover:border-zinc-800"
+                              ? "bg-[#35465E] border-[#8CA9CF]/40 shadow-xs"
+                              : "bg-zinc-950/60 border-zinc-900 hover:bg-[#272D38]/50 hover:border-[#303642]"
                           }`}
                           onClick={() => onSelectEndpoint(ep)}
                         >
@@ -297,7 +297,7 @@ export function ApiCatalogSidebar({
                                   e.stopPropagation();
                                   onAnalyzeEndpoint(ep);
                                 }}
-                                className="px-1.5 py-0.5 rounded text-[10px] font-medium text-[#A6B58A] hover:bg-[rgba(166,181,138,0.12)] border border-[#303931] hover:border-[#A6B58A]/35 transition cursor-pointer"
+                                className="px-1.5 py-0.5 rounded text-[10px] font-medium text-[#8CA9CF] hover:bg-[rgba(140,169,207,0.12)] border border-[#303642] hover:border-[#8CA9CF]/35 transition cursor-pointer"
                                 title="View complete details analysis (request, response, how to use)"
                               >
                                 🔍 Details

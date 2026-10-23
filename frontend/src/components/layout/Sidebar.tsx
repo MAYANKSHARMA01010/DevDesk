@@ -75,7 +75,7 @@ export function Sidebar({
 }: SidebarProps) {
   if (collapsed) {
     return (
-      <aside className="w-14 border-r border-[#303931] bg-[#171B17] flex flex-col items-center py-2 shrink-0 select-none transition-all duration-200">
+      <aside className="w-14 border-r border-[#303642] bg-[#171A20] flex flex-col items-center py-2 shrink-0 select-none transition-all duration-200">
         {/* Compact Nav Item Icons */}
         <nav className="flex-1 flex flex-col items-center gap-1.5 w-full px-1.5" aria-label="DevDesk Navigation">
           {NAV_ITEMS.map((item) => {
@@ -88,13 +88,13 @@ export function Sidebar({
                 className={cn(
                   "w-10 h-10 rounded-lg flex items-center justify-center relative transition-all cursor-pointer group",
                   isActive
-                    ? "bg-[rgba(166,181,138,0.12)] text-[#A6B58A] shadow-xs border border-[#A6B58A]/35"
-                    : "text-[#A7AEA2] hover:text-[#ECEFE8] hover:bg-[#1D231E] border border-transparent"
+                    ? "bg-[#35465E] text-[#8CA9CF] shadow-xs border border-[#8CA9CF]/40"
+                    : "text-[#A5ADBA] hover:text-[#E8EBF1] hover:bg-[#272D38] border border-transparent"
                 )}
               >
                 {getNavIcon(item.id)}
                 {isActive && (
-                  <span className="absolute left-0.5 top-1/2 -translate-y-1/2 w-0.5 h-4 rounded-r bg-[#A6B58A]" />
+                  <span className="absolute left-0.5 top-1/2 -translate-y-1/2 w-0.5 h-4 rounded-r bg-[#8CA9CF]" />
                 )}
               </button>
             );
@@ -103,11 +103,11 @@ export function Sidebar({
 
         {/* Expand Sidebar Button at Bottom */}
         {onToggleCollapse && (
-          <div className="pt-2 border-t border-[#303931] w-full flex justify-center">
+          <div className="pt-2 border-t border-[#303642] w-full flex justify-center">
             <button
               onClick={onToggleCollapse}
               title="Expand Sidebar (⌘B)"
-              className="w-10 h-8 rounded-md flex items-center justify-center text-[#A7AEA2] hover:text-[#ECEFE8] hover:bg-[#1D231E] border border-transparent hover:border-[#303931] transition cursor-pointer"
+              className="w-10 h-8 rounded-md flex items-center justify-center text-[#A5ADBA] hover:text-[#E8EBF1] hover:bg-[#272D38] border border-transparent hover:border-[#303642] transition cursor-pointer"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M13 5l7 7-7 7M5 5l7 7-7 7" />
@@ -120,7 +120,7 @@ export function Sidebar({
   }
 
   return (
-    <aside className="w-56 border-r border-[#303931] bg-[#171B17] flex flex-col shrink-0 select-none transition-all duration-200">
+    <aside className="w-56 border-r border-[#303642] bg-[#171A20] flex flex-col shrink-0 select-none transition-all duration-200">
       <nav className="p-2 space-y-1 flex-1 overflow-y-auto no-scrollbar" aria-label="DevDesk Navigation">
         {NAV_ITEMS.map((item) => {
           const isActive = activeTab === item.id;
@@ -131,12 +131,12 @@ export function Sidebar({
               className={cn(
                 "w-full flex items-center justify-between px-2.5 py-2 rounded-md text-xs font-medium transition-all text-left group cursor-pointer",
                 isActive
-                  ? "bg-[rgba(166,181,138,0.12)] text-[#ECEFE8] shadow-xs border border-[#A6B58A]/35"
-                  : "text-[#A7AEA2] hover:text-[#ECEFE8] hover:bg-[#1D231E] border border-transparent"
+                  ? "bg-[#35465E] text-[#E8EBF1] shadow-xs border border-[#8CA9CF]/40"
+                  : "text-[#A5ADBA] hover:text-[#E8EBF1] hover:bg-[#272D38] border border-transparent"
               )}
             >
               <div className="flex items-center gap-2.5 min-w-0">
-                <span className={cn("transition-colors", isActive ? "text-[#A6B58A]" : "text-[#747D72] group-hover:text-[#A7AEA2]")}>
+                <span className={cn("transition-colors", isActive ? "text-[#8CA9CF]" : "text-[#7C8594] group-hover:text-[#A5ADBA]")}>
                   {getNavIcon(item.id)}
                 </span>
                 <span className="truncate">{item.label}</span>
@@ -147,15 +147,15 @@ export function Sidebar({
                     className={cn(
                       "font-mono text-[10px] px-1 py-0.5 rounded transition-colors border",
                       isActive
-                        ? "text-[#A6B58A] bg-[#252C26] border-[#A6B58A]/30"
-                        : "text-[#747D72] group-hover:text-[#A7AEA2] bg-[#252C26] border-[#303931]/60"
+                        ? "text-[#8CA9CF] bg-[#272D38] border-[#8CA9CF]/30"
+                        : "text-[#7C8594] group-hover:text-[#A5ADBA] bg-[#272D38] border-[#303642]/60"
                     )}
                   >
                     {item.shortcut}
                   </kbd>
                 )}
                 {isActive && (
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#A6B58A]" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#8CA9CF]" />
                 )}
               </div>
             </button>
@@ -165,11 +165,11 @@ export function Sidebar({
 
       {/* Footer with Collapse Control */}
       {onToggleCollapse && (
-        <div className="p-2 border-t border-[#303931] text-xs">
+        <div className="p-2 border-t border-[#303642] text-xs">
           <button
             onClick={onToggleCollapse}
             title="Collapse Sidebar (⌘B)"
-            className="w-full flex items-center justify-center gap-2 px-2.5 py-1.5 rounded-md text-[#A7AEA2] hover:text-[#ECEFE8] hover:bg-[#1D231E] border border-transparent hover:border-[#303931] transition cursor-pointer text-xs font-medium"
+            className="w-full flex items-center justify-center gap-2 px-2.5 py-1.5 rounded-md text-[#A5ADBA] hover:text-[#E8EBF1] hover:bg-[#272D38] border border-transparent hover:border-[#303642] transition cursor-pointer text-xs font-medium"
           >
             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />

@@ -388,19 +388,19 @@ export function EnvEditorView({
     null;
 
   return (
-    <div className="flex flex-col h-full p-4 sm:p-6 text-zinc-100 w-full overflow-hidden">
+    <div className="flex flex-col h-full p-4 sm:p-6 text-[#E8EBF1] w-full overflow-hidden">
       {/* 1. Header & Title with Multi-Env Actions */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3 shrink-0">
         <div>
           <div className="flex items-center gap-2">
-            <h2 className="text-xl font-semibold tracking-tight">
+            <h2 className="text-xl font-semibold tracking-tight text-[#E8EBF1]">
               Environment Variables
             </h2>
-            <span className="px-2 py-0.5 text-[10px] font-mono rounded bg-zinc-800 text-zinc-400 border border-zinc-700">
+            <span className="px-2 py-0.5 text-[10px] font-mono rounded bg-[#272D38] text-[#8CA9CF] border border-[#303642]">
               AES-Safe Local Storage
             </span>
           </div>
-          <p className="text-xs text-zinc-400 mt-0.5">
+          <p className="text-xs text-[#A5ADBA] mt-0.5">
             Multi-environment manager: inspect, validate, compare, and edit variables across projects and stages.
           </p>
         </div>
@@ -412,8 +412,8 @@ export function EnvEditorView({
             onClick={handleToggleSplitView}
             className={`px-2.5 py-1.5 rounded-md text-xs font-medium border transition flex items-center gap-1.5 cursor-pointer shadow-xs ${
               isSplitView
-                ? "bg-[rgba(166,181,138,0.12)] text-[#A6B58A] border border-[#A6B58A]/35"
-                : "text-[#ECEFE8] bg-[#252C26] hover:bg-[#303931] border-[#303931]"
+                ? "bg-[#35465E] text-[#8CA9CF] border border-[#8CA9CF]/40 shadow-xs"
+                : "text-[#E8EBF1] bg-[#272D38] hover:bg-[#303642] border-[#303642]"
             }`}
             title={
               isSplitView
@@ -427,7 +427,7 @@ export function EnvEditorView({
           {/* New Tab Button */}
           <button
             onClick={handleAddTab}
-            className="px-2.5 py-1.5 rounded-md text-xs font-semibold text-[#111411] bg-[#A6B58A] hover:bg-[#BAC7A3] border border-transparent transition flex items-center gap-1.5 cursor-pointer shadow-xs"
+            className="px-2.5 py-1.5 rounded-md text-xs font-semibold text-[#101216] bg-[#8CA9CF] hover:bg-[#A6BDE0] border border-transparent transition flex items-center gap-1.5 cursor-pointer shadow-xs"
             title="Open a new environment session tab"
           >
             <span className="text-sm font-bold leading-none">+</span>
@@ -437,7 +437,7 @@ export function EnvEditorView({
       </div>
 
       {/* 2. Multi-Env Tab Bar (Consistent with TerminalView) */}
-      <div className="flex items-center gap-1 overflow-x-auto pb-1 mb-2 border-b border-[#303931] shrink-0">
+      <div className="flex items-center gap-1 overflow-x-auto pb-1 mb-2 border-b border-[#303642] shrink-0">
         {tabs.map((tab, idx) => {
           const isActive = tab.id === activeTabId;
           const isSplitActive = isSplitView && tab.id === splitTabId;
@@ -450,10 +450,10 @@ export function EnvEditorView({
               }}
               className={`group flex items-center gap-2 px-3 py-1.5 rounded-t-md border-t border-x text-xs cursor-pointer select-none transition-all ${
                 isActive
-                  ? "bg-[#1D231E] border-t-2 border-t-[#A6B58A] border-x-[#303931] border-b-0 text-[#ECEFE8] font-medium shadow-xs"
+                  ? "bg-[#1D2129] border-t-2 border-t-[#8CA9CF] border-x-[#303642] border-b-0 text-[#E8EBF1] font-medium shadow-xs"
                   : isSplitActive
-                  ? "bg-[#1D231E] border-t border-x-[#303931] text-[#A6B58A] font-medium"
-                  : "bg-[#171B17]/60 border-transparent text-[#A7AEA2] hover:text-[#ECEFE8] hover:bg-[#1D231E]/50"
+                  ? "bg-[#1D2129] border-t border-x-[#303642] text-[#8CA9CF] font-medium"
+                  : "bg-[#171A20] border-transparent text-[#A5ADBA] hover:text-[#E8EBF1] hover:bg-[#272D38]"
               }`}
               title={`Click to switch. Double-click to rename.\n${
                 tab.isDirty ? "Status: Unsaved changes" : "Status: Clean"
@@ -463,7 +463,7 @@ export function EnvEditorView({
               <span className="flex h-2 w-2 shrink-0 items-center justify-center">
                 <span
                   className={`inline-flex rounded-full h-1.5 w-1.5 ${
-                    tab.isDirty ? "bg-[#D9AE67]" : "bg-[#82B58A]"
+                    tab.isDirty ? "bg-[#E0B36D]" : "bg-[#77B58A]"
                   }`}
                 />
               </span>
@@ -481,7 +481,7 @@ export function EnvEditorView({
                   }}
                   autoFocus
                   onClick={(e) => e.stopPropagation()}
-                  className="px-1 py-0.5 rounded bg-zinc-800 text-zinc-100 border border-zinc-600 text-xs w-32 focus:outline-none"
+                  className="px-1 py-0.5 rounded bg-[#272D38] text-[#E8EBF1] border border-[#303642] text-xs w-32 focus:outline-none focus:border-[#8CA9CF]"
                 />
               ) : (
                 <span
@@ -495,7 +495,7 @@ export function EnvEditorView({
 
               {/* Split Indicator Tag if in split view */}
               {isSplitView && (
-                <span className="text-[9px] px-1 py-0.2 rounded font-sans uppercase tracking-tight text-zinc-400">
+                <span className="text-[9px] px-1 py-0.2 rounded font-sans uppercase tracking-tight text-[#7C8594]">
                   {tab.id === activeTabId
                     ? "Left"
                     : tab.id === splitTabId
@@ -509,7 +509,7 @@ export function EnvEditorView({
                 <button
                   type="button"
                   onClick={(e) => handleCloseTab(tab.id, e)}
-                  className="opacity-0 group-hover:opacity-100 hover:bg-zinc-700/80 p-0.5 rounded text-zinc-400 hover:text-zinc-100 transition-opacity ml-1 cursor-pointer"
+                  className="opacity-0 group-hover:opacity-100 hover:bg-[#303642] p-0.5 rounded text-[#7C8594] hover:text-[#E8EBF1] transition-opacity ml-1 cursor-pointer"
                   title="Close environment session"
                 >
                   <span className="text-xs leading-none">✕</span>
@@ -522,7 +522,7 @@ export function EnvEditorView({
         {/* Quick Add Tab Button */}
         <button
           onClick={handleAddTab}
-          className="px-2 py-1.5 rounded-t-lg text-zinc-500 hover:text-zinc-200 hover:bg-zinc-900/40 transition text-xs font-bold cursor-pointer"
+          className="px-2 py-1.5 rounded-t-lg text-[#7C8594] hover:text-[#E8EBF1] hover:bg-[#272D38] transition text-xs font-bold cursor-pointer"
           title="Open new environment session"
         >
           +
@@ -535,16 +535,16 @@ export function EnvEditorView({
           /* Split View: Dual Pane Side-by-Side */
           <div className="flex-1 flex flex-col md:flex-row h-full min-h-0 gap-3 overflow-hidden">
             {/* Left Pane (Primary Active Tab) */}
-            <div className="flex-1 flex flex-col h-full min-h-0 border border-zinc-800 rounded-lg overflow-hidden bg-zinc-950/70">
-              <div className="px-3 py-1.5 bg-zinc-900/90 border-b border-zinc-800 flex items-center justify-between text-xs font-mono text-zinc-300 shrink-0">
+            <div className="flex-1 flex flex-col h-full min-h-0 border border-[#303642] rounded-lg overflow-hidden bg-[#1D2129]">
+              <div className="px-3 py-1.5 bg-[#171A20] border-b border-[#303642] flex items-center justify-between text-xs font-mono text-[#E8EBF1] shrink-0">
                 <div className="flex items-center gap-2">
-                  <span className="font-semibold text-[#A6B58A]">Left Pane:</span>
-                  <span className="text-zinc-100 font-medium">
+                  <span className="font-semibold text-[#8CA9CF]">Left Pane:</span>
+                  <span className="text-[#E8EBF1] font-medium">
                     {activeTab?.title || "Active Session"}
                   </span>
                 </div>
                 {activeTab?.isDirty && (
-                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-950/70 text-amber-400 border border-amber-800/60 font-sans">
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#E0B36D]/15 text-[#E0B36D] border border-[#E0B36D]/30 font-sans">
                     Unsaved Changes
                   </span>
                 )}
@@ -570,16 +570,16 @@ export function EnvEditorView({
             </div>
 
             {/* Right Pane (Secondary Split Tab) */}
-            <div className="flex-1 flex flex-col h-full min-h-0 border border-zinc-800 rounded-lg overflow-hidden bg-zinc-950/70">
-              <div className="px-3 py-1.5 bg-zinc-900/90 border-b border-zinc-800 flex items-center justify-between text-xs font-mono text-zinc-300 shrink-0">
+            <div className="flex-1 flex flex-col h-full min-h-0 border border-[#303642] rounded-lg overflow-hidden bg-[#1D2129]">
+              <div className="px-3 py-1.5 bg-[#171A20] border-b border-[#303642] flex items-center justify-between text-xs font-mono text-[#E8EBF1] shrink-0">
                 <div className="flex items-center gap-2">
-                  <span className="font-semibold text-emerald-400">
+                  <span className="font-semibold text-[#8CA9CF]">
                     Right Pane:
                   </span>
                   <select
                     value={secondaryTab?.id || ""}
                     onChange={(e) => setSplitTabId(e.target.value)}
-                    className="px-2 py-0.5 bg-zinc-950 border border-zinc-700 rounded text-xs text-zinc-200 focus:outline-none focus:border-zinc-500 font-mono"
+                    className="px-2 py-0.5 bg-[#272D38] border border-[#303642] rounded text-xs text-[#E8EBF1] focus:outline-none focus:border-[#8CA9CF] font-mono"
                   >
                     {tabs.map((t) => (
                       <option key={t.id} value={t.id}>
@@ -589,7 +589,7 @@ export function EnvEditorView({
                   </select>
                 </div>
                 {secondaryTab?.isDirty && (
-                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-950/70 text-amber-400 border border-amber-800/60 font-sans">
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#E0B36D]/15 text-[#E0B36D] border border-[#E0B36D]/30 font-sans">
                     Unsaved Changes
                   </span>
                 )}
@@ -611,11 +611,11 @@ export function EnvEditorView({
                     onMetaChange={handleTabMetaChange}
                   />
                 ) : (
-                  <div className="flex-1 flex flex-col items-center justify-center p-6 text-center text-zinc-500 text-xs">
+                  <div className="flex-1 flex flex-col items-center justify-center p-6 text-center text-[#7C8594] text-xs">
                     <p>No secondary tab selected.</p>
                     <button
                       onClick={handleAddTab}
-                      className="mt-3 px-3 py-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 rounded text-xs transition"
+                      className="mt-3 px-3 py-1 bg-[#272D38] hover:bg-[#303642] text-[#E8EBF1] border border-[#303642] rounded text-xs transition cursor-pointer"
                     >
                       + Open New Session Tab
                     </button>

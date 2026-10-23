@@ -100,29 +100,29 @@ export function SettingsView() {
   }
 
   const shortcuts = [
-    { key: `${modKey}1`, action: "Projects", desc: "Workspace projects discovery and actions" },
-    { key: `${modKey}2`, action: "Terminal", desc: "Package script runner and live stream logs" },
-    { key: `${modKey}3`, action: "Processes", desc: "Process lifecycle and TCP port detection" },
-    { key: `${modKey}4`, action: "Git", desc: "Repository status, diffs, staging, and commits" },
-    { key: `${modKey}5`, action: "API Tester", desc: "Postman-style HTTP endpoint testing" },
-    { key: `${modKey}6`, action: "Environment", desc: "Safe project .env editing and validation" },
-    { key: `${modKey}7`, action: "Database", desc: "PostgreSQL and MySQL read-only manager" },
+    { key: `${modKey}1`, action: "Projects", desc: "View workspaces & detected projects" },
+    { key: `${modKey}2`, action: "Terminal", desc: "Interactive scripts & command runner" },
+    { key: `${modKey}3`, action: "Processes", desc: "Active system process monitor" },
+    { key: `${modKey}4`, action: "Git Control", desc: "Branches, diffs, and commit manager" },
+    { key: `${modKey}5`, action: "API Tester", desc: "REST & HTTP client with catalog" },
+    { key: `${modKey}6`, action: "Database", desc: "SQLite inspector & SQL console" },
+    { key: `${modKey}7`, action: "Environment", desc: "Multi-tab atomic .env editor" },
     { key: `${modKey}B`, action: "Toggle Sidebar", desc: "Collapse or expand sidebar rail" },
     { key: `${modKey},`, action: "Settings", desc: "System diagnostics and shortcuts reference" },
   ];
 
   return (
-    <div className="h-full flex flex-col p-6 overflow-y-auto space-y-6 bg-[#111411] text-[#ECEFE8]">
+    <div className="h-full flex flex-col p-6 overflow-y-auto space-y-6 bg-[#101216] text-[#E8EBF1]">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-[#303931] pb-4">
+      <div className="flex items-center justify-between border-b border-[#303642] pb-4">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight text-[#ECEFE8] flex items-center gap-2.5">
+          <h1 className="text-xl font-semibold tracking-tight text-[#E8EBF1] flex items-center gap-2.5">
             Settings & Diagnostics
-            <span className="text-xs px-2 py-0.5 rounded-md bg-[#252C26] border border-[#303931] text-[#A7AEA2] font-mono">
+            <span className="text-xs px-2 py-0.5 rounded-md bg-[#272D38] border border-[#303642] text-[#A5ADBA] font-mono">
               v{diagnostics?.version || "1.0.0"}
             </span>
           </h1>
-          <p className="text-xs text-[#A7AEA2] mt-1">
+          <p className="text-xs text-[#A5ADBA] mt-1">
             System runtime information, local persistence locations, and keyboard shortcuts.
           </p>
         </div>
@@ -132,13 +132,13 @@ export function SettingsView() {
             type="button"
             onClick={handleTestPing}
             disabled={pinging || !diagnostics}
-            className="px-3 py-1.5 rounded-md bg-[#252C26] hover:bg-[#303931] text-xs font-medium text-[#ECEFE8] border border-[#303931] transition flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
+            className="px-3 py-1.5 rounded-md bg-[#272D38] hover:bg-[#303642] text-xs font-medium text-[#E8EBF1] border border-[#303642] transition flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
             title="Ping backend health endpoint to measure roundtrip latency"
           >
             {pinging ? (
-              <span className="w-3 h-3 border-2 border-[#A6B58A] border-t-transparent rounded-full animate-spin" />
+              <span className="w-3 h-3 border-2 border-[#8CA9CF] border-t-transparent rounded-full animate-spin" />
             ) : (
-              <span className="w-1.5 h-1.5 rounded-full bg-[#A6B58A]" />
+              <span className="w-1.5 h-1.5 rounded-full bg-[#8CA9CF]" />
             )}
             <span>
               {pingLatency !== null ? `${pingLatency}ms Ping` : "Test Latency"}
@@ -149,16 +149,16 @@ export function SettingsView() {
             type="button"
             onClick={loadDiagnostics}
             disabled={loading}
-            className="px-3 py-1.5 rounded-md bg-[#A6B58A] hover:bg-[#BAC7A3] text-xs font-medium text-[#111411] border border-transparent transition flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
+            className="px-3 py-1.5 rounded-md bg-[#8CA9CF] hover:bg-[#A6BDE0] text-xs font-medium text-[#101216] border border-transparent transition flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
           >
             {loading ? (
               <>
-                <span className="w-3 h-3 border-2 border-[#111411] border-t-transparent rounded-full animate-spin" />
+                <span className="w-3 h-3 border-2 border-[#101216] border-t-transparent rounded-full animate-spin" />
                 <span>Checking...</span>
               </>
             ) : (
               <>
-                <svg className="w-3.5 h-3.5 text-[#111411]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg className="w-3.5 h-3.5 text-[#101216]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                 </svg>
                 <span>Refresh Status</span>
@@ -170,7 +170,7 @@ export function SettingsView() {
 
       {/* Error alert if backend unreachable */}
       {error && (
-        <div className="p-3.5 rounded-lg border border-[#D98279]/50 bg-[#252C26] text-[#D98279] text-xs flex items-start gap-2.5">
+        <div className="p-3.5 rounded-lg border border-[#E18B8B]/50 bg-[#272D38] text-[#E18B8B] text-xs flex items-start gap-2.5">
           <span className="font-bold">!</span>
           <div className="flex-1">
             <span className="font-semibold">Backend Unreachable: </span>
@@ -182,17 +182,17 @@ export function SettingsView() {
       {/* Section 1: Runtime Environment */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Electron Shell Info */}
-        <div className="p-4 rounded-lg border border-[#303931] bg-[#1D231E] space-y-3">
+        <div className="p-4 rounded-lg border border-[#303642] bg-[#1D2129] space-y-3">
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-[#ECEFE8] flex items-center gap-2">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#A6B58A]" />
+            <h2 className="text-sm font-semibold text-[#E8EBF1] flex items-center gap-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#8CA9CF]" />
               Desktop Environment
             </h2>
             <span
               className={`text-[11px] px-2.5 py-0.5 rounded-full font-medium ${
                 isDesktop
-                  ? "bg-[rgba(166,181,138,0.12)] border border-[#A6B58A]/35 text-[#A6B58A]"
-                  : "bg-[rgba(217,174,103,0.12)] border border-[#D9AE67]/35 text-[#D9AE67]"
+                  ? "bg-[rgba(140,169,207,0.12)] border border-[#8CA9CF]/35 text-[#8CA9CF]"
+                  : "bg-[rgba(224,179,109,0.12)] border border-[#E0B36D]/35 text-[#E0B36D]"
               }`}
             >
               {isDesktop ? "Electron Native Shell" : "Web Browser Mode"}
@@ -200,38 +200,38 @@ export function SettingsView() {
           </div>
 
           <div className="space-y-2 text-xs">
-            <div className="flex justify-between py-1 border-b border-[#303931]">
-              <span className="text-[#A7AEA2]">Electron Version:</span>
-              <span className="font-mono text-[#ECEFE8]">
+            <div className="flex justify-between py-1 border-b border-[#303642]">
+              <span className="text-[#A5ADBA]">Electron Version:</span>
+              <span className="font-mono text-[#E8EBF1]">
                 {electronVersions?.electron || (isDesktop ? "Available" : "N/A")}
               </span>
             </div>
-            <div className="flex justify-between py-1 border-b border-[#303931]">
-              <span className="text-[#A7AEA2]">Chromium Version:</span>
-              <span className="font-mono text-[#ECEFE8]">
+            <div className="flex justify-between py-1 border-b border-[#303642]">
+              <span className="text-[#A5ADBA]">Chromium Version:</span>
+              <span className="font-mono text-[#E8EBF1]">
                 {electronVersions?.chrome || "N/A"}
               </span>
             </div>
-            <div className="flex justify-between py-1 border-b border-[#303931]">
-              <span className="text-[#A7AEA2]">Desktop Node.js:</span>
-              <span className="font-mono text-[#ECEFE8]">
+            <div className="flex justify-between py-1 border-b border-[#303642]">
+              <span className="text-[#A5ADBA]">Desktop Node.js:</span>
+              <span className="font-mono text-[#E8EBF1]">
                 {electronVersions?.node || "N/A"}
               </span>
             </div>
             <div className="flex justify-between py-1">
-              <span className="text-[#A7AEA2]">Context Isolation:</span>
-              <span className="font-mono text-[#82B58A]">Active (contextIsolation: true)</span>
+              <span className="text-[#A5ADBA]">Context Isolation:</span>
+              <span className="font-mono text-[#77B58A]">Active (contextIsolation: true)</span>
             </div>
           </div>
         </div>
 
         {/* Backend API Service Info */}
-        <div className="p-4 rounded-lg border border-[#303931] bg-[#1D231E] space-y-3">
+        <div className="p-4 rounded-lg border border-[#303642] bg-[#1D2129] space-y-3">
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-[#ECEFE8] flex items-center gap-2">
+            <h2 className="text-sm font-semibold text-[#E8EBF1] flex items-center gap-2">
               <span
                 className={`w-1.5 h-1.5 rounded-full ${
-                  diagnostics ? "bg-[#82B58A]" : "bg-[#D98279]"
+                  diagnostics ? "bg-[#77B58A]" : "bg-[#E18B8B]"
                 }`}
               />
               Backend Service
@@ -239,8 +239,8 @@ export function SettingsView() {
             <span
               className={`text-[11px] px-2.5 py-0.5 rounded-full font-medium ${
                 diagnostics
-                  ? "bg-[rgba(130,181,138,0.12)] border border-[#82B58A]/35 text-[#82B58A]"
-                  : "bg-[rgba(217,130,121,0.12)] border border-[#D98279]/35 text-[#D98279]"
+                  ? "bg-[rgba(119,181,138,0.12)] border border-[#77B58A]/35 text-[#77B58A]"
+                  : "bg-[rgba(225,139,139,0.12)] border border-[#E18B8B]/35 text-[#E18B8B]"
               }`}
             >
               {diagnostics ? `Connected · ${getBackendDisplayLabel()}` : "Offline"}
@@ -248,55 +248,55 @@ export function SettingsView() {
           </div>
 
           <div className="space-y-2 text-xs">
-            <div className="flex justify-between py-1 border-b border-[#303931] items-center">
-              <span className="text-[#A7AEA2]">Target Backend API:</span>
+            <div className="flex justify-between py-1 border-b border-[#303642] items-center">
+              <span className="text-[#A5ADBA]">Target Backend API:</span>
               <div className="flex items-center gap-1.5">
-                <span className="font-mono text-[#A6B58A] break-all text-[11px] font-medium">
+                <span className="font-mono text-[#8CA9CF] break-all text-[11px] font-medium">
                   {BACKEND_URL}
                 </span>
                 <button
                   type="button"
                   onClick={() => handleCopy(BACKEND_URL, "api_url")}
-                  className="px-1.5 py-0.5 rounded text-[10px] text-[#A7AEA2] hover:text-[#ECEFE8] hover:bg-[#252C26] border border-transparent hover:border-[#303931] transition cursor-pointer"
+                  className="px-1.5 py-0.5 rounded text-[10px] text-[#A5ADBA] hover:text-[#E8EBF1] hover:bg-[#272D38] border border-transparent hover:border-[#303642] transition cursor-pointer"
                   title="Copy Target API URL"
                 >
                   {copiedKey === "api_url" ? "✓" : "Copy"}
                 </button>
               </div>
             </div>
-            <div className="flex justify-between py-1 border-b border-[#303931]">
-              <span className="text-[#A7AEA2]">Hosted API URL:</span>
-              <span className="font-mono text-[#747D72] break-all text-[11px]">
+            <div className="flex justify-between py-1 border-b border-[#303642]">
+              <span className="text-[#A5ADBA]">Hosted API URL:</span>
+              <span className="font-mono text-[#7C8594] break-all text-[11px]">
                 {HOSTED_API_URL || "(None — using local API)"}
               </span>
             </div>
-            <div className="flex justify-between py-1 border-b border-[#303931]">
-              <span className="text-[#A7AEA2]">Local API URL:</span>
-              <span className="font-mono text-[#A7AEA2] break-all text-[11px]">
+            <div className="flex justify-between py-1 border-b border-[#303642]">
+              <span className="text-[#A5ADBA]">Local API URL:</span>
+              <span className="font-mono text-[#A5ADBA] break-all text-[11px]">
                 {LOCAL_API_URL}
               </span>
             </div>
-            <div className="flex justify-between py-1 border-b border-[#303931]">
-              <span className="text-[#A7AEA2]">Backend Node.js:</span>
-              <span className="font-mono text-[#ECEFE8]">
+            <div className="flex justify-between py-1 border-b border-[#303642]">
+              <span className="text-[#A5ADBA]">Backend Node.js:</span>
+              <span className="font-mono text-[#E8EBF1]">
                 {diagnostics?.nodeVersion || "—"}
               </span>
             </div>
-            <div className="flex justify-between py-1 border-b border-[#303931]">
-              <span className="text-[#A7AEA2]">Platform:</span>
-              <span className="font-mono text-[#ECEFE8]">
+            <div className="flex justify-between py-1 border-b border-[#303642]">
+              <span className="text-[#A5ADBA]">Platform:</span>
+              <span className="font-mono text-[#E8EBF1]">
                 {diagnostics?.platform || "—"}
               </span>
             </div>
-            <div className="flex justify-between py-1 border-b border-[#303931]">
-              <span className="text-[#A7AEA2]">Process Uptime:</span>
-              <span className="font-mono text-[#ECEFE8]">
+            <div className="flex justify-between py-1 border-b border-[#303642]">
+              <span className="text-[#A5ADBA]">Process Uptime:</span>
+              <span className="font-mono text-[#E8EBF1]">
                 {diagnostics ? formatUptime(diagnostics.uptime) : "—"}
               </span>
             </div>
             <div className="flex justify-between py-1">
-              <span className="text-[#A7AEA2]">Active Managed Processes:</span>
-              <span className="font-mono text-[#A6B58A] font-semibold">
+              <span className="text-[#A5ADBA]">Active Managed Processes:</span>
+              <span className="font-mono text-[#8CA9CF] font-semibold">
                 {diagnostics !== null ? diagnostics.runningProcessesCount : "—"}
               </span>
             </div>
@@ -305,23 +305,23 @@ export function SettingsView() {
       </div>
 
       {/* Section 2: Storage & Persistence */}
-      <div className="p-4 rounded-lg border border-[#303931] bg-[#1D231E] space-y-3">
-        <h2 className="text-sm font-semibold text-[#ECEFE8] flex items-center gap-2">
-          <span className="w-1.5 h-1.5 rounded-full bg-[#A6B58A]" />
+      <div className="p-4 rounded-lg border border-[#303642] bg-[#1D2129] space-y-3">
+        <h2 className="text-sm font-semibold text-[#E8EBF1] flex items-center gap-2">
+          <span className="w-1.5 h-1.5 rounded-full bg-[#8CA9CF]" />
           Local Storage & SQLite Persistence
         </h2>
 
         <div className="space-y-3 text-xs">
           <div>
             <div className="flex items-center justify-between mb-1">
-              <span className="text-[#A7AEA2]">Application Data Directory:</span>
+              <span className="text-[#A5ADBA]">Application Data Directory:</span>
               <div className="flex items-center gap-1.5">
                 {diagnostics?.appDataDir && (
                   <>
                     <button
                       type="button"
                       onClick={() => handleCopy(diagnostics.appDataDir, "appDataDir")}
-                      className="px-2 py-0.5 rounded text-[11px] bg-[#252C26] hover:bg-[#303931] text-[#ECEFE8] border border-[#303931] transition cursor-pointer"
+                      className="px-2 py-0.5 rounded text-[11px] bg-[#272D38] hover:bg-[#303642] text-[#E8EBF1] border border-[#303642] transition cursor-pointer"
                     >
                       {copiedKey === "appDataDir" ? "✓ Copied" : "Copy Path"}
                     </button>
@@ -329,7 +329,7 @@ export function SettingsView() {
                       <button
                         type="button"
                         onClick={() => handleReveal(diagnostics.appDataDir)}
-                        className="px-2 py-0.5 rounded text-[11px] bg-[#252C26] hover:bg-[#303931] text-[#ECEFE8] border border-[#303931] transition cursor-pointer"
+                        className="px-2 py-0.5 rounded text-[11px] bg-[#272D38] hover:bg-[#303642] text-[#E8EBF1] border border-[#303642] transition cursor-pointer"
                       >
                         Reveal in Finder
                       </button>
@@ -338,9 +338,9 @@ export function SettingsView() {
                 )}
               </div>
             </div>
-            <div className="p-2.5 rounded-md bg-[#252C26] border border-[#303931] font-mono text-[#ECEFE8] break-all select-all text-xs">
+            <div className="p-2.5 rounded-md bg-[#272D38] border border-[#303642] font-mono text-[#E8EBF1] break-all select-all text-xs">
               {loading && !diagnostics?.appDataDir ? (
-                <div className="h-4 w-48 bg-[#303931]/60 rounded" />
+                <div className="h-4 w-48 bg-[#303642]/60 rounded" />
               ) : (
                 diagnostics?.appDataDir || "—"
               )}
@@ -349,14 +349,14 @@ export function SettingsView() {
 
           <div>
             <div className="flex items-center justify-between mb-1">
-              <span className="text-[#A7AEA2]">SQLite Database File:</span>
+              <span className="text-[#A5ADBA]">SQLite Database File:</span>
               <div className="flex items-center gap-1.5">
                 {diagnostics?.dbPath && (
                   <>
                     <button
                       type="button"
                       onClick={() => handleCopy(diagnostics.dbPath, "dbPath")}
-                      className="px-2 py-0.5 rounded text-[11px] bg-[#252C26] hover:bg-[#303931] text-[#ECEFE8] border border-[#303931] transition cursor-pointer"
+                      className="px-2 py-0.5 rounded text-[11px] bg-[#272D38] hover:bg-[#303642] text-[#E8EBF1] border border-[#303642] transition cursor-pointer"
                     >
                       {copiedKey === "dbPath" ? "✓ Copied" : "Copy Path"}
                     </button>
@@ -364,7 +364,7 @@ export function SettingsView() {
                       <button
                         type="button"
                         onClick={() => handleReveal(diagnostics.dbPath)}
-                        className="px-2 py-0.5 rounded text-[11px] bg-[#252C26] hover:bg-[#303931] text-[#ECEFE8] border border-[#303931] transition cursor-pointer"
+                        className="px-2 py-0.5 rounded text-[11px] bg-[#272D38] hover:bg-[#303642] text-[#E8EBF1] border border-[#303642] transition cursor-pointer"
                       >
                         Reveal in Finder
                       </button>
@@ -373,29 +373,29 @@ export function SettingsView() {
                 )}
               </div>
             </div>
-            <div className="p-2.5 rounded-md bg-[#252C26] border border-[#303931] font-mono text-[#ECEFE8] break-all select-all text-xs">
+            <div className="p-2.5 rounded-md bg-[#272D38] border border-[#303642] font-mono text-[#E8EBF1] break-all select-all text-xs">
               {loading && !diagnostics?.dbPath ? (
-                <div className="h-4 w-64 bg-[#303931]/60 rounded" />
+                <div className="h-4 w-64 bg-[#303642]/60 rounded" />
               ) : (
                 diagnostics?.dbPath || "—"
               )}
             </div>
           </div>
 
-          <div className="text-[11px] text-[#747D72] pt-1">
+          <div className="text-[11px] text-[#7C8594] pt-1">
             Note: DevDesk stores workspace roots and project metadata locally via SQLite (WAL mode). Sensitive credentials, passwords, and tokens are never persisted in the SQLite database.
           </div>
         </div>
       </div>
 
       {/* Section 3: Keyboard Shortcuts */}
-      <div className="p-4 rounded-lg border border-[#303931] bg-[#1D231E] space-y-3">
+      <div className="p-4 rounded-lg border border-[#303642] bg-[#1D2129] space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-[#ECEFE8] flex items-center gap-2">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#A6B58A]" />
+          <h2 className="text-sm font-semibold text-[#E8EBF1] flex items-center gap-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#8CA9CF]" />
             Desktop Keyboard Shortcuts
           </h2>
-          <span className="text-[11px] text-[#747D72]">
+          <span className="text-[11px] text-[#7C8594]">
             Active globally when text inputs are not focused
           </span>
         </div>
@@ -403,22 +403,22 @@ export function SettingsView() {
         <div className="overflow-x-auto">
           <table className="w-full text-xs text-left">
             <thead>
-              <tr className="border-b border-[#303931] text-[#747D72]">
+              <tr className="border-b border-[#303642] text-[#7C8594]">
                 <th className="py-2 px-3 font-medium">Shortcut</th>
                 <th className="py-2 px-3 font-medium">Target Feature</th>
                 <th className="py-2 px-3 font-medium">Description</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#303931]/50">
+            <tbody className="divide-y divide-[#303642]/50">
               {shortcuts.map((sc) => (
-                <tr key={sc.key} className="hover:bg-[#252C26]/40 transition">
+                <tr key={sc.key} className="hover:bg-[#272D38]/40 transition">
                   <td className="py-2 px-3">
-                    <kbd className="px-2 py-0.5 rounded bg-[#252C26] border border-[#303931] font-mono text-[11px] text-[#ECEFE8]">
+                    <kbd className="px-2 py-0.5 rounded bg-[#272D38] border border-[#303642] font-mono text-[11px] text-[#E8EBF1]">
                       {sc.key}
                     </kbd>
                   </td>
-                  <td className="py-2 px-3 font-medium text-[#ECEFE8]">{sc.action}</td>
-                  <td className="py-2 px-3 text-[#A7AEA2]">{sc.desc}</td>
+                  <td className="py-2 px-3 font-medium text-[#E8EBF1]">{sc.action}</td>
+                  <td className="py-2 px-3 text-[#A5ADBA]">{sc.desc}</td>
                 </tr>
               ))}
             </tbody>
@@ -427,16 +427,16 @@ export function SettingsView() {
       </div>
 
       {/* Section 4: Security & Safety Standards */}
-      <div className="p-4 rounded-lg border border-[#303931] bg-[#1D231E]/60 space-y-2">
-        <h3 className="text-xs font-semibold text-[#ECEFE8]">DevDesk Security & Isolation Guarantees</h3>
-        <ul className="text-[11px] text-[#A7AEA2] space-y-1 list-disc list-inside">
+      <div className="p-4 rounded-lg border border-[#303642] bg-[#1D2129]/60 space-y-2">
+        <h3 className="text-xs font-semibold text-[#E8EBF1]">DevDesk Security & Isolation Guarantees</h3>
+        <ul className="text-[11px] text-[#A5ADBA] space-y-1 list-disc list-inside">
           <li>Preload context isolation prevents arbitrary Node.js execution in renderer.</li>
           <li>Database queries are verified via AST parser to enforce strictly read-only SQL statements.</li>
-          <li>Environment variables are stored in project-local <code className="text-[#ECEFE8]">.env</code> files with atomic writes and timestamped backups.</li>
+          <li>Environment variables are stored in project-local <code className="text-[#E8EBF1]">.env</code> files with atomic writes and timestamped backups.</li>
           <li>Child processes and project scripts run strictly under isolated process managers with signal termination.</li>
         </ul>
         {lastRefreshed && (
-          <div className="text-[10px] text-[#747D72] pt-2 font-mono">
+          <div className="text-[10px] text-[#7C8594] pt-2 font-mono">
             Last checked: {lastRefreshed.toLocaleTimeString()}
           </div>
         )}

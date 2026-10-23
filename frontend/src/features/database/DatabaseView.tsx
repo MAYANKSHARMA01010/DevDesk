@@ -419,19 +419,19 @@ export function DatabaseView() {
   );
 
   return (
-    <div className="flex flex-col h-full text-zinc-100 p-6 overflow-hidden">
+    <div className="flex flex-col h-full text-[#E8EBF1] p-6 overflow-hidden">
       {/* Top Header: Title, Description, and Actions */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-zinc-800 shrink-0">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#303642] shrink-0">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-xl font-semibold tracking-tight text-zinc-100">
+            <h1 className="text-xl font-semibold tracking-tight text-[#E8EBF1]">
               Database Manager
             </h1>
-            <span className="px-2 py-0.5 text-[10px] font-mono rounded bg-zinc-800 text-zinc-400 border border-zinc-700">
+            <span className="px-2 py-0.5 text-[10px] font-mono rounded bg-[#272D38] text-[#8CA9CF] border border-[#303642]">
               PostgreSQL & MySQL
             </span>
           </div>
-          <p className="text-xs text-zinc-400 mt-1">
+          <p className="text-xs text-[#A5ADBA] mt-1">
             Connect to relational databases, inspect schemas & columns, and execute read-only queries with safety guards.
           </p>
         </div>
@@ -439,7 +439,7 @@ export function DatabaseView() {
         <div className="flex items-center gap-2">
           <button
             onClick={openCreateProfileModal}
-            className="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-100 border border-zinc-700 rounded-md text-xs font-medium flex items-center gap-1.5 transition-colors shadow-sm"
+            className="px-3 py-1.5 bg-[#8CA9CF] hover:bg-[#A6BDE0] text-[#101216] rounded-md text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs cursor-pointer"
           >
             <span>+</span>
             <span>New Connection</span>
@@ -448,25 +448,25 @@ export function DatabaseView() {
       </div>
 
       {/* Advisory Note */}
-      <div className="my-3 px-3.5 py-2 rounded-md bg-zinc-900/60 border border-zinc-800/80 flex items-center justify-between text-xs text-zinc-400 shrink-0">
+      <div className="my-3 px-3.5 py-2 rounded-md bg-[#1D2129] border border-[#303642] flex items-center justify-between text-xs text-[#A5ADBA] shrink-0">
         <div className="flex items-center gap-2">
           <span>🔒</span>
           <span>
-            <strong>Credential Security:</strong> Database passwords are kept strictly in memory for the active session and are never saved to SQLite or disk.
+            <strong className="text-[#E8EBF1]">Credential Security:</strong> Database passwords are kept strictly in memory for the active session and are never saved to SQLite or disk.
           </span>
         </div>
-        <span className="text-[10px] text-zinc-500 font-mono hidden md:inline">
+        <span className="text-[10px] text-[#7C8594] font-mono hidden md:inline">
           Read-Only Enforcement Enabled
         </span>
       </div>
 
       {/* Messages */}
       {errorMessage && (
-        <div className="mb-3 px-3 py-2 rounded bg-rose-950/50 border border-rose-800 text-xs text-rose-300 flex items-center justify-between shrink-0">
+        <div className="mb-3 px-3 py-2 rounded bg-[#E18B8B]/10 border border-[#E18B8B]/40 text-xs text-[#E18B8B] flex items-center justify-between shrink-0">
           <span>{errorMessage}</span>
           <button
             onClick={() => setErrorMessage(null)}
-            className="text-rose-400 hover:text-rose-200 ml-2"
+            className="text-[#E18B8B] hover:text-[#E8EBF1] ml-2 cursor-pointer"
           >
             ✕
           </button>
@@ -474,11 +474,11 @@ export function DatabaseView() {
       )}
 
       {successMessage && (
-        <div className="mb-3 px-3 py-2 rounded bg-emerald-950/50 border border-emerald-800 text-xs text-emerald-300 flex items-center justify-between shrink-0">
+        <div className="mb-3 px-3 py-2 rounded bg-[#77B58A]/10 border border-[#77B58A]/40 text-xs text-[#77B58A] flex items-center justify-between shrink-0">
           <span>{successMessage}</span>
           <button
             onClick={() => setSuccessMessage(null)}
-            className="text-emerald-400 hover:text-emerald-200 ml-2"
+            className="text-[#77B58A] hover:text-[#E8EBF1] ml-2 cursor-pointer"
           >
             ✕
           </button>
@@ -487,17 +487,17 @@ export function DatabaseView() {
 
       {/* Main Two-Panel Layout */}
       {profiles.length === 0 && !loadingProfiles ? (
-        <div className="flex-1 flex flex-col items-center justify-center border border-dashed border-zinc-800 rounded-lg p-8 bg-zinc-900/20 text-center mt-2">
-          <div className="w-12 h-12 rounded-lg bg-zinc-800 border border-zinc-700 flex items-center justify-center text-xl mb-3">
+        <div className="flex-1 flex flex-col items-center justify-center border border-dashed border-[#303642] rounded-lg p-8 bg-[#1D2129]/40 text-center mt-2">
+          <div className="w-12 h-12 rounded-lg bg-[#272D38] border border-[#303642] flex items-center justify-center text-xl mb-3">
             🗄️
           </div>
-          <h3 className="text-sm font-semibold text-zinc-200">No Saved Connections</h3>
-          <p className="text-xs text-zinc-500 mt-1 max-w-sm">
+          <h3 className="text-sm font-semibold text-[#E8EBF1]">No Saved Connections</h3>
+          <p className="text-xs text-[#7C8594] mt-1 max-w-sm">
             Add a PostgreSQL or MySQL connection profile to begin browsing schemas, tables, and executing queries.
           </p>
           <button
             onClick={openCreateProfileModal}
-            className="mt-4 px-4 py-2 bg-[#A6B58A] hover:bg-[#BAC7A3] text-[#111411] rounded text-xs font-semibold transition-colors shadow-xs"
+            className="mt-4 px-4 py-2 bg-[#8CA9CF] hover:bg-[#A6BDE0] text-[#101216] rounded text-xs font-semibold transition-colors shadow-xs cursor-pointer"
           >
             Create Connection Profile
           </button>
@@ -505,17 +505,17 @@ export function DatabaseView() {
       ) : (
         <div className="flex-1 min-h-0 grid grid-cols-1 md:grid-cols-12 gap-4 mt-1 overflow-hidden">
           {/* Left Column (Connections & Schema Explorer, col-span-4) */}
-          <div className="md:col-span-4 flex flex-col h-full bg-zinc-950 border border-zinc-800 rounded-lg overflow-hidden">
+          <div className="md:col-span-4 flex flex-col h-full bg-[#1D2129] border border-[#303642] rounded-lg overflow-hidden">
             {/* Connection Selector Header */}
-            <div className="p-3 bg-zinc-900/70 border-b border-zinc-800 shrink-0">
-              <label className="text-[11px] font-mono text-zinc-400 uppercase tracking-wider block mb-1.5">
+            <div className="p-3 bg-[#171A20] border-b border-[#303642] shrink-0">
+              <label className="text-[11px] font-mono text-[#7C8594] uppercase tracking-wider block mb-1.5">
                 Active Connection
               </label>
               <div className="flex items-center gap-2">
                 <select
                   value={selectedProfileId}
                   onChange={(e) => setSelectedProfileId(e.target.value)}
-                  className="flex-1 px-2.5 py-1.5 bg-zinc-900 border border-zinc-700 rounded text-xs text-zinc-100 focus:outline-none focus:border-zinc-500"
+                  className="flex-1 px-2.5 py-1.5 bg-[#272D38] border border-[#303642] rounded text-xs text-[#E8EBF1] focus:outline-none focus:border-[#8CA9CF]"
                 >
                   <option value="">None (Select Connection)</option>
                   {profiles.map((p) => {
@@ -531,7 +531,7 @@ export function DatabaseView() {
                 {activeProfile && (
                   <button
                     onClick={() => openEditProfileModal(activeProfile)}
-                    className="p-1.5 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 rounded text-xs transition-colors"
+                    className="p-1.5 text-[#A5ADBA] hover:text-[#E8EBF1] hover:bg-[#272D38] rounded text-xs transition-colors cursor-pointer"
                     title="Edit profile"
                   >
                     ✏️
@@ -541,7 +541,7 @@ export function DatabaseView() {
                 {activeProfile && (
                   <button
                     onClick={() => handleDeleteProfile(activeProfile.id, activeProfile.name)}
-                    className="p-1.5 text-zinc-400 hover:text-rose-400 hover:bg-zinc-800 rounded text-xs transition-colors"
+                    className="p-1.5 text-[#A5ADBA] hover:text-[#E18B8B] hover:bg-[#272D38] rounded text-xs transition-colors cursor-pointer"
                     title="Delete profile"
                   >
                     🗑️
@@ -551,14 +551,14 @@ export function DatabaseView() {
 
               {/* Connection Status & Toggle */}
               {activeProfile && (
-                <div className="mt-3 flex items-center justify-between pt-2 border-t border-zinc-800/60">
+                <div className="mt-3 flex items-center justify-between pt-2 border-t border-[#303642]">
                   <div className="flex items-center gap-2 text-xs">
                     <span
                       className={`w-2 h-2 rounded-full ${
-                        isConnected ? "bg-[#82B58A]" : "bg-[#747D72]"
+                        isConnected ? "bg-[#77B58A]" : "bg-[#7C8594]"
                       }`}
                     />
-                    <span className="text-[#ECEFE8]">
+                    <span className="text-[#E8EBF1]">
                       {isConnected
                         ? connectionStatuses[selectedProfileId]?.serverVersion || "Connected"
                         : "Disconnected"}
@@ -568,14 +568,14 @@ export function DatabaseView() {
                   {isConnected ? (
                     <button
                       onClick={handleExecuteDisconnect}
-                      className="px-2.5 py-1 text-xs text-[#D98279] hover:text-[#e09189] hover:bg-[rgba(217,130,121,0.12)] border border-[#D98279]/40 rounded transition-colors"
+                      className="px-2.5 py-1 text-xs text-[#E18B8B] hover:text-[#E18B8B] hover:bg-[#E18B8B]/10 border border-[#E18B8B]/40 rounded transition-colors cursor-pointer"
                     >
                       Disconnect
                     </button>
                   ) : (
                     <button
                       onClick={() => setShowConnectModal(true)}
-                      className="px-3 py-1 bg-[#A6B58A] hover:bg-[#BAC7A3] text-[#111411] rounded text-xs font-semibold transition-colors shadow-xs"
+                      className="px-3 py-1 bg-[#8CA9CF] hover:bg-[#A6BDE0] text-[#101216] rounded text-xs font-semibold transition-colors shadow-xs cursor-pointer"
                     >
                       Connect...
                     </button>
@@ -587,23 +587,23 @@ export function DatabaseView() {
             {/* Schema & Table Explorer */}
             <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
               {!selectedProfileId ? (
-                <div className="p-6 text-center text-zinc-500 text-xs flex-1 flex flex-col items-center justify-center">
+                <div className="p-6 text-center text-[#7C8594] text-xs flex-1 flex flex-col items-center justify-center">
                   <span>Select a connection profile from above to get started.</span>
                 </div>
               ) : !isConnected ? (
-                <div className="p-6 text-center text-zinc-500 text-xs flex-1 flex flex-col items-center justify-center">
+                <div className="p-6 text-center text-[#7C8594] text-xs flex-1 flex flex-col items-center justify-center">
                   <span>Connect to browse schemas and tables.</span>
                 </div>
               ) : (
                 <div className="flex-1 flex flex-col min-h-0">
                   {/* Schema Selector Bar */}
                   {schemas.length > 0 && (
-                    <div className="p-2.5 border-b border-zinc-800 bg-zinc-900/30 flex items-center gap-2 shrink-0">
-                      <span className="text-[11px] font-mono text-zinc-400">Schema:</span>
+                    <div className="p-2.5 border-b border-[#303642] bg-[#171A20] flex items-center gap-2 shrink-0">
+                      <span className="text-[11px] font-mono text-[#7C8594]">Schema:</span>
                       <select
                         value={selectedSchema}
                         onChange={(e) => handleSchemaChange(e.target.value)}
-                        className="flex-1 px-2 py-1 bg-zinc-900 border border-zinc-700 rounded text-xs text-zinc-200 focus:outline-none"
+                        className="flex-1 px-2 py-1 bg-[#272D38] border border-[#303642] rounded text-xs text-[#E8EBF1] focus:outline-none focus:border-[#8CA9CF]"
                       >
                         {schemas.map((s) => (
                           <option key={s.name} value={s.name}>
@@ -615,24 +615,24 @@ export function DatabaseView() {
                   )}
 
                   {/* Table Search Filter */}
-                  <div className="p-2 border-b border-zinc-800/80 shrink-0">
+                  <div className="p-2 border-b border-[#303642] shrink-0 bg-[#1D2129]">
                     <input
                       type="text"
                       placeholder="Filter tables..."
                       value={tableSearchQuery}
                       onChange={(e) => setTableSearchQuery(e.target.value)}
-                      className="w-full px-2.5 py-1 bg-zinc-900 border border-zinc-700/80 rounded text-xs text-zinc-200 placeholder:text-zinc-500 focus:outline-none"
+                      className="w-full px-2.5 py-1 bg-[#272D38] border border-[#303642] rounded text-xs text-[#E8EBF1] placeholder:text-[#7C8594] focus:outline-none focus:border-[#8CA9CF]"
                     />
                   </div>
 
                   {/* Table List */}
-                  <div className="flex-1 overflow-y-auto p-1 divide-y divide-zinc-900">
+                  <div className="flex-1 overflow-y-auto p-1 divide-y divide-[#303642]/50">
                     {loadingExplorer ? (
-                      <div className="p-4 text-center text-zinc-500 text-xs">
+                      <div className="p-4 text-center text-[#7C8594] text-xs">
                         Loading schemas and tables...
                       </div>
                     ) : filteredTables.length === 0 ? (
-                      <div className="p-4 text-center text-zinc-500 text-xs">
+                      <div className="p-4 text-center text-[#7C8594] text-xs">
                         No tables found in schema "{selectedSchema}".
                       </div>
                     ) : (
@@ -642,18 +642,18 @@ export function DatabaseView() {
                           <button
                             key={tbl.name}
                             onClick={() => handleSelectTable(tbl.name)}
-                            className={`w-full text-left px-2.5 py-1.5 rounded text-xs flex items-center justify-between transition-colors ${
+                            className={`w-full text-left px-2.5 py-1.5 rounded text-xs flex items-center justify-between transition-colors cursor-pointer ${
                               isSelected
-                                ? "bg-[rgba(166,181,138,0.12)] text-[#ECEFE8] font-medium border border-[#A6B58A]/35"
-                                : "text-[#A7AEA2] hover:bg-[#252C26] hover:text-[#ECEFE8] border border-transparent"
+                                ? "bg-[#35465E] text-[#8CA9CF] font-medium border border-[#8CA9CF]/40 shadow-xs"
+                                : "text-[#A5ADBA] hover:bg-[#272D38] hover:text-[#E8EBF1] border border-transparent"
                             }`}
                           >
                             <span className="font-mono truncate">{tbl.name}</span>
                             <span
                               className={`text-[9px] px-1 py-0.5 rounded uppercase font-mono ${
                                 tbl.type === "view"
-                                  ? "bg-[rgba(139,167,190,0.15)] text-[#8BA7BE] border border-[#8BA7BE]/40"
-                                  : "bg-[#252C26] text-[#747D72]"
+                                  ? "bg-[#8CA9CF]/15 text-[#8CA9CF] border border-[#8CA9CF]/30"
+                                  : "bg-[#272D38] text-[#7C8594] border border-[#303642]"
                               }`}
                             >
                               {tbl.type}
@@ -669,16 +669,16 @@ export function DatabaseView() {
           </div>
 
           {/* Right Column (Tabs: Query Editor, Columns, Sample Data, col-span-8) */}
-          <div className="md:col-span-8 flex flex-col h-full bg-zinc-950 border border-zinc-800 rounded-lg overflow-hidden">
+          <div className="md:col-span-8 flex flex-col h-full bg-[#1D2129] border border-[#303642] rounded-lg overflow-hidden">
             {/* View Mode Tabs */}
-            <div className="flex items-center justify-between px-3 py-2 bg-zinc-900/70 border-b border-zinc-800 shrink-0">
+            <div className="flex items-center justify-between px-3 py-2 bg-[#171A20] border-b border-[#303642] shrink-0">
               <div className="flex items-center gap-1">
                 <button
                   onClick={() => setTableTab("query")}
-                  className={`px-3 py-1 rounded text-xs transition-colors ${
+                  className={`px-3 py-1 rounded text-xs transition-colors cursor-pointer ${
                     tableTab === "query"
-                      ? "bg-[rgba(166,181,138,0.12)] text-[#A6B58A] font-medium border border-[#A6B58A]/35 shadow-xs"
-                      : "text-[#A7AEA2] hover:text-[#ECEFE8] hover:bg-[#252C26]"
+                      ? "bg-[#35465E] text-[#8CA9CF] font-medium border border-[#8CA9CF]/40 shadow-xs"
+                      : "text-[#A5ADBA] hover:text-[#E8EBF1] hover:bg-[#272D38]"
                   }`}
                 >
                   SQL Query Editor
@@ -688,8 +688,8 @@ export function DatabaseView() {
                   disabled={!selectedTable}
                   className={`px-3 py-1 rounded text-xs transition-colors disabled:opacity-40 cursor-pointer ${
                     tableTab === "columns"
-                      ? "bg-[rgba(166,181,138,0.12)] text-[#A6B58A] font-medium border border-[#A6B58A]/35 shadow-xs"
-                      : "text-[#A7AEA2] hover:text-[#ECEFE8] hover:bg-[#252C26]"
+                      ? "bg-[#35465E] text-[#8CA9CF] font-medium border border-[#8CA9CF]/40 shadow-xs"
+                      : "text-[#A5ADBA] hover:text-[#E8EBF1] hover:bg-[#272D38]"
                   }`}
                 >
                   Columns {selectedTable && `(${columns.length})`}
@@ -699,8 +699,8 @@ export function DatabaseView() {
                   disabled={!selectedTable}
                   className={`px-3 py-1 rounded text-xs transition-colors disabled:opacity-40 cursor-pointer ${
                     tableTab === "sample"
-                      ? "bg-[rgba(166,181,138,0.12)] text-[#A6B58A] font-medium border border-[#A6B58A]/35 shadow-xs"
-                      : "text-[#A7AEA2] hover:text-[#ECEFE8] hover:bg-[#252C26]"
+                      ? "bg-[#35465E] text-[#8CA9CF] font-medium border border-[#8CA9CF]/40 shadow-xs"
+                      : "text-[#A5ADBA] hover:text-[#E8EBF1] hover:bg-[#272D38]"
                   }`}
                 >
                   Sample Data {selectedTable && `(${sampleData?.rows.length || 0})`}
@@ -708,8 +708,8 @@ export function DatabaseView() {
               </div>
 
               {selectedTable && (
-                <div className="text-xs text-zinc-400 font-mono hidden sm:inline">
-                  Table: <strong className="text-zinc-200">{selectedTable}</strong>
+                <div className="text-xs text-[#7C8594] font-mono hidden sm:inline">
+                  Table: <strong className="text-[#E8EBF1]">{selectedTable}</strong>
                 </div>
               )}
             </div>
@@ -719,12 +719,12 @@ export function DatabaseView() {
               <div className="flex-1 flex flex-col min-h-0 p-4">
                 {/* Editor Box */}
                 <div className="flex flex-col flex-1 min-h-[160px] max-h-[240px] mb-3">
-                  <div className="flex items-center justify-between mb-1.5 text-xs text-zinc-400">
+                  <div className="flex items-center justify-between mb-1.5 text-xs text-[#7C8594]">
                     <span className="font-mono">Read-Only SQL (SELECT statements only)</span>
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() => setSqlQuery("")}
-                        className="text-zinc-400 hover:text-zinc-200 transition-colors"
+                        className="text-[#7C8594] hover:text-[#E8EBF1] transition-colors cursor-pointer"
                       >
                         Clear
                       </button>
@@ -736,16 +736,16 @@ export function DatabaseView() {
                     placeholder="SELECT * FROM table_name LIMIT 50;"
                     spellCheck={false}
                     disabled={!isConnected}
-                    className="flex-1 w-full bg-[#252C26] font-mono text-xs text-[#ECEFE8] p-3 border border-[#303931] rounded-md resize-none focus:outline-none focus:border-[#A6B58A] disabled:opacity-50 leading-relaxed"
+                    className="flex-1 w-full bg-[#101216] font-mono text-xs text-[#E8EBF1] p-3 border border-[#303642] rounded-md resize-none focus:outline-none focus:border-[#8CA9CF] disabled:opacity-50 leading-relaxed"
                   />
                   <div className="flex items-center justify-between mt-2">
-                    <span className="text-[11px] text-[#747D72]">
+                    <span className="text-[11px] text-[#7C8594]">
                       Ctrl+Enter or Cmd+Enter to execute.
                     </span>
                     <button
                       onClick={handleRunQuery}
                       disabled={!isConnected || queryExecuting || !sqlQuery.trim()}
-                      className="px-4 py-1.5 bg-[#A6B58A] hover:bg-[#BAC7A3] disabled:bg-[#252C26] disabled:text-[#747D72] text-[#111411] rounded text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs cursor-pointer"
+                      className="px-4 py-1.5 bg-[#8CA9CF] hover:bg-[#A6BDE0] disabled:bg-[#272D38] disabled:text-[#7C8594] text-[#101216] rounded text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs cursor-pointer"
                     >
                       {queryExecuting ? "Executing..." : "Run Query"}
                     </button>
@@ -754,17 +754,17 @@ export function DatabaseView() {
 
                 {/* Error Banner */}
                 {queryError && (
-                  <div className="mb-3 p-2.5 rounded bg-rose-950/50 border border-rose-800 text-xs text-rose-300 font-mono shrink-0">
+                  <div className="mb-3 p-2.5 rounded bg-[#E18B8B]/10 border border-[#E18B8B]/40 text-xs text-[#E18B8B] font-mono shrink-0">
                     {queryError}
                   </div>
                 )}
 
                 {/* Query Results Table */}
-                <div className="flex-1 flex flex-col min-h-0 border border-zinc-800 rounded-md overflow-hidden bg-zinc-950">
-                  <div className="px-3 py-1.5 bg-zinc-900/60 border-b border-zinc-800 flex items-center justify-between text-xs text-zinc-400 font-mono shrink-0">
+                <div className="flex-1 flex flex-col min-h-0 border border-[#303642] rounded-md overflow-hidden bg-[#101216]">
+                  <div className="px-3 py-1.5 bg-[#171A20] border-b border-[#303642] flex items-center justify-between text-xs text-[#7C8594] font-mono shrink-0">
                     <span>
                       Results:{" "}
-                      <strong className="text-zinc-200">
+                      <strong className="text-[#E8EBF1]">
                         {queryResult ? `${queryResult.rowCount} rows` : "No query executed"}
                       </strong>
                     </span>
@@ -772,7 +772,7 @@ export function DatabaseView() {
                       <div className="flex items-center gap-3">
                         <span>Duration: {queryResult.executionTimeMs}ms</span>
                         {queryResult.truncated && (
-                          <span className="text-amber-400">Truncated (max 500 rows)</span>
+                          <span className="text-[#E0B36D]">Truncated (max 500 rows)</span>
                         )}
                       </div>
                     )}
@@ -780,16 +780,16 @@ export function DatabaseView() {
 
                   <div className="flex-1 overflow-auto">
                     {!queryResult ? (
-                      <div className="p-8 text-center text-zinc-500 text-xs">
+                      <div className="p-8 text-center text-[#7C8594] text-xs">
                         Enter a SELECT query above and click "Run Query" to inspect results.
                       </div>
                     ) : queryResult.rows.length === 0 ? (
-                      <div className="p-8 text-center text-zinc-500 text-xs font-mono">
+                      <div className="p-8 text-center text-[#7C8594] text-xs font-mono">
                         Query returned 0 rows.
                       </div>
                     ) : (
                       <table className="w-full text-left border-collapse text-xs font-mono">
-                        <thead className="sticky top-0 bg-zinc-900 text-zinc-400 border-b border-zinc-800 shadow-sm">
+                        <thead className="sticky top-0 bg-[#171A20] text-[#7C8594] border-b border-[#303642] shadow-sm">
                           <tr>
                             {queryResult.columns.map((col) => (
                               <th key={col} className="py-2 px-3 whitespace-nowrap font-medium">
@@ -798,13 +798,13 @@ export function DatabaseView() {
                             ))}
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-zinc-800/60 text-zinc-300">
+                        <tbody className="divide-y divide-[#303642]/60 text-[#E8EBF1]">
                           {queryResult.rows.map((row, idx) => (
-                            <tr key={idx} className="hover:bg-zinc-900/40 transition-colors">
+                            <tr key={idx} className="hover:bg-[#272D38]/50 transition-colors">
                               {queryResult.columns.map((col) => (
                                 <td key={col} className="py-1.5 px-3 whitespace-nowrap max-w-xs truncate">
                                   {row[col] === null ? (
-                                    <span className="text-zinc-500 italic">NULL</span>
+                                    <span className="text-[#7C8594] italic">NULL</span>
                                   ) : (
                                     String(row[col])
                                   )}
@@ -825,7 +825,7 @@ export function DatabaseView() {
               <div className="flex-1 flex flex-col min-h-0 overflow-y-auto p-4">
                 <table className="w-full text-left border-collapse text-xs font-mono">
                   <thead>
-                    <tr className="border-b border-zinc-800 text-zinc-400">
+                    <tr className="border-b border-[#303642] text-[#7C8594]">
                       <th className="py-2 px-3">Column</th>
                       <th className="py-2 px-3">Type</th>
                       <th className="py-2 px-3">Nullable</th>
@@ -833,30 +833,30 @@ export function DatabaseView() {
                       <th className="py-2 px-3">Default</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-[#303931] text-[#ECEFE8]">
+                  <tbody className="divide-y divide-[#303642] text-[#E8EBF1]">
                     {columns.map((col) => (
-                      <tr key={col.name} className="hover:bg-[#252C26]/50">
-                        <td className="py-2 px-3 font-semibold text-[#ECEFE8] flex items-center gap-1.5">
+                      <tr key={col.name} className="hover:bg-[#272D38]/50">
+                        <td className="py-2 px-3 font-semibold text-[#E8EBF1] flex items-center gap-1.5">
                           {col.isPrimaryKey && <span title="Primary Key">🔑</span>}
                           <span>{col.name}</span>
                         </td>
-                        <td className="py-2 px-3 text-[#8BA7BE] font-mono text-xs">{col.dataType}</td>
+                        <td className="py-2 px-3 text-[#8CA9CF] font-mono text-xs">{col.dataType}</td>
                         <td className="py-2 px-3">
                           {col.isNullable ? (
-                            <span className="text-zinc-400">YES</span>
+                            <span className="text-[#A5ADBA]">YES</span>
                           ) : (
-                            <span className="text-amber-400/90 font-medium">NO</span>
+                            <span className="text-[#E0B36D] font-medium">NO</span>
                           )}
                         </td>
                         <td className="py-2 px-3">
                           {col.isPrimaryKey ? (
-                            <span className="text-amber-400 font-bold">PRIMARY KEY</span>
+                            <span className="text-[#E0B36D] font-bold">PRIMARY KEY</span>
                           ) : (
-                            <span className="text-zinc-600">-</span>
+                            <span className="text-[#7C8594]">-</span>
                           )}
                         </td>
-                        <td className="py-2 px-3 text-zinc-400">
-                          {col.defaultValue || <span className="text-zinc-600">-</span>}
+                        <td className="py-2 px-3 text-[#A5ADBA]">
+                          {col.defaultValue || <span className="text-[#7C8594]">-</span>}
                         </td>
                       </tr>
                     ))}
@@ -869,12 +869,12 @@ export function DatabaseView() {
             {tableTab === "sample" && (
               <div className="flex-1 flex flex-col min-h-0 overflow-auto p-4">
                 {!sampleData || sampleData.rows.length === 0 ? (
-                  <div className="p-8 text-center text-zinc-500 text-xs">
+                  <div className="p-8 text-center text-[#7C8594] text-xs">
                     Table is empty.
                   </div>
                 ) : (
                   <table className="w-full text-left border-collapse text-xs font-mono">
-                    <thead className="sticky top-0 bg-zinc-900 text-zinc-400 border-b border-zinc-800">
+                    <thead className="sticky top-0 bg-[#171A20] text-[#7C8594] border-b border-[#303642]">
                       <tr>
                         {sampleData.columns.map((col) => (
                           <th key={col} className="py-2 px-3 whitespace-nowrap font-medium">
@@ -883,13 +883,13 @@ export function DatabaseView() {
                         ))}
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-zinc-800/60 text-zinc-300">
+                    <tbody className="divide-y divide-[#303642]/60 text-[#E8EBF1]">
                       {sampleData.rows.map((row, idx) => (
-                        <tr key={idx} className="hover:bg-zinc-900/40">
+                        <tr key={idx} className="hover:bg-[#272D38]/50">
                           {sampleData.columns.map((col) => (
                             <td key={col} className="py-1.5 px-3 whitespace-nowrap max-w-xs truncate">
                               {row[col] === null ? (
-                                <span className="text-zinc-500 italic">NULL</span>
+                                <span className="text-[#7C8594] italic">NULL</span>
                               ) : (
                                 String(row[col])
                               )}
@@ -908,19 +908,19 @@ export function DatabaseView() {
 
       {/* MODAL: Connect Password Prompt */}
       {showConnectModal && (
-        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-zinc-900 border border-zinc-700 rounded-lg max-w-md w-full p-5 shadow-2xl text-zinc-100">
-            <h3 className="text-base font-semibold text-zinc-100">
+        <div className="fixed inset-0 bg-[#101216]/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-[#1D2129] border border-[#303642] rounded-lg max-w-md w-full p-5 shadow-2xl text-[#E8EBF1]">
+            <h3 className="text-base font-semibold text-[#E8EBF1]">
               Connect to {activeProfile?.name}
             </h3>
-            <p className="text-xs text-zinc-400 mt-1">
+            <p className="text-xs text-[#A5ADBA] mt-1">
               Enter password for user{" "}
-              <strong className="text-zinc-200">{activeProfile?.username}</strong> on{" "}
-              <strong className="text-zinc-200">{activeProfile?.host}</strong>.
+              <strong className="text-[#E8EBF1]">{activeProfile?.username}</strong> on{" "}
+              <strong className="text-[#E8EBF1]">{activeProfile?.host}</strong>.
             </p>
 
             <div className="my-4">
-              <label className="text-xs text-zinc-300 font-medium block mb-1">
+              <label className="text-xs text-[#A5ADBA] font-medium block mb-1">
                 Password:
               </label>
               <input
@@ -932,9 +932,9 @@ export function DatabaseView() {
                 onKeyDown={(e) => {
                   if (e.key === "Enter") handleExecuteConnect();
                 }}
-                className="w-full px-3 py-2 bg-zinc-950 border border-zinc-700 rounded text-xs text-zinc-100 focus:outline-none focus:border-zinc-500"
+                className="w-full px-3 py-2 bg-[#272D38] border border-[#303642] rounded text-xs text-[#E8EBF1] focus:outline-none focus:border-[#8CA9CF]"
               />
-              <span className="text-[10px] text-zinc-500 mt-1.5 block">
+              <span className="text-[10px] text-[#7C8594] mt-1.5 block">
                 Held in memory for the active connection. Never saved to disk.
               </span>
             </div>
@@ -942,14 +942,14 @@ export function DatabaseView() {
             <div className="flex items-center justify-end gap-2 mt-6">
               <button
                 onClick={() => setShowConnectModal(false)}
-                className="px-3 py-1.5 text-xs text-zinc-400 hover:text-zinc-200 rounded transition-colors"
+                className="px-3 py-1.5 text-xs text-[#A5ADBA] hover:text-[#E8EBF1] hover:bg-[#272D38] rounded transition-colors cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 onClick={handleExecuteConnect}
                 disabled={connecting}
-                className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-xs font-medium transition-colors"
+                className="px-4 py-1.5 bg-[#8CA9CF] hover:bg-[#A6BDE0] text-[#101216] rounded text-xs font-semibold transition-colors cursor-pointer"
               >
                 {connecting ? "Connecting..." : "Connect"}
               </button>
@@ -960,18 +960,18 @@ export function DatabaseView() {
 
       {/* MODAL: Create / Edit Profile */}
       {showProfileModal && (
-        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-zinc-900 border border-zinc-700 rounded-lg max-w-lg w-full p-5 shadow-2xl text-zinc-100">
-            <h3 className="text-base font-semibold text-zinc-100 mb-1">
+        <div className="fixed inset-0 bg-[#101216]/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-[#1D2129] border border-[#303642] rounded-lg max-w-lg w-full p-5 shadow-2xl text-[#E8EBF1]">
+            <h3 className="text-base font-semibold text-[#E8EBF1] mb-1">
               {editingProfileId ? "Edit Connection Profile" : "New Connection Profile"}
             </h3>
-            <p className="text-xs text-zinc-400 mb-4">
+            <p className="text-xs text-[#A5ADBA] mb-4">
               Configure parameters for a PostgreSQL or MySQL database connection.
             </p>
 
             <div className="space-y-3 text-xs">
               <div>
-                <label className="block text-zinc-300 font-medium mb-1">
+                <label className="block text-[#A5ADBA] font-medium mb-1">
                   Profile Name:
                 </label>
                 <input
@@ -981,13 +981,13 @@ export function DatabaseView() {
                     setProfileForm((prev) => ({ ...prev, name: e.target.value }))
                   }
                   placeholder="e.g. Local Postgres or Staging MySQL"
-                  className="w-full px-3 py-1.5 bg-zinc-950 border border-zinc-700 rounded text-zinc-100 focus:outline-none focus:border-zinc-500"
+                  className="w-full px-3 py-1.5 bg-[#272D38] border border-[#303642] rounded text-[#E8EBF1] focus:outline-none focus:border-[#8CA9CF]"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-zinc-300 font-medium mb-1">
+                  <label className="block text-[#A5ADBA] font-medium mb-1">
                     Database Engine:
                   </label>
                   <select
@@ -995,7 +995,7 @@ export function DatabaseView() {
                     onChange={(e) =>
                       handleEngineChange(e.target.value as DatabaseEngine)
                     }
-                    className="w-full px-3 py-1.5 bg-zinc-950 border border-zinc-700 rounded text-zinc-100 focus:outline-none focus:border-zinc-500"
+                    className="w-full px-3 py-1.5 bg-[#272D38] border border-[#303642] rounded text-[#E8EBF1] focus:outline-none focus:border-[#8CA9CF]"
                   >
                     <option value="postgres">PostgreSQL</option>
                     <option value="mysql">MySQL</option>
@@ -1003,7 +1003,7 @@ export function DatabaseView() {
                 </div>
 
                 <div>
-                  <label className="block text-zinc-300 font-medium mb-1">Port:</label>
+                  <label className="block text-[#A5ADBA] font-medium mb-1">Port:</label>
                   <input
                     type="number"
                     value={profileForm.port}
@@ -1013,14 +1013,14 @@ export function DatabaseView() {
                         port: parseInt(e.target.value, 10) || 5432,
                       }))
                     }
-                    className="w-full px-3 py-1.5 bg-zinc-950 border border-zinc-700 rounded text-zinc-100 focus:outline-none focus:border-zinc-500 font-mono"
+                    className="w-full px-3 py-1.5 bg-[#272D38] border border-[#303642] rounded text-[#E8EBF1] focus:outline-none focus:border-[#8CA9CF] font-mono"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-zinc-300 font-medium mb-1">Host:</label>
+                  <label className="block text-[#A5ADBA] font-medium mb-1">Host:</label>
                   <input
                     type="text"
                     value={profileForm.host}
@@ -1028,12 +1028,12 @@ export function DatabaseView() {
                       setProfileForm((prev) => ({ ...prev, host: e.target.value }))
                     }
                     placeholder="localhost or 127.0.0.1"
-                    className="w-full px-3 py-1.5 bg-zinc-950 border border-zinc-700 rounded text-zinc-100 focus:outline-none focus:border-zinc-500 font-mono"
+                    className="w-full px-3 py-1.5 bg-[#272D38] border border-[#303642] rounded text-[#E8EBF1] focus:outline-none focus:border-[#8CA9CF] font-mono"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-zinc-300 font-medium mb-1">
+                  <label className="block text-[#A5ADBA] font-medium mb-1">
                     Database Name:
                   </label>
                   <input
@@ -1043,14 +1043,14 @@ export function DatabaseView() {
                       setProfileForm((prev) => ({ ...prev, database: e.target.value }))
                     }
                     placeholder="database_name"
-                    className="w-full px-3 py-1.5 bg-zinc-950 border border-zinc-700 rounded text-zinc-100 focus:outline-none focus:border-zinc-500 font-mono"
+                    className="w-full px-3 py-1.5 bg-[#272D38] border border-[#303642] rounded text-[#E8EBF1] focus:outline-none focus:border-[#8CA9CF] font-mono"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-zinc-300 font-medium mb-1">
+                  <label className="block text-[#A5ADBA] font-medium mb-1">
                     Username:
                   </label>
                   <input
@@ -1060,12 +1060,12 @@ export function DatabaseView() {
                       setProfileForm((prev) => ({ ...prev, username: e.target.value }))
                     }
                     placeholder="postgres or root"
-                    className="w-full px-3 py-1.5 bg-zinc-950 border border-zinc-700 rounded text-zinc-100 focus:outline-none focus:border-zinc-500 font-mono"
+                    className="w-full px-3 py-1.5 bg-[#272D38] border border-[#303642] rounded text-[#E8EBF1] focus:outline-none focus:border-[#8CA9CF] font-mono"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-zinc-300 font-medium mb-1">
+                  <label className="block text-[#A5ADBA] font-medium mb-1">
                     Password (for testing):
                   </label>
                   <input
@@ -1073,7 +1073,7 @@ export function DatabaseView() {
                     value={profileFormPassword}
                     onChange={(e) => setProfileFormPassword(e.target.value)}
                     placeholder="Optional for test"
-                    className="w-full px-3 py-1.5 bg-zinc-950 border border-zinc-700 rounded text-zinc-100 focus:outline-none focus:border-zinc-500"
+                    className="w-full px-3 py-1.5 bg-[#272D38] border border-[#303642] rounded text-[#E8EBF1] focus:outline-none focus:border-[#8CA9CF]"
                   />
                 </div>
               </div>
@@ -1086,26 +1086,26 @@ export function DatabaseView() {
                   onChange={(e) =>
                     setProfileForm((prev) => ({ ...prev, ssl: e.target.checked }))
                   }
-                  className="rounded border-zinc-700 bg-zinc-950"
+                  className="rounded border-[#303642] bg-[#272D38] text-[#8CA9CF] focus:ring-0 cursor-pointer"
                 />
-                <label htmlFor={`${baseId}-ssl-check`} className="text-zinc-300">
+                <label htmlFor={`${baseId}-ssl-check`} className="text-[#A5ADBA] cursor-pointer">
                   Enable SSL / TLS connection
                 </label>
               </div>
 
               {formTestResult && (
-                <div className="p-2.5 rounded bg-zinc-950 border border-zinc-800 text-[11px] font-mono">
+                <div className="p-2.5 rounded bg-[#101216] border border-[#303642] text-[11px] font-mono text-[#E8EBF1]">
                   {formTestResult}
                 </div>
               )}
             </div>
 
-            <div className="flex items-center justify-between mt-6 pt-3 border-t border-zinc-800">
+            <div className="flex items-center justify-between mt-6 pt-3 border-t border-[#303642]">
               <button
                 type="button"
                 onClick={handleTestFromModal}
                 disabled={formTestLoading}
-                className="px-3 py-1.5 text-xs text-zinc-300 hover:text-zinc-100 hover:bg-zinc-800 border border-zinc-700 rounded transition-colors"
+                className="px-3 py-1.5 text-xs text-[#A5ADBA] hover:text-[#E8EBF1] hover:bg-[#272D38] border border-[#303642] rounded transition-colors cursor-pointer"
               >
                 {formTestLoading ? "Testing..." : "Test Connection"}
               </button>
@@ -1114,14 +1114,14 @@ export function DatabaseView() {
                 <button
                   type="button"
                   onClick={() => setShowProfileModal(false)}
-                  className="px-3 py-1.5 text-xs text-zinc-400 hover:text-zinc-200 rounded transition-colors"
+                  className="px-3 py-1.5 text-xs text-[#A5ADBA] hover:text-[#E8EBF1] hover:bg-[#272D38] rounded transition-colors cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="button"
                   onClick={handleSaveProfile}
-                  className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-xs font-medium transition-colors"
+                  className="px-4 py-1.5 bg-[#8CA9CF] hover:bg-[#A6BDE0] text-[#101216] rounded text-xs font-semibold transition-colors cursor-pointer"
                 >
                   Save Profile
                 </button>

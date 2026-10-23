@@ -44,36 +44,36 @@ const HTTP_METHODS: HttpMethod[] = [
 function getMethodColor(method: HttpMethod): string {
   switch (method) {
     case "GET":
-      return "text-[#8BA7BE] border-[#8BA7BE]/40 bg-[rgba(139,167,190,0.12)]";
+      return "text-[#8CA9CF] border-[#8CA9CF]/40 bg-[rgba(140,169,207,0.12)]";
     case "POST":
-      return "text-[#82B58A] border-[#82B58A]/40 bg-[rgba(130,181,138,0.12)]";
+      return "text-[#77B58A] border-[#77B58A]/40 bg-[rgba(119,181,138,0.12)]";
     case "PUT":
-      return "text-[#D9AE67] border-[#D9AE67]/40 bg-[rgba(217,174,103,0.12)]";
+      return "text-[#E0B36D] border-[#E0B36D]/40 bg-[rgba(224,179,109,0.12)]";
     case "PATCH":
-      return "text-[#A6B58A] border-[#A6B58A]/40 bg-[rgba(166,181,138,0.12)]";
+      return "text-[#A6BDE0] border-[#A6BDE0]/40 bg-[rgba(166,189,224,0.12)]";
     case "DELETE":
-      return "text-[#D98279] border-[#D98279]/40 bg-[rgba(217,130,121,0.12)]";
+      return "text-[#E18B8B] border-[#E18B8B]/40 bg-[rgba(225,139,139,0.12)]";
     case "HEAD":
     case "OPTIONS":
     default:
-      return "text-[#A7AEA2] border-[#303931] bg-[#252C26]";
+      return "text-[#A5ADBA] border-[#303642] bg-[#272D38]";
   }
 }
 
 function getStatusBadgeClass(status: number): string {
   if (status >= 200 && status < 300) {
-    return "bg-[rgba(130,181,138,0.12)] text-[#82B58A] border border-[#82B58A]/40";
+    return "bg-[rgba(119,181,138,0.12)] text-[#77B58A] border border-[#77B58A]/40";
   }
   if (status >= 300 && status < 400) {
-    return "bg-[rgba(139,167,190,0.12)] text-[#8BA7BE] border border-[#8BA7BE]/40";
+    return "bg-[rgba(140,169,207,0.12)] text-[#8CA9CF] border border-[#8CA9CF]/40";
   }
   if (status >= 400 && status < 500) {
-    return "bg-[rgba(217,174,103,0.12)] text-[#D9AE67] border border-[#D9AE67]/40";
+    return "bg-[rgba(224,179,109,0.12)] text-[#E0B36D] border border-[#E0B36D]/40";
   }
   if (status >= 500) {
-    return "bg-[rgba(217,130,121,0.12)] text-[#D98279] border border-[#D98279]/40";
+    return "bg-[rgba(225,139,139,0.12)] text-[#E18B8B] border border-[#E18B8B]/40";
   }
-  return "bg-[#252C26] text-[#A7AEA2] border border-[#303931]";
+  return "bg-[#272D38] text-[#A5ADBA] border border-[#303642]";
 }
 
 function formatBytes(bytes: number): string {
@@ -687,8 +687,8 @@ export function ApiTesterView({ initialSelection }: ApiTesterViewProps = {}) {
             onClick={() => setSidebarCollapsed((prev) => !prev)}
             className={`px-2.5 py-1 rounded-md text-xs font-medium border transition flex items-center gap-1.5 cursor-pointer shadow-xs ${
               !sidebarCollapsed
-                ? "bg-[rgba(166,181,138,0.12)] text-[#A6B58A] border-[#A6B58A]/35"
-                : "text-[#A7AEA2] bg-[#252C26] hover:bg-[#1D231E] border-[#303931]"
+                ? "bg-[#35465E] text-[#8CA9CF] border-[#8CA9CF]/40"
+                : "text-[#A5ADBA] bg-[#272D38] hover:bg-[#1D2129] border-[#303642]"
             }`}
             title="Toggle API Catalog sidebar"
           >
@@ -725,7 +725,7 @@ export function ApiTesterView({ initialSelection }: ApiTesterViewProps = {}) {
               value={method}
               onChange={(e) => setMethod(e.target.value as HttpMethod)}
               disabled={loading}
-              className={`px-3 py-1.5 rounded-md text-xs font-mono font-bold border focus:outline-none focus:ring-1 focus:ring-zinc-600 transition-all cursor-pointer ${getMethodColor(
+              className={`px-3.5 py-1.5 rounded-md text-xs font-mono font-bold border focus:outline-none focus:ring-1 focus:ring-zinc-600 transition-all cursor-pointer ${getMethodColor(
                 method
               )}`}
             >
@@ -748,7 +748,7 @@ export function ApiTesterView({ initialSelection }: ApiTesterViewProps = {}) {
               }}
               disabled={loading}
               placeholder={`${BACKEND_URL}/api/... or https://...`}
-              className="flex-1 min-w-[240px] px-3.5 py-1.5 text-xs font-mono rounded-md bg-[#252C26] border border-[#303931] text-[#ECEFE8] placeholder-[#747D72] focus:outline-none focus:border-[#A6B58A] transition-all"
+              className="flex-1 min-w-[240px] px-3.5 py-1.5 text-xs font-mono rounded-md bg-[#272D38] border border-[#303642] text-[#E8EBF1] placeholder-[#7C8594] focus:outline-none focus:border-[#8CA9CF] transition-all"
             />
 
             {/* Controls: Send / Cancel / Clear */}
@@ -757,16 +757,16 @@ export function ApiTesterView({ initialSelection }: ApiTesterViewProps = {}) {
                 <button
                   onClick={handleSendRequest}
                   disabled={loading || !url.trim()}
-                  className="px-4 py-1.5 rounded-md text-xs font-semibold bg-[#A6B58A] text-[#111411] hover:bg-[#BAC7A3] disabled:opacity-50 transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
+                  className="px-4 py-1.5 rounded-md text-xs font-semibold bg-[#8CA9CF] text-[#101216] hover:bg-[#A6BDE0] disabled:opacity-50 transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
                 >
                   <span>Send</span>
                 </button>
               ) : (
                 <button
                   onClick={handleCancelRequest}
-                  className="px-4 py-1.5 rounded-md text-xs font-semibold bg-[#D98279] text-[#111411] hover:bg-[#e09189] transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
+                  className="px-4 py-1.5 rounded-md text-xs font-semibold bg-[#E18B8B] text-[#101216] hover:bg-[#e89d9d] transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
                 >
-                  <span className="w-2 h-2 rounded-full border border-[#111411] border-t-transparent animate-spin" />
+                  <span className="w-2 h-2 rounded-full border border-[#101216] border-t-transparent animate-spin" />
                   <span>Cancel</span>
                 </button>
               )}
@@ -879,7 +879,7 @@ export function ApiTesterView({ initialSelection }: ApiTesterViewProps = {}) {
                 {requestTab === "params" && (
                   <button
                     onClick={addParamRow}
-                    className="text-xs text-[#A6B58A] hover:text-[#BAC7A3] font-medium cursor-pointer"
+                    className="text-xs text-[#8CA9CF] hover:text-[#A6BDE0] font-medium cursor-pointer"
                   >
                     + Add Param
                   </button>
@@ -888,7 +888,7 @@ export function ApiTesterView({ initialSelection }: ApiTesterViewProps = {}) {
                 {requestTab === "headers" && (
                   <button
                     onClick={addHeaderRow}
-                    className="text-xs text-[#A6B58A] hover:text-[#BAC7A3] font-medium cursor-pointer"
+                    className="text-xs text-[#8CA9CF] hover:text-[#A6BDE0] font-medium cursor-pointer"
                   >
                     + Add Header
                   </button>
@@ -899,7 +899,7 @@ export function ApiTesterView({ initialSelection }: ApiTesterViewProps = {}) {
                     <button
                       type="button"
                       onClick={handleInsertExampleBody}
-                      className="px-2 py-0.5 rounded text-[11px] font-medium bg-[rgba(166,181,138,0.12)] text-[#A6B58A] border border-[#A6B58A]/35 hover:bg-[rgba(166,181,138,0.2)] transition-colors cursor-pointer"
+                      className="px-2 py-0.5 rounded text-[11px] font-medium bg-[rgba(140,169,207,0.12)] text-[#8CA9CF] border border-[#8CA9CF]/35 hover:bg-[rgba(140,169,207,0.2)] transition-colors cursor-pointer"
                       title="Insert realistic example payload for this endpoint"
                     >
                       ✨ Insert Example
@@ -907,7 +907,7 @@ export function ApiTesterView({ initialSelection }: ApiTesterViewProps = {}) {
                     {body.trim().length > 0 && (
                       <span
                         className={`text-[11px] font-mono ${
-                          jsonValidation.valid ? "text-[#82B58A]" : "text-[#D98279]"
+                          jsonValidation.valid ? "text-[#77B58A]" : "text-[#E18B8B]"
                         }`}
                       >
                         {jsonValidation.valid ? "✓ JSON" : "✕ Invalid JSON"}
@@ -993,7 +993,7 @@ export function ApiTesterView({ initialSelection }: ApiTesterViewProps = {}) {
                         <button
                           type="button"
                           onClick={() => setRequestTab("params")}
-                          className="text-[11px] text-[#A6B58A] hover:underline cursor-pointer"
+                          className="text-[11px] text-[#8CA9CF] hover:underline cursor-pointer"
                         >
                           Modify Params →
                         </button>
@@ -1013,10 +1013,10 @@ export function ApiTesterView({ initialSelection }: ApiTesterViewProps = {}) {
                                 .filter((p) => p.key.trim())
                                 .map((p, idx) => (
                                   <tr key={idx} className="hover:bg-zinc-900/40">
-                                    <td className="py-1.5 px-2.5 text-[#A6B58A] font-medium">
+                                    <td className="py-1.5 px-2.5 text-[#8CA9CF] font-medium">
                                       {p.key}
                                     </td>
-                                    <td className="py-1.5 px-2.5 text-[#ECEFE8] font-bold select-all">
+                                    <td className="py-1.5 px-2.5 text-[#E8EBF1] font-bold select-all">
                                       {p.value}
                                     </td>
                                     <td className="py-1.5 px-2.5 text-zinc-500 text-[10px]">
@@ -1043,7 +1043,7 @@ export function ApiTesterView({ initialSelection }: ApiTesterViewProps = {}) {
                         <button
                           type="button"
                           onClick={() => setRequestTab("headers")}
-                          className="text-[11px] text-[#A6B58A] hover:underline cursor-pointer"
+                          className="text-[11px] text-[#8CA9CF] hover:underline cursor-pointer"
                         >
                           Modify Headers →
                         </button>
@@ -1061,7 +1061,7 @@ export function ApiTesterView({ initialSelection }: ApiTesterViewProps = {}) {
                               .filter((h) => h.key.trim())
                               .map((h, idx) => (
                                 <tr key={idx} className="hover:bg-zinc-900/40">
-                                  <td className="py-1.5 px-2.5 text-[#A6B58A]">{h.key}</td>
+                                  <td className="py-1.5 px-2.5 text-[#8CA9CF]">{h.key}</td>
                                   <td className="py-1.5 px-2.5 text-zinc-300 select-all">
                                     {h.value}
                                   </td>
@@ -1082,7 +1082,7 @@ export function ApiTesterView({ initialSelection }: ApiTesterViewProps = {}) {
                           <button
                             type="button"
                             onClick={() => setRequestTab("body")}
-                            className="text-[11px] text-[#A6B58A] hover:underline cursor-pointer"
+                            className="text-[11px] text-[#8CA9CF] hover:underline cursor-pointer"
                           >
                             Edit Body →
                           </button>
@@ -1092,7 +1092,7 @@ export function ApiTesterView({ initialSelection }: ApiTesterViewProps = {}) {
                         <div className="rounded bg-zinc-950 border border-zinc-800 p-2.5 overflow-x-auto no-scrollbar">
                           <pre
                             suppressHydrationWarning
-                            className="text-[#ECEFE8] font-mono text-xs leading-relaxed select-all"
+                            className="text-[#E8EBF1] font-mono text-xs leading-relaxed select-all"
                           >
                             {body || "{}"}
                           </pre>
@@ -1108,7 +1108,7 @@ export function ApiTesterView({ initialSelection }: ApiTesterViewProps = {}) {
                     {expectedResponse && (
                       <div className="p-2.5 rounded-lg bg-zinc-900/60 border border-zinc-800 space-y-1.5">
                         <div className="flex items-center justify-between">
-                          <span className="text-[10px] font-mono font-semibold uppercase tracking-wider text-[#8BA7BE]">
+                          <span className="text-[10px] font-mono font-semibold uppercase tracking-wider text-[#8CA9CF]">
                             5. Expected Response Schema ({expectedResponse.statusCode}{" "}
                             {expectedResponse.statusText})
                           </span>
@@ -1118,7 +1118,7 @@ export function ApiTesterView({ initialSelection }: ApiTesterViewProps = {}) {
                               setResponseViewMode("example");
                               setResponseTab("body");
                             }}
-                            className="text-[11px] text-[#8BA7BE] hover:underline cursor-pointer"
+                            className="text-[11px] text-[#8CA9CF] hover:underline cursor-pointer"
                           >
                             Inspect in Response Tab →
                           </button>
@@ -1126,7 +1126,7 @@ export function ApiTesterView({ initialSelection }: ApiTesterViewProps = {}) {
                         <div className="rounded bg-zinc-950 border border-zinc-800 p-2.5 overflow-x-auto no-scrollbar">
                           <pre
                             suppressHydrationWarning
-                            className="text-[#8BA7BE]/90 font-mono text-xs leading-relaxed select-all"
+                            className="text-[#8CA9CF]/90 font-mono text-xs leading-relaxed select-all"
                           >
                             {expectedResponse.body}
                           </pre>
@@ -1279,8 +1279,8 @@ export function ApiTesterView({ initialSelection }: ApiTesterViewProps = {}) {
                       onClick={() => setResponseViewMode("example")}
                       className={`px-2.5 py-1 rounded text-xs font-medium transition cursor-pointer flex items-center gap-1.5 ${
                         responseViewMode === "example"
-                          ? "bg-[rgba(166,181,138,0.12)] text-[#A6B58A] border border-[#A6B58A]/35 shadow-xs"
-                          : "text-[#A7AEA2] hover:text-[#ECEFE8]"
+                          ? "bg-[#35465E] text-[#8CA9CF] border border-[#8CA9CF]/40 shadow-xs"
+                          : "text-[#A5ADBA] hover:text-[#E8EBF1]"
                       }`}
                       title="View expected response schema & example output"
                     >
@@ -1359,13 +1359,13 @@ export function ApiTesterView({ initialSelection }: ApiTesterViewProps = {}) {
                       {expectedResponse.statusCode} {expectedResponse.statusText}
                     </span>
 
-                    <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-[rgba(139,167,190,0.12)] text-[#8BA7BE] border border-[#8BA7BE]/35 uppercase tracking-wider">
+                    <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-[rgba(140,169,207,0.12)] text-[#8CA9CF] border border-[#8CA9CF]/35 uppercase tracking-wider">
                       Expected Schema
                     </span>
 
                     <button
                       onClick={handleCopyResponseBody}
-                      className="px-2 py-0.5 rounded text-[11px] bg-[#252C26] text-[#A7AEA2] border border-[#303931] hover:bg-[#303931] hover:text-[#ECEFE8] transition-colors cursor-pointer"
+                      className="px-2 py-0.5 rounded text-[11px] bg-[#272D38] text-[#A5ADBA] border border-[#303642] hover:bg-[#303642] hover:text-[#E8EBF1] transition-colors cursor-pointer"
                       title="Copy example response"
                     >
                       {copyFeedback ? "Copied!" : "Copy Example"}
@@ -1378,21 +1378,21 @@ export function ApiTesterView({ initialSelection }: ApiTesterViewProps = {}) {
               <div className="flex-1 overflow-auto no-scrollbar p-4 font-mono text-xs leading-relaxed">
                 {loading ? (
                   <div className="h-full flex flex-col items-center justify-center text-center text-zinc-500">
-                    <div className="w-8 h-8 rounded-full border-2 border-[#303931] border-t-[#A6B58A] animate-spin mb-3" />
-                    <p className="text-sm font-medium text-[#ECEFE8]">Sending HTTP request...</p>
-                    <p className="text-xs text-[#747D72] mt-1">Awaiting response from target server</p>
+                    <div className="w-8 h-8 rounded-full border-2 border-[#303642] border-t-[#8CA9CF] animate-spin mb-3" />
+                    <p className="text-sm font-medium text-[#E8EBF1]">Sending HTTP request...</p>
+                    <p className="text-xs text-[#7C8594] mt-1">Awaiting response from target server</p>
                   </div>
                 ) : responseViewMode === "example" && expectedResponse ? (
                   /* EXPECTED / EXAMPLE RESPONSE PREVIEW */
                   <div className="h-full flex flex-col min-h-0">
-                    <div className="mb-3 px-3.5 py-2 rounded-lg bg-[rgba(139,167,190,0.12)] border border-[#8BA7BE]/35 text-[#8BA7BE] text-xs flex items-center justify-between gap-3 shrink-0">
+                    <div className="mb-3 px-3.5 py-2 rounded-lg bg-[rgba(140,169,207,0.12)] border border-[#8CA9CF]/35 text-[#8CA9CF] text-xs flex items-center justify-between gap-3 shrink-0">
                       <div className="flex items-center gap-2.5">
                         <span className="text-base">💡</span>
                         <div>
-                          <p className="font-semibold text-[#ECEFE8]">
+                          <p className="font-semibold text-[#E8EBF1]">
                             Expected Response Example Preview
                           </p>
-                          <p className="text-[11px] text-[#8BA7BE]/90 mt-0.5">
+                          <p className="text-[11px] text-[#8CA9CF]/90 mt-0.5">
                             This is an example schema of what this endpoint returns on success. Click <strong>Send</strong> to execute live call.
                           </p>
                         </div>
@@ -1400,35 +1400,35 @@ export function ApiTesterView({ initialSelection }: ApiTesterViewProps = {}) {
                       <button
                         onClick={handleSendRequest}
                         disabled={loading}
-                        className="px-3 py-1.5 rounded-md bg-[#A6B58A] hover:bg-[#BAC7A3] text-[#111411] text-xs font-semibold shadow-xs transition cursor-pointer flex items-center gap-1.5 shrink-0"
+                        className="px-3 py-1.5 rounded-md bg-[#8CA9CF] hover:bg-[#A6BDE0] text-[#101216] text-xs font-semibold shadow-xs transition cursor-pointer flex items-center gap-1.5 shrink-0"
                       >
                         <span>🚀 Send Live</span>
                       </button>
                     </div>
 
                     {responseTab === "body" ? (
-                      <div className="flex-1 overflow-auto no-scrollbar select-text bg-[#111411] rounded-lg border border-[#303931] p-3.5">
+                      <div className="flex-1 overflow-auto no-scrollbar select-text bg-[#101216] rounded-lg border border-[#303642] p-3.5">
                         <pre
                           suppressHydrationWarning
-                          className="whitespace-pre-wrap text-[#ECEFE8] font-mono text-xs leading-relaxed"
+                          className="whitespace-pre-wrap text-[#E8EBF1] font-mono text-xs leading-relaxed"
                         >
                           {expectedResponse.body}
                         </pre>
                       </div>
                     ) : (
-                      <div className="flex-1 overflow-auto no-scrollbar select-text bg-[#111411] rounded-lg border border-[#303931]">
+                      <div className="flex-1 overflow-auto no-scrollbar select-text bg-[#101216] rounded-lg border border-[#303642]">
                         <table className="w-full text-left text-xs border-collapse">
                           <thead>
-                            <tr className="border-b border-[#303931] text-[#A7AEA2] font-mono text-[11px] uppercase bg-[#171B17]">
+                            <tr className="border-b border-[#303642] text-[#A5ADBA] font-mono text-[11px] uppercase bg-[#171A20]">
                               <th className="py-2 px-3 font-semibold">Header</th>
                               <th className="py-2 px-3 font-semibold">Expected Value</th>
                             </tr>
                           </thead>
-                          <tbody className="divide-y divide-[#303931]">
+                          <tbody className="divide-y divide-[#303642]">
                             {Object.entries(expectedResponse.headers).map(([key, value]) => (
-                              <tr key={key} className="hover:bg-[#252C26]/50">
-                                <td className="py-2 px-3 text-[#A6B58A] font-medium font-mono">{key}</td>
-                                <td className="py-2 px-3 text-[#ECEFE8] font-mono break-all">{value}</td>
+                              <tr key={key} className="hover:bg-[#272D38]/50">
+                                <td className="py-2 px-3 text-[#8CA9CF] font-medium font-mono">{key}</td>
+                                <td className="py-2 px-3 text-[#E8EBF1] font-mono break-all">{value}</td>
                               </tr>
                             ))}
                           </tbody>
@@ -1447,7 +1447,7 @@ export function ApiTesterView({ initialSelection }: ApiTesterViewProps = {}) {
                       ) : (
                         <pre
                           suppressHydrationWarning
-                          className="whitespace-pre-wrap text-[#ECEFE8]"
+                          className="whitespace-pre-wrap text-[#E8EBF1]"
                         >
                           {getFormattedResponseBody()}
                         </pre>
@@ -1458,16 +1458,16 @@ export function ApiTesterView({ initialSelection }: ApiTesterViewProps = {}) {
                     <div className="select-text overflow-auto no-scrollbar">
                       <table className="w-full text-left text-xs border-collapse">
                         <thead>
-                          <tr className="border-b border-[#303931] text-[#747D72] font-mono text-[11px] uppercase">
+                          <tr className="border-b border-[#303642] text-[#7C8594] font-mono text-[11px] uppercase">
                             <th className="py-2 px-3 font-semibold">Header</th>
                             <th className="py-2 px-3 font-semibold">Value</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-[#303931]">
+                        <tbody className="divide-y divide-[#303642]">
                           {Object.entries(response.headers).map(([key, value]) => (
-                            <tr key={key} className="hover:bg-[#252C26]/50">
-                              <td className="py-2 px-3 text-[#A6B58A] font-medium font-mono">{key}</td>
-                              <td className="py-2 px-3 text-[#ECEFE8] font-mono break-all">{value}</td>
+                            <tr key={key} className="hover:bg-[#272D38]/50">
+                              <td className="py-2 px-3 text-[#8CA9CF] font-medium font-mono">{key}</td>
+                              <td className="py-2 px-3 text-[#E8EBF1] font-mono break-all">{value}</td>
                             </tr>
                           ))}
                         </tbody>
