@@ -51,5 +51,17 @@ export async function fetchDiagnostics(): Promise<DiagnosticsData> {
     );
   }
 
-  return json.data;
+  const raw = (json.data || {}) as unknown as Record<string, unknown>;
+  return {
+    status: typeof raw.status === "string" ? raw.status : "ok",
+    app: typeof raw.appName === "string" ? raw.appName : typeof raw.app === "string" ? raw.app : "DevDesk",
+    version: typeof raw.version === "string" ? raw.version : "1.0.0",
+    platform: typeof raw.platform === "string" ? (raw.arch ? `${raw.platform} (${raw.arch})` : raw.platform) : "—",
+    nodeVersion: typeof raw.nodeVersion === "string" ? raw.nodeVersion : "—",
+    uptime: Number(raw.uptime ?? raw.uptimeSeconds ?? 0),
+    appDataDir: (raw.appDataDir || raw.dataDirectory || "") as string,
+    dbPath: (raw.dbPath || raw.databasePath || "") as string,
+    runningProcessesCount: Number(raw.runningProcessesCount ?? 0),
+    timestamp: typeof raw.timestamp === "string" ? raw.timestamp : new Date().toISOString(),
+  };
 }

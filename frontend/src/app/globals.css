@@ -49,3 +49,12 @@ body {
   scrollbar-width: none !important;
 }
 
+/* Hide Next.js floating dev indicator badge in dev mode */
+nextjs-portal,
+[data-nextjs-toast],
+[data-nextjs-dev-tools],
+[data-next-badge] {
+  display: none !important;
+}
+
+

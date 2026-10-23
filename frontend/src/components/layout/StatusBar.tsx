@@ -25,7 +25,7 @@ export function StatusBar({
   const displayStatus =
     statusText ||
     (backendConnected
-      ? `Backend Connected (${getBackendDisplayLabel()})`
+      ? `Backend Connected · ${getBackendDisplayLabel()}`
       : "Backend Disconnected");
 
   return (

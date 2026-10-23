@@ -22,18 +22,15 @@ export function Header({
   return (
     <header className="h-12 border-b border-zinc-800 bg-zinc-950 px-4 flex items-center justify-between select-none shrink-0">
       <div className="flex items-center gap-2.5">
-
-        <div className="flex items-center gap-2.5">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/icon.png"
-            alt="DevDesk"
-            className="w-6 h-6 rounded-md object-contain border border-zinc-700/60 shadow-sm"
-          />
-          <span className="font-semibold text-sm tracking-tight text-zinc-100">
-            DevDesk
-          </span>
-        </div>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/icon.png"
+          alt="DevDesk"
+          className="w-6 h-6 rounded-md object-contain border border-zinc-700/60 shadow-sm"
+        />
+        <span className="font-semibold text-sm tracking-tight text-zinc-100">
+          DevDesk
+        </span>
 
         {isDesktop && (
           <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-zinc-900 border border-zinc-800 text-zinc-400">

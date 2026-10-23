@@ -9,6 +9,9 @@ export function SettingsView() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
+  const [pingLatency, setPingLatency] = useState<number | null>(null);
+  const [pinging, setPinging] = useState(false);
 
   const [isDesktop, setIsDesktop] = useState(false);
   const [electronVersions, setElectronVersions] = useState<
@@ -51,14 +54,49 @@ export function SettingsView() {
     loadDiagnostics();
   }, [loadDiagnostics]);
 
-  function formatUptime(seconds: number): string {
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    const hrs = Math.floor(mins / 60);
-    if (hrs > 0) {
-      return `${hrs}h ${mins % 60}m ${secs}s`;
+  async function handleTestPing() {
+    setPinging(true);
+    const start = performance.now();
+    try {
+      const res = await fetch(`${BACKEND_URL}/health`, { cache: "no-store" });
+      if (res.ok) {
+        setPingLatency(Math.round(performance.now() - start));
+      } else {
+        setPingLatency(null);
+      }
+    } catch {
+      setPingLatency(null);
+    } finally {
+      setPinging(false);
     }
-    return `${mins}m ${secs}s`;
+  }
+
+  function handleCopy(text: string, key: string) {
+    if (!text || text === "—") return;
+    navigator.clipboard.writeText(text);
+    setCopiedKey(key);
+    setTimeout(() => {
+      setCopiedKey(null);
+    }, 2000);
+  }
+
+  function handleReveal(targetPath: string) {
+    if (window.electron?.revealInFinder) {
+      window.electron.revealInFinder(targetPath);
+    }
+  }
+
+  function formatUptime(seconds?: number): string {
+    const s = typeof seconds === "number" && !isNaN(seconds) ? Math.max(0, Math.floor(seconds)) : 0;
+    const days = Math.floor(s / 86400);
+    const hrs = Math.floor((s % 86400) / 3600);
+    const mins = Math.floor((s % 3600) / 60);
+    const secs = s % 60;
+
+    if (days > 0) return `${days}d ${hrs}h ${mins}m`;
+    if (hrs > 0) return `${hrs}h ${mins}m ${secs}s`;
+    if (mins > 0) return `${mins}m ${secs}s`;
+    return `${secs}s`;
   }
 
   const shortcuts = [
@@ -69,6 +107,7 @@ export function SettingsView() {
     { key: `${modKey}5`, action: "API Tester", desc: "Postman-style HTTP endpoint testing" },
     { key: `${modKey}6`, action: "Environment", desc: "Safe project .env editing and validation" },
     { key: `${modKey}7`, action: "Database", desc: "PostgreSQL and MySQL read-only manager" },
+    { key: `${modKey}B`, action: "Toggle Sidebar", desc: "Collapse or expand sidebar rail" },
     { key: `${modKey},`, action: "Settings", desc: "System diagnostics and shortcuts reference" },
   ];
 
@@ -80,7 +119,7 @@ export function SettingsView() {
           <h1 className="text-xl font-semibold tracking-tight text-zinc-100 flex items-center gap-2.5">
             Settings & Diagnostics
             <span className="text-xs px-2 py-0.5 rounded-full bg-zinc-800 border border-zinc-700 text-zinc-300 font-mono">
-              v{diagnostics?.version || "0.1.0"}
+              v{diagnostics?.version || "1.0.0"}
             </span>
           </h1>
           <p className="text-xs text-zinc-400 mt-1">
@@ -88,25 +127,45 @@ export function SettingsView() {
           </p>
         </div>
 
-        <button
-          onClick={loadDiagnostics}
-          disabled={loading}
-          className="px-3 py-1.5 rounded-md bg-zinc-800 hover:bg-zinc-700 text-xs font-medium text-zinc-200 border border-zinc-700 transition flex items-center gap-1.5 disabled:opacity-50"
-        >
-          {loading ? (
-            <>
-              <span className="w-3 h-3 border-2 border-zinc-400 border-t-transparent rounded-full animate-spin" />
-              <span>Checking...</span>
-            </>
-          ) : (
-            <>
-              <svg className="w-3.5 h-3.5 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-              </svg>
-              <span>Refresh Status</span>
-            </>
-          )}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleTestPing}
+            disabled={pinging || !diagnostics}
+            className="px-3 py-1.5 rounded-md bg-zinc-900 hover:bg-zinc-800 text-xs font-medium text-zinc-300 border border-zinc-700/80 transition flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
+            title="Ping backend health endpoint to measure roundtrip latency"
+          >
+            {pinging ? (
+              <span className="w-3 h-3 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <span className="w-2 h-2 rounded-full bg-cyan-400" />
+            )}
+            <span>
+              {pingLatency !== null ? `${pingLatency}ms Ping` : "Test Latency"}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={loadDiagnostics}
+            disabled={loading}
+            className="px-3 py-1.5 rounded-md bg-zinc-800 hover:bg-zinc-700 text-xs font-medium text-zinc-200 border border-zinc-700 transition flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
+          >
+            {loading ? (
+              <>
+                <span className="w-3 h-3 border-2 border-zinc-400 border-t-transparent rounded-full animate-spin" />
+                <span>Checking...</span>
+              </>
+            ) : (
+              <>
+                <svg className="w-3.5 h-3.5 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                <span>Refresh Status</span>
+              </>
+            )}
+          </button>
+        </div>
       </div>
 
       {/* Error alert if backend unreachable */}
@@ -184,16 +243,26 @@ export function SettingsView() {
                   : "bg-rose-950/70 border border-rose-800 text-rose-300"
               }`}
             >
-              {diagnostics ? `Connected (${getBackendDisplayLabel()})` : "Offline"}
+              {diagnostics ? `Connected · ${getBackendDisplayLabel()}` : "Offline"}
             </span>
           </div>
 
           <div className="space-y-2 text-xs">
-            <div className="flex justify-between py-1 border-b border-zinc-800/80">
+            <div className="flex justify-between py-1 border-b border-zinc-800/80 items-center">
               <span className="text-zinc-400">Target Backend API:</span>
-              <span className="font-mono text-cyan-400 break-all text-[11px] font-medium">
-                {BACKEND_URL}
-              </span>
+              <div className="flex items-center gap-1.5">
+                <span className="font-mono text-cyan-400 break-all text-[11px] font-medium">
+                  {BACKEND_URL}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => handleCopy(BACKEND_URL, "api_url")}
+                  className="px-1.5 py-0.5 rounded text-[10px] text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 border border-transparent hover:border-zinc-700 transition"
+                  title="Copy Target API URL"
+                >
+                  {copiedKey === "api_url" ? "✓" : "Copy"}
+                </button>
+              </div>
             </div>
             <div className="flex justify-between py-1 border-b border-zinc-800/80">
               <span className="text-zinc-400">Hosted API URL:</span>
@@ -227,7 +296,7 @@ export function SettingsView() {
             </div>
             <div className="flex justify-between py-1">
               <span className="text-zinc-400">Active Managed Processes:</span>
-              <span className="font-mono text-cyan-300">
+              <span className="font-mono text-cyan-300 font-semibold">
                 {diagnostics !== null ? diagnostics.runningProcessesCount : "—"}
               </span>
             </div>
@@ -244,16 +313,72 @@ export function SettingsView() {
 
         <div className="space-y-3 text-xs">
           <div>
-            <div className="text-zinc-400 mb-1">Application Data Directory:</div>
-            <div className="p-2 rounded bg-zinc-950 border border-zinc-800 font-mono text-zinc-300 break-all select-all">
-              {diagnostics?.appDataDir || "Loading..."}
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-zinc-400">Application Data Directory:</span>
+              <div className="flex items-center gap-1.5">
+                {diagnostics?.appDataDir && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => handleCopy(diagnostics.appDataDir, "appDataDir")}
+                      className="px-2 py-0.5 rounded text-[11px] bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700 transition cursor-pointer"
+                    >
+                      {copiedKey === "appDataDir" ? "✓ Copied" : "Copy Path"}
+                    </button>
+                    {isDesktop && (
+                      <button
+                        type="button"
+                        onClick={() => handleReveal(diagnostics.appDataDir)}
+                        className="px-2 py-0.5 rounded text-[11px] bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700 transition cursor-pointer"
+                      >
+                        Reveal in Finder
+                      </button>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+            <div className="p-2.5 rounded-lg bg-zinc-950 border border-zinc-800/90 font-mono text-zinc-300 break-all select-all text-xs">
+              {loading && !diagnostics?.appDataDir ? (
+                <div className="h-4 w-48 bg-zinc-800/70 rounded animate-pulse" />
+              ) : (
+                diagnostics?.appDataDir || "—"
+              )}
             </div>
           </div>
 
           <div>
-            <div className="text-zinc-400 mb-1">SQLite Database File:</div>
-            <div className="p-2 rounded bg-zinc-950 border border-zinc-800 font-mono text-zinc-300 break-all select-all">
-              {diagnostics?.dbPath || "Loading..."}
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-zinc-400">SQLite Database File:</span>
+              <div className="flex items-center gap-1.5">
+                {diagnostics?.dbPath && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => handleCopy(diagnostics.dbPath, "dbPath")}
+                      className="px-2 py-0.5 rounded text-[11px] bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700 transition cursor-pointer"
+                    >
+                      {copiedKey === "dbPath" ? "✓ Copied" : "Copy Path"}
+                    </button>
+                    {isDesktop && (
+                      <button
+                        type="button"
+                        onClick={() => handleReveal(diagnostics.dbPath)}
+                        className="px-2 py-0.5 rounded text-[11px] bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700 transition cursor-pointer"
+                      >
+                        Reveal in Finder
+                      </button>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+            <div className="p-2.5 rounded-lg bg-zinc-950 border border-zinc-800/90 font-mono text-zinc-300 break-all select-all text-xs">
+              {loading && !diagnostics?.dbPath ? (
+                <div className="h-4 w-64 bg-zinc-800/70 rounded animate-pulse" />
+              ) : (
+                diagnostics?.dbPath || "—"
+              )}
             </div>
           </div>
 

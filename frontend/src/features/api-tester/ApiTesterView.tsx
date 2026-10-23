@@ -332,6 +332,14 @@ export function ApiTesterView({ initialSelection }: ApiTesterViewProps = {}) {
         }
       } catch (err: unknown) {
         if (!isMountedRef.current) return;
+        const msg = err instanceof Error ? err.message : String(err);
+        if (msg.includes("not found")) {
+          try {
+            localStorage.removeItem("devdesk_api_tester_selected_project");
+          } catch {}
+          setDiscoveredEndpoints([]);
+          return;
+        }
         // Fallback: if project not in DB, try scanning path directly
         if (activeProject?.path) {
           try {
