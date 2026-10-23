@@ -4,9 +4,13 @@ import {
   discoverEndpointsByPathController,
   discoverEndpointsController,
   executeRequestController,
+  getProjectsWithApisController,
 } from "../controllers/apiTesterController.js";
 
 const router = Router();
+
+// GET /api/api-tester/projects-summary - Quick scan to find which projects contain APIs
+router.get("/projects-summary", getProjectsWithApisController);
 
 // GET /api/api-tester/discover - Automatically discover & analyze API endpoints for a project
 router.get("/discover", discoverEndpointsController);

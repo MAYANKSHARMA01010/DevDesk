@@ -244,7 +244,7 @@ export function ApiEndpointDetailsModal({
 
               {endpoint.requestBody.sampleJson && (
                 <div className="rounded-lg bg-zinc-900/70 border border-zinc-800 p-3 font-mono text-xs overflow-x-auto no-scrollbar">
-                  <pre className="text-emerald-300 select-all">
+                  <pre suppressHydrationWarning className="text-emerald-300 select-all">
                     {endpoint.requestBody.sampleJson}
                   </pre>
                 </div>
@@ -276,7 +276,7 @@ export function ApiEndpointDetailsModal({
                   </div>
 
                   {resp.sampleJson && (
-                    <pre className="text-[11px] font-mono text-zinc-300 bg-zinc-950 p-2 rounded border border-zinc-800/80 overflow-x-auto no-scrollbar select-all">
+                    <pre suppressHydrationWarning className="text-[11px] font-mono text-zinc-300 bg-zinc-950 p-2 rounded border border-zinc-800/80 overflow-x-auto no-scrollbar select-all">
                       {resp.sampleJson}
                     </pre>
                   )}
@@ -339,7 +339,7 @@ export function ApiEndpointDetailsModal({
 
             {/* Code Snippet Box */}
             <div className="rounded-lg bg-zinc-950 border border-zinc-800 p-3 font-mono text-xs overflow-x-auto no-scrollbar">
-              <pre className="text-zinc-200 select-all leading-relaxed">
+              <pre suppressHydrationWarning className="text-zinc-200 select-all leading-relaxed">
                 {currentCodeSnippet}
               </pre>
             </div>

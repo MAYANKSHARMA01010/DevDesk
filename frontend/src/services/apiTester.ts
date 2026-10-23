@@ -173,3 +173,36 @@ export async function fetchDiscoveredApisByPath(
 
   return json.data;
 }
+
+export interface ProjectApiSummary {
+  id: string;
+  workspaceId: string;
+  name: string;
+  displayName: string;
+  path: string;
+  type: string;
+  endpointsCount: number;
+  hasApis: boolean;
+  baseUrlSuggestion?: string;
+}
+
+/**
+ * Fetches API endpoint availability summary across projects.
+ * Calls GET /api/api-tester/projects-summary
+ */
+export async function fetchProjectsWithApis(
+  workspaceId?: string
+): Promise<ProjectApiSummary[]> {
+  const url = new URL(`${BACKEND_BASE_URL}/api/api-tester/projects-summary`);
+  if (workspaceId) url.searchParams.set("workspaceId", workspaceId);
+
+  try {
+    const res = await fetch(url.toString(), { cache: "no-store" });
+    if (!res.ok) return [];
+    const json = await res.json();
+    return json.success && Array.isArray(json.data) ? json.data : [];
+  } catch {
+    return [];
+  }
+}
+

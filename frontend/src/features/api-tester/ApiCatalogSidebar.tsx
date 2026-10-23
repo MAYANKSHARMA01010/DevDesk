@@ -261,6 +261,17 @@ export function ApiCatalogSidebar({
                                 type="button"
                                 onClick={(e) => {
                                   e.stopPropagation();
+                                  onSelectEndpoint(ep);
+                                }}
+                                className="px-1.5 py-0.5 rounded text-[10px] font-medium text-emerald-400 hover:bg-emerald-950/80 border border-emerald-800/50 transition cursor-pointer"
+                                title="Load endpoint with complete request & response example"
+                              >
+                                ✨ Example
+                              </button>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
                                   onAnalyzeEndpoint(ep);
                                 }}
                                 className="px-1.5 py-0.5 rounded text-[10px] font-medium text-cyan-400 hover:bg-cyan-950/80 border border-cyan-800/50 transition cursor-pointer"

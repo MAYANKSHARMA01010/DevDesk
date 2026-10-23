@@ -1,11 +1,13 @@
 "use client";
 
-import { useEffect, useId, useRef, useState, useCallback } from "react";
+import { useEffect, useId, useMemo, useRef, useState, useCallback } from "react";
 import {
   cancelApiRequest,
   executeApiRequest,
   fetchDiscoveredProjectApis,
   fetchDiscoveredApisByPath,
+  fetchProjectsWithApis,
+  ProjectApiSummary,
 } from "@/services/apiTester";
 import { fetchWorkspaces } from "@/services/projects";
 import { useWorkspaceSubscription } from "@/services/workspaceSync";
@@ -23,6 +25,9 @@ import {
   resolveSampleUrl,
   generateRealisticRequestBody,
   generateRealisticResponseExample,
+  generateRealisticQueryParams,
+  generateRealisticHeaders,
+  generateCompleteApiExample,
 } from "./apiExampleGenerator";
 
 const HTTP_METHODS: HttpMethod[] = [
@@ -116,9 +121,9 @@ export function ApiTesterView({ initialSelection }: ApiTesterViewProps = {}) {
   // Request Configuration State
   const [method, setMethod] = useState<HttpMethod>("GET");
   const [url, setUrl] = useState<string>("http://localhost:5001/health");
-  const [requestTab, setRequestTab] = useState<"params" | "headers" | "body">(
-    "params"
-  );
+  const [requestTab, setRequestTab] = useState<
+    "params" | "headers" | "body" | "example"
+  >("example");
 
   const [params, setParams] = useState<KeyValuePair[]>([
     { id: `${baseId}-p-1`, key: "", value: "", enabled: true },
@@ -140,6 +145,11 @@ export function ApiTesterView({ initialSelection }: ApiTesterViewProps = {}) {
   ]);
 
   const [body, setBody] = useState<string>("");
+
+  // Projects with APIs Summary & Filtering
+  const [projectsSummary, setProjectsSummary] = useState<ProjectApiSummary[]>([]);
+  const [, setLoadingProjectsSummary] = useState<boolean>(false);
+  const [filterOnlyWithApis, setFilterOnlyWithApis] = useState<boolean>(true);
 
   // Response & Execution State
   const [loading, setLoading] = useState<boolean>(false);
@@ -209,25 +219,84 @@ export function ApiTesterView({ initialSelection }: ApiTesterViewProps = {}) {
     };
   }, [initialSelection]);
 
+  // Load project API summary whenever workspace changes
+  useEffect(() => {
+    let active = true;
+    async function loadSummary() {
+      if (!selectedWorkspaceId) {
+        setProjectsSummary([]);
+        return;
+      }
+      try {
+        setLoadingProjectsSummary(true);
+        const list = await fetchProjectsWithApis(selectedWorkspaceId);
+        if (active) {
+          setProjectsSummary(list);
+        }
+      } catch {
+        // non-fatal
+      } finally {
+        if (active) setLoadingProjectsSummary(false);
+      }
+    }
+    loadSummary();
+    return () => {
+      active = false;
+    };
+  }, [selectedWorkspaceId]);
+
   const activeWorkspace =
     workspaces.find((w) => w.id === selectedWorkspaceId) || null;
   const availableProjects = activeWorkspace?.projects || [];
+
+  // Filter projects to only those that have discovered APIs if filterOnlyWithApis is active
+  const displayedProjects = useMemo(() => {
+    if (!filterOnlyWithApis) {
+      return availableProjects;
+    }
+    if (projectsSummary.length > 0) {
+      const apiProjectIds = new Set(
+        projectsSummary.filter((p) => p.hasApis).map((p) => p.id)
+      );
+      const filtered = availableProjects.filter((p) => apiProjectIds.has(p.id));
+      return filtered.length > 0 ? filtered : availableProjects;
+    }
+    // Fallback heuristic while summary loads: prioritize backend/api/server/node
+    const probable = availableProjects.filter((p) => {
+      const t = (p.type || "").toLowerCase();
+      const n = (p.name || "").toLowerCase();
+      return (
+        t === "backend" ||
+        t === "service" ||
+        t === "api" ||
+        t === "fullstack" ||
+        t === "node.js / express" ||
+        n.includes("backend") ||
+        n.includes("server") ||
+        n.includes("api")
+      );
+    });
+    return probable.length > 0 ? probable : availableProjects;
+  }, [availableProjects, filterOnlyWithApis, projectsSummary]);
+
   const activeProject =
     availableProjects.find((p) => p.id === selectedProjectId) || null;
 
-  // Reconcile project when workspace changes
+  // Reconcile project when displayed projects change
   useEffect(() => {
-    if (activeWorkspace && activeWorkspace.projects.length > 0) {
+    if (displayedProjects.length > 0) {
       if (
         !selectedProjectId ||
-        !activeWorkspace.projects.some((p) => p.id === selectedProjectId)
+        !displayedProjects.some((p) => p.id === selectedProjectId)
       ) {
-        setSelectedProjectId(activeWorkspace.projects[0].id);
+        setSelectedProjectId(displayedProjects[0].id);
       }
+    } else if (availableProjects.length > 0 && !filterOnlyWithApis) {
+      setSelectedProjectId(availableProjects[0].id);
     } else {
       setSelectedProjectId("");
     }
-  }, [selectedWorkspaceId, activeWorkspace, selectedProjectId]);
+  }, [displayedProjects, availableProjects, filterOnlyWithApis, selectedProjectId]);
 
   // Persist last selected workspace and project
   useEffect(() => {
@@ -298,65 +367,30 @@ export function ApiTesterView({ initialSelection }: ApiTesterViewProps = {}) {
     }
   }, [selectedProjectId, scanProjectApis]);
 
-  // 3. One-Click Load Endpoint into Tester
+  // 3. One-Click Load Endpoint into Tester with Complete Example (URL, Params, Headers, Body, Expected Response)
   const handleLoadEndpointIntoTester = useCallback(
-    (endpoint: DiscoveredApiEndpoint, customBaseUrl?: string) => {
+    (
+      endpoint: DiscoveredApiEndpoint,
+      customBaseUrl?: string,
+      targetTab: "params" | "headers" | "body" | "example" = "example"
+    ) => {
       const activeBase = (customBaseUrl || baseUrl).replace(/\/+$/, "");
-      // Resolve dynamic route tokens e.g. :account_id -> acc_1024
-      const fullUrl = resolveSampleUrl(endpoint.path, activeBase);
-
-      setMethod(endpoint.method);
-      setUrl(fullUrl);
-      setActiveEndpointId(endpoint.id);
-
-      // Pre-fill query params
-      if (endpoint.queryParams.length > 0) {
-        setParams(
-          endpoint.queryParams.map((qp, idx) => ({
-            id: `p-${Date.now()}-${idx}`,
-            key: qp.name,
-            value: qp.sampleValue || "",
-            enabled: true,
-          }))
-        );
-        setRequestTab("params");
-      } else {
-        setParams([{ id: `p-${Date.now()}`, key: "", value: "", enabled: true }]);
-      }
-
-      // Pre-fill headers
-      if (endpoint.headers && endpoint.headers.length > 0) {
-        setHeaders(
-          endpoint.headers.map((h, idx) => ({
-            id: `h-${Date.now()}-${idx}`,
-            key: h.key,
-            value: h.value,
-            enabled: true,
-          }))
-        );
-      }
-
-      // Pre-fill body for POST/PUT/PATCH/DELETE with realistic example payload
-      if (["POST", "PUT", "PATCH", "DELETE"].includes(endpoint.method)) {
-        const sampleBody = generateRealisticRequestBody(
-          endpoint.method,
-          endpoint.path,
-          endpoint.requestBody?.sampleJson
-        );
-        setBody(sampleBody);
-        setRequestTab("body");
-      } else {
-        setBody("");
-      }
-
-      // Generate realistic expected response example preview
-      const expRes = generateRealisticResponseExample(
+      const fullExample = generateCompleteApiExample(
         endpoint.method,
         endpoint.path,
-        endpoint.responses?.[0]?.sampleJson
+        activeBase,
+        endpoint
       );
-      setExpectedResponse(expRes);
+
+      setMethod(fullExample.method);
+      setUrl(fullExample.url);
+      setActiveEndpointId(endpoint.id);
+      setParams(fullExample.params);
+      setHeaders(fullExample.headers);
+      setBody(fullExample.body);
+      setExpectedResponse(fullExample.response);
       setResponseViewMode("example");
+      setRequestTab(targetTab);
     },
     [baseUrl]
   );
@@ -577,16 +611,52 @@ export function ApiTesterView({ initialSelection }: ApiTesterViewProps = {}) {
             <select
               value={selectedProjectId}
               onChange={(e) => setSelectedProjectId(e.target.value)}
-              disabled={availableProjects.length === 0}
-              className="px-2 py-1 bg-zinc-900 border border-zinc-700 rounded-md text-xs text-zinc-200 focus:outline-none focus:border-zinc-500 max-w-[180px] truncate"
+              disabled={displayedProjects.length === 0}
+              className="px-2 py-1 bg-zinc-900 border border-zinc-700 rounded-md text-xs text-zinc-200 focus:outline-none focus:border-zinc-500 max-w-[200px] truncate"
             >
-              <option value="">(Select Project)</option>
-              {availableProjects.map((proj) => (
-                <option key={proj.id} value={proj.id}>
-                  {proj.displayName || proj.name} ({proj.type})
-                </option>
-              ))}
+              <option value="">
+                {displayedProjects.length === 0
+                  ? "(No API Projects)"
+                  : "(Select Project)"}
+              </option>
+              {displayedProjects.map((proj) => {
+                const summary = projectsSummary.find((s) => s.id === proj.id);
+                const countBadge =
+                  summary && summary.endpointsCount > 0
+                    ? ` (${summary.endpointsCount} APIs)`
+                    : ` (${proj.type})`;
+                return (
+                  <option key={proj.id} value={proj.id}>
+                    {proj.displayName || proj.name}
+                    {countBadge}
+                  </option>
+                );
+              })}
             </select>
+
+            {/* Toggle APIs Only filter pill */}
+            <button
+              type="button"
+              onClick={() => setFilterOnlyWithApis((prev) => !prev)}
+              className={`px-2 py-1 rounded-md text-xs font-medium border transition flex items-center gap-1 cursor-pointer shrink-0 ${
+                filterOnlyWithApis
+                  ? "bg-emerald-950/70 text-emerald-300 border-emerald-800/80"
+                  : "bg-zinc-900 text-zinc-400 border-zinc-700 hover:text-zinc-200"
+              }`}
+              title={
+                filterOnlyWithApis
+                  ? "Currently showing only projects with APIs. Click to show all projects."
+                  : "Currently showing all projects. Click to show only projects with APIs."
+              }
+            >
+              <span>{filterOnlyWithApis ? "✓" : "○"}</span>
+              <span>APIs Only</span>
+              {projectsSummary.length > 0 && (
+                <span className="text-[10px] px-1 py-0.2 rounded bg-zinc-800 text-zinc-300 font-mono">
+                  {projectsSummary.filter((p) => p.hasApis).length}/{availableProjects.length}
+                </span>
+              )}
+            </button>
           </div>
 
           {/* Base URL Input */}
@@ -725,10 +795,21 @@ export function ApiTesterView({ initialSelection }: ApiTesterViewProps = {}) {
             <div className="flex flex-col min-h-0 rounded-lg bg-zinc-950 border border-zinc-800 shadow-md overflow-hidden">
               {/* Request Tabs Header */}
               <div className="px-4 py-2 bg-zinc-900/90 border-b border-zinc-800 flex items-center justify-between text-xs select-none shrink-0">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <button
+                    onClick={() => setRequestTab("example")}
+                    className={`px-2.5 py-1 rounded-md font-semibold text-xs transition-all cursor-pointer flex items-center gap-1.5 ${
+                      requestTab === "example"
+                        ? "bg-emerald-950 text-emerald-300 shadow-sm border border-emerald-700/80"
+                        : "text-emerald-400 hover:text-emerald-200 hover:bg-emerald-950/40 border border-emerald-900/40"
+                    }`}
+                  >
+                    <span>✨</span>
+                    <span>Complete Example</span>
+                  </button>
                   <button
                     onClick={() => setRequestTab("params")}
-                    className={`px-3 py-1 rounded-md font-medium text-xs transition-colors cursor-pointer ${
+                    className={`px-2.5 py-1 rounded-md font-medium text-xs transition-colors cursor-pointer ${
                       requestTab === "params"
                         ? "bg-zinc-800 text-white shadow-sm border border-zinc-700"
                         : "text-zinc-400 hover:text-zinc-200"
@@ -738,7 +819,7 @@ export function ApiTesterView({ initialSelection }: ApiTesterViewProps = {}) {
                   </button>
                   <button
                     onClick={() => setRequestTab("headers")}
-                    className={`px-3 py-1 rounded-md font-medium text-xs transition-colors cursor-pointer ${
+                    className={`px-2.5 py-1 rounded-md font-medium text-xs transition-colors cursor-pointer ${
                       requestTab === "headers"
                         ? "bg-zinc-800 text-white shadow-sm border border-zinc-700"
                         : "text-zinc-400 hover:text-zinc-200"
@@ -748,7 +829,7 @@ export function ApiTesterView({ initialSelection }: ApiTesterViewProps = {}) {
                   </button>
                   <button
                     onClick={() => setRequestTab("body")}
-                    className={`px-3 py-1 rounded-md font-medium text-xs transition-colors cursor-pointer ${
+                    className={`px-2.5 py-1 rounded-md font-medium text-xs transition-colors cursor-pointer ${
                       requestTab === "body"
                         ? "bg-zinc-800 text-white shadow-sm border border-zinc-700"
                         : "text-zinc-400 hover:text-zinc-200"
@@ -757,6 +838,34 @@ export function ApiTesterView({ initialSelection }: ApiTesterViewProps = {}) {
                     Body {body.trim() ? "●" : ""}
                   </button>
                 </div>
+
+                {requestTab === "example" && (
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (allowsBody && body.trim()) {
+                          setRequestTab("body");
+                        } else if (params.some((p) => p.key.trim())) {
+                          setRequestTab("params");
+                        } else {
+                          setRequestTab("headers");
+                        }
+                      }}
+                      className="px-2 py-0.5 rounded text-[11px] font-medium bg-zinc-800 text-zinc-300 border border-zinc-700 hover:bg-zinc-700 hover:text-white transition-colors cursor-pointer"
+                    >
+                      ✏️ Edit
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSendRequest}
+                      disabled={loading}
+                      className="px-2.5 py-0.5 rounded text-[11px] font-semibold bg-emerald-600 hover:bg-emerald-500 text-white transition-colors cursor-pointer flex items-center gap-1 shadow-xs"
+                    >
+                      🚀 Run Live
+                    </button>
+                  </div>
+                )}
 
                 {requestTab === "params" && (
                   <button
@@ -808,6 +917,216 @@ export function ApiTesterView({ initialSelection }: ApiTesterViewProps = {}) {
 
               {/* Request Tab Contents */}
               <div className="flex-1 overflow-auto no-scrollbar p-3">
+                {/* TAB 0: COMPLETE EXAMPLE BLUEPRINT */}
+                {requestTab === "example" && (
+                  <div className="space-y-3.5 select-text">
+                    {/* Header Banner */}
+                    <div className="p-3 rounded-lg bg-emerald-950/40 border border-emerald-800/60 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg">✨</span>
+                        <div>
+                          <p className="font-semibold text-emerald-200 text-xs">
+                            Complete Request &amp; Response Example
+                          </p>
+                          <p className="text-[11px] text-emerald-300/80 mt-0.5">
+                            Pre-configured parameters, headers, body, and schema for this endpoint.
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (allowsBody && body.trim()) setRequestTab("body");
+                            else if (params.some((p) => p.key.trim())) setRequestTab("params");
+                            else setRequestTab("headers");
+                          }}
+                          className="px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-medium border border-zinc-700 transition cursor-pointer"
+                        >
+                          ✏️ Edit in Composer
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleSendRequest}
+                          disabled={loading}
+                          className="px-2.5 py-1 rounded bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-xs transition cursor-pointer flex items-center gap-1"
+                        >
+                          🚀 Run Live
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* 1. Request Endpoint URL */}
+                    <div className="p-2.5 rounded-lg bg-zinc-900/60 border border-zinc-800 space-y-1.5">
+                      <span className="text-[10px] font-mono font-semibold uppercase tracking-wider text-zinc-400">
+                        1. Target URL (Dynamic Parameters Resolved)
+                      </span>
+                      <div className="flex items-center gap-2 bg-zinc-950 p-2 rounded border border-zinc-800/90 font-mono text-xs overflow-x-auto no-scrollbar">
+                        <span
+                          className={`px-1.5 py-0.5 rounded text-[10px] font-bold border shrink-0 ${getMethodColor(
+                            method
+                          )}`}
+                        >
+                          {method}
+                        </span>
+                        <span className="text-zinc-200 break-all select-all flex-1">
+                          {url}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* 2. Query Parameters Table */}
+                    <div className="p-2.5 rounded-lg bg-zinc-900/60 border border-zinc-800 space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-mono font-semibold uppercase tracking-wider text-zinc-400">
+                          2. Query Parameters ({params.filter((p) => p.key.trim()).length})
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setRequestTab("params")}
+                          className="text-[11px] text-cyan-400 hover:underline cursor-pointer"
+                        >
+                          Modify Params →
+                        </button>
+                      </div>
+                      {params.filter((p) => p.key.trim()).length > 0 ? (
+                        <div className="rounded border border-zinc-800/90 overflow-hidden">
+                          <table className="w-full text-left text-xs font-mono">
+                            <thead className="bg-zinc-950 text-zinc-400 text-[10px] uppercase border-b border-zinc-800">
+                              <tr>
+                                <th className="py-1 px-2.5">Key</th>
+                                <th className="py-1 px-2.5">Sample Value</th>
+                                <th className="py-1 px-2.5">Status</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-zinc-800/60 bg-zinc-950/40">
+                              {params
+                                .filter((p) => p.key.trim())
+                                .map((p, idx) => (
+                                  <tr key={idx} className="hover:bg-zinc-900/40">
+                                    <td className="py-1.5 px-2.5 text-cyan-300 font-medium">
+                                      {p.key}
+                                    </td>
+                                    <td className="py-1.5 px-2.5 text-emerald-300 font-bold select-all">
+                                      {p.value}
+                                    </td>
+                                    <td className="py-1.5 px-2.5 text-zinc-500 text-[10px]">
+                                      {p.enabled ? "Active" : "Disabled"}
+                                    </td>
+                                  </tr>
+                                ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      ) : (
+                        <p className="text-xs text-zinc-500 italic py-0.5">
+                          No query parameters required for this endpoint.
+                        </p>
+                      )}
+                    </div>
+
+                    {/* 3. Request Headers Table */}
+                    <div className="p-2.5 rounded-lg bg-zinc-900/60 border border-zinc-800 space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-mono font-semibold uppercase tracking-wider text-zinc-400">
+                          3. Request Headers ({headers.filter((h) => h.key.trim()).length})
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setRequestTab("headers")}
+                          className="text-[11px] text-cyan-400 hover:underline cursor-pointer"
+                        >
+                          Modify Headers →
+                        </button>
+                      </div>
+                      <div className="rounded border border-zinc-800/90 overflow-hidden">
+                        <table className="w-full text-left text-xs font-mono">
+                          <thead className="bg-zinc-950 text-zinc-400 text-[10px] uppercase border-b border-zinc-800">
+                            <tr>
+                              <th className="py-1 px-2.5">Header</th>
+                              <th className="py-1 px-2.5">Example Value</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-zinc-800/60 bg-zinc-950/40">
+                            {headers
+                              .filter((h) => h.key.trim())
+                              .map((h, idx) => (
+                                <tr key={idx} className="hover:bg-zinc-900/40">
+                                  <td className="py-1.5 px-2.5 text-cyan-300">{h.key}</td>
+                                  <td className="py-1.5 px-2.5 text-zinc-300 select-all">
+                                    {h.value}
+                                  </td>
+                                </tr>
+                              ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+
+                    {/* 4. Request Body Payload */}
+                    <div className="p-2.5 rounded-lg bg-zinc-900/60 border border-zinc-800 space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-mono font-semibold uppercase tracking-wider text-zinc-400">
+                          4. Request Body (JSON Payload)
+                        </span>
+                        {allowsBody && (
+                          <button
+                            type="button"
+                            onClick={() => setRequestTab("body")}
+                            className="text-[11px] text-cyan-400 hover:underline cursor-pointer"
+                          >
+                            Edit Body →
+                          </button>
+                        )}
+                      </div>
+                      {allowsBody ? (
+                        <div className="rounded bg-zinc-950 border border-zinc-800 p-2.5 overflow-x-auto no-scrollbar">
+                          <pre
+                            suppressHydrationWarning
+                            className="text-emerald-300 font-mono text-xs leading-relaxed select-all"
+                          >
+                            {body || "{}"}
+                          </pre>
+                        </div>
+                      ) : (
+                        <p className="text-xs text-zinc-500 italic py-0.5">
+                          HTTP {method} requests do not send a payload body.
+                        </p>
+                      )}
+                    </div>
+
+                    {/* 5. Expected Response Schema */}
+                    {expectedResponse && (
+                      <div className="p-2.5 rounded-lg bg-zinc-900/60 border border-zinc-800 space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-mono font-semibold uppercase tracking-wider text-cyan-400">
+                            5. Expected Response Schema ({expectedResponse.statusCode}{" "}
+                            {expectedResponse.statusText})
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setResponseViewMode("example");
+                              setResponseTab("body");
+                            }}
+                            className="text-[11px] text-cyan-400 hover:underline cursor-pointer"
+                          >
+                            Inspect in Response Tab →
+                          </button>
+                        </div>
+                        <div className="rounded bg-zinc-950 border border-zinc-800 p-2.5 overflow-x-auto no-scrollbar">
+                          <pre
+                            suppressHydrationWarning
+                            className="text-cyan-300/90 font-mono text-xs leading-relaxed select-all"
+                          >
+                            {expectedResponse.body}
+                          </pre>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {/* TAB 1: PARAMS */}
                 {requestTab === "params" && (
                   <div className="space-y-2">
@@ -1080,7 +1399,10 @@ export function ApiTesterView({ initialSelection }: ApiTesterViewProps = {}) {
 
                     {responseTab === "body" ? (
                       <div className="flex-1 overflow-auto no-scrollbar select-text bg-zinc-900/40 rounded-lg border border-zinc-800/80 p-3.5">
-                        <pre className="whitespace-pre-wrap text-emerald-300/95 font-mono text-xs leading-relaxed">
+                        <pre
+                          suppressHydrationWarning
+                          className="whitespace-pre-wrap text-emerald-300/95 font-mono text-xs leading-relaxed"
+                        >
                           {expectedResponse.body}
                         </pre>
                       </div>
@@ -1114,7 +1436,10 @@ export function ApiTesterView({ initialSelection }: ApiTesterViewProps = {}) {
                           (Empty response body)
                         </div>
                       ) : (
-                        <pre className="whitespace-pre-wrap text-zinc-300">
+                        <pre
+                          suppressHydrationWarning
+                          className="whitespace-pre-wrap text-zinc-300"
+                        >
                           {getFormattedResponseBody()}
                         </pre>
                       )}

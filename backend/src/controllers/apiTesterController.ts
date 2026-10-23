@@ -199,3 +199,78 @@ export async function discoverEndpointsByPathController(
     });
   }
 }
+
+/**
+ * Handles GET /api/api-tester/projects-summary?workspaceId=...
+ * Quickly checks all workspace projects and returns which ones contain APIs.
+ */
+export async function getProjectsWithApisController(
+  req: Request,
+  res: Response
+): Promise<void> {
+  try {
+    const { workspaceId } = req.query;
+
+    const { workspaceRepository } = await import(
+      "../services/workspaces/workspaceRepository.js"
+    );
+    const { apiDiscoveryService } = await import(
+      "../services/api-tester/apiDiscoveryService.js"
+    );
+
+    let projects: any[] = [];
+    if (workspaceId && typeof workspaceId === "string" && workspaceId.trim()) {
+      const ws = workspaceRepository.getById(workspaceId.trim());
+      projects = ws?.projects || [];
+    } else {
+      const workspaces = workspaceRepository.getAll();
+      projects = workspaces.flatMap((w) => w.projects);
+    }
+
+    const summaries = await Promise.all(
+      projects.map(async (p) => {
+        try {
+          const discovery = await apiDiscoveryService.discoverProjectEndpoints(
+            p.path,
+            p.displayName || p.name,
+            p.id
+          );
+          return {
+            id: p.id,
+            workspaceId: p.workspaceId,
+            name: p.name,
+            displayName: p.displayName || p.name,
+            path: p.path,
+            type: p.type,
+            endpointsCount: discovery.endpoints.length,
+            hasApis: discovery.endpoints.length > 0,
+            baseUrlSuggestion: discovery.baseUrlSuggestion,
+          };
+        } catch {
+          return {
+            id: p.id,
+            workspaceId: p.workspaceId,
+            name: p.name,
+            displayName: p.displayName || p.name,
+            path: p.path,
+            type: p.type,
+            endpointsCount: 0,
+            hasApis: false,
+          };
+        }
+      })
+    );
+
+    res.status(200).json({
+      success: true,
+      data: summaries,
+    });
+  } catch (err: unknown) {
+    const error = err as Error;
+    res.status(500).json({
+      success: false,
+      error: error.message || "Failed to get projects API summary",
+    });
+  }
+}
+

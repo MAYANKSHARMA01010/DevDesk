@@ -1,5 +1,11 @@
 import { DiscoveredApiEndpoint } from "@/types/apiDiscovery";
-import { HttpMethod } from "@/types/apiTester";
+import { HttpMethod, KeyValuePair } from "@/types/apiTester";
+
+/**
+ * Deterministic constant timestamp for sample payloads.
+ * Using a fixed ISO string avoids Next.js server-client hydration mismatches.
+ */
+export const STATIC_SAMPLE_TIMESTAMP = "2026-10-23T12:00:00.000Z";
 
 /**
  * Replaces dynamic route tokens (:id, :account_id, [id], etc.) in a URL with realistic sample values.
@@ -21,6 +27,144 @@ export function resolveSampleUrl(rawPath: string, baseUrl: string): string {
 
   if (!resolved.startsWith("/")) resolved = "/" + resolved;
   return `${cleanBase}${resolved}`;
+}
+
+/**
+ * Generates realistic query parameters for a route based on HTTP method and path keywords.
+ */
+export function generateRealisticQueryParams(
+  method: HttpMethod,
+  routePath: string,
+  existingParams?: { name: string; sampleValue?: string }[]
+): KeyValuePair[] {
+  // If static analysis already found query parameters in the code, use them
+  if (existingParams && existingParams.length > 0) {
+    return existingParams.map((p, idx) => ({
+      id: `p-sample-${idx + 1}`,
+      key: p.name,
+      value: p.sampleValue || (p.name.includes("id") ? "1" : "true"),
+      enabled: true,
+    }));
+  }
+
+  const lower = routePath.toLowerCase();
+
+  if (lower.includes("account")) {
+    return [
+      { id: "p-sample-1", key: "status", value: "active", enabled: true },
+      { id: "p-sample-2", key: "includeMetrics", value: "true", enabled: true },
+      { id: "p-sample-3", key: "limit", value: "10", enabled: false },
+    ];
+  }
+
+  if (lower.includes("video") || lower.includes("download")) {
+    return [
+      { id: "p-sample-1", key: "format", value: "mp4", enabled: true },
+      { id: "p-sample-2", key: "quality", value: "1080p", enabled: true },
+    ];
+  }
+
+  if (lower.includes("post")) {
+    return [
+      { id: "p-sample-1", key: "filter", value: "published", enabled: true },
+      { id: "p-sample-2", key: "limit", value: "25", enabled: true },
+      { id: "p-sample-3", key: "sort", value: "desc", enabled: true },
+    ];
+  }
+
+  if (lower.includes("bulk")) {
+    return [
+      { id: "p-sample-1", key: "batchSize", value: "50", enabled: true },
+      { id: "p-sample-2", key: "dryRun", value: "false", enabled: true },
+    ];
+  }
+
+  if (lower.includes("me") || lower.includes("user")) {
+    return [
+      { id: "p-sample-1", key: "fields", value: "profile,email,settings", enabled: true },
+    ];
+  }
+
+  if (lower.includes("health")) {
+    return [
+      { id: "p-sample-1", key: "verbose", value: "true", enabled: false },
+    ];
+  }
+
+  // General GET endpoints default to pagination & sorting
+  if (method === "GET") {
+    return [
+      { id: "p-sample-1", key: "page", value: "1", enabled: true },
+      { id: "p-sample-2", key: "limit", value: "20", enabled: true },
+      { id: "p-sample-3", key: "sort", value: "desc", enabled: false },
+    ];
+  }
+
+  // Non-GET default
+  return [
+    { id: "p-sample-1", key: "notify", value: "true", enabled: false },
+  ];
+}
+
+/**
+ * Generates realistic request headers for a route, including Content-Type, Accept, and Auth.
+ */
+export function generateRealisticHeaders(
+  routePath: string,
+  existingHeaders?: { key: string; value: string }[]
+): KeyValuePair[] {
+  if (existingHeaders && existingHeaders.length > 0) {
+    const list = existingHeaders.map((h, idx) => ({
+      id: `h-sample-${idx + 1}`,
+      key: h.key,
+      value: h.value,
+      enabled: true,
+    }));
+
+    // Ensure Content-Type & Accept are present
+    if (!list.some((h) => h.key.toLowerCase() === "content-type")) {
+      list.unshift({
+        id: "h-sample-ct",
+        key: "Content-Type",
+        value: "application/json",
+        enabled: true,
+      });
+    }
+    return list;
+  }
+
+  const lower = routePath.toLowerCase();
+  const headers: KeyValuePair[] = [
+    {
+      id: "h-sample-1",
+      key: "Content-Type",
+      value: "application/json",
+      enabled: true,
+    },
+    {
+      id: "h-sample-2",
+      key: "Accept",
+      value: "application/json",
+      enabled: true,
+    },
+  ];
+
+  // Protected / authenticated routes
+  if (
+    !lower.includes("health") &&
+    !lower.includes("login") &&
+    !lower.includes("register") &&
+    !lower.includes("forgot-password")
+  ) {
+    headers.push({
+      id: "h-sample-3",
+      key: "Authorization",
+      value: "Bearer devdesk_test_token_eyJhbGciOiJIUzI1NiJ9",
+      enabled: true,
+    });
+  }
+
+  return headers;
 }
 
 /**
@@ -233,7 +377,7 @@ export function generateRealisticResponseExample(
             : lower.includes("video")
             ? "vid_9901"
             : "item_12345",
-          deletedAt: new Date().toISOString(),
+          deletedAt: STATIC_SAMPLE_TIMESTAMP,
         },
         null,
         2
@@ -259,7 +403,7 @@ export function generateRealisticResponseExample(
             platform: "youtube",
             status: "active",
             connectedAt: "2026-09-15T10:00:00.000Z",
-            updatedAt: new Date().toISOString(),
+            updatedAt: STATIC_SAMPLE_TIMESTAMP,
             metrics: {
               subscribers: 24500,
               totalViews: 1250000,
@@ -292,7 +436,7 @@ export function generateRealisticResponseExample(
             downloadUrl: "https://storage.example.com/videos/vid_9901.mp4",
             status: "ready",
             fileSizeBytes: 24510000,
-            createdAt: new Date().toISOString(),
+            createdAt: STATIC_SAMPLE_TIMESTAMP,
           },
         },
         null,
@@ -317,7 +461,7 @@ export function generateRealisticResponseExample(
             title: "Announcing Developer Tools v2.0",
             status: "published",
             platformsPublished: ["youtube", "twitter"],
-            publishedAt: new Date().toISOString(),
+            publishedAt: STATIC_SAMPLE_TIMESTAMP,
           },
         },
         null,
@@ -338,12 +482,11 @@ export function generateRealisticResponseExample(
         {
           success: true,
           token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c3JfODgyMCIsImlhdCI6MTY3MjUzMzk5Mn0...",
-          expiresIn: 86400,
           user: {
             id: "usr_8820",
+            username: "dev_user",
             email: "developer@example.com",
-            name: "Developer",
-            role: "admin",
+            role: "developer",
           },
         },
         null,
@@ -352,24 +495,23 @@ export function generateRealisticResponseExample(
     };
   }
 
-  if (lower === "/me" || lower.endsWith("/me")) {
+  if (lower.includes("register") || lower.includes("signup")) {
     return {
-      statusCode: 200,
-      statusText: "OK",
+      statusCode: 201,
+      statusText: "Created",
       headers: {
         "content-type": "application/json; charset=utf-8",
-        "x-response-time": "15ms",
+        "x-response-time": "35ms",
       },
       body: JSON.stringify(
         {
           success: true,
+          message: "User registered successfully.",
           user: {
             id: "usr_8820",
-            name: "Mayank Sharma",
+            username: "dev_user",
             email: "developer@example.com",
-            role: "admin",
-            permissions: ["projects:read", "projects:write", "processes:manage", "api:test"],
-            createdAt: "2026-01-01T00:00:00.000Z",
+            role: "developer",
           },
         },
         null,
@@ -384,12 +526,37 @@ export function generateRealisticResponseExample(
       statusText: "OK",
       headers: {
         "content-type": "application/json; charset=utf-8",
-        "x-response-time": "18ms",
+        "x-response-time": "15ms",
       },
       body: JSON.stringify(
         {
           success: true,
-          message: "Password reset instructions have been dispatched to developer@example.com.",
+          message: "Password reset instructions sent to your email address.",
+        },
+        null,
+        2
+      ),
+    };
+  }
+
+  if (lower.includes("me")) {
+    return {
+      statusCode: 200,
+      statusText: "OK",
+      headers: {
+        "content-type": "application/json; charset=utf-8",
+        "x-response-time": "12ms",
+      },
+      body: JSON.stringify(
+        {
+          success: true,
+          profile: {
+            id: "usr_8820",
+            name: "Mayank Sharma",
+            email: "developer@example.com",
+            role: "admin",
+            permissions: ["projects:read", "projects:write", "terminal:exec"],
+          },
         },
         null,
         2
@@ -403,15 +570,12 @@ export function generateRealisticResponseExample(
       statusText: "OK",
       headers: {
         "content-type": "application/json; charset=utf-8",
-        "x-response-time": "85ms",
+        "x-response-time": "60ms",
       },
       body: JSON.stringify(
         {
           success: true,
-          action: "batch_process",
-          total: 3,
-          succeeded: 3,
-          failed: 0,
+          processedCount: 3,
           items: [
             { id: "item_101", status: "completed" },
             { id: "item_102", status: "completed" },
@@ -436,7 +600,7 @@ export function generateRealisticResponseExample(
         {
           status: "ok",
           uptimeSeconds: 1420,
-          timestamp: new Date().toISOString(),
+          timestamp: STATIC_SAMPLE_TIMESTAMP,
         },
         null,
         2
@@ -459,11 +623,55 @@ export function generateRealisticResponseExample(
         message: "Request processed successfully.",
         data: {
           id: "item_1001",
-          createdAt: new Date().toISOString(),
+          createdAt: STATIC_SAMPLE_TIMESTAMP,
         },
       },
       null,
       2
     ),
+  };
+}
+
+/**
+ * Returns a complete end-to-end example for any endpoint:
+ * URL with sample path params, example query params, headers, body, and expected response.
+ */
+export interface CompleteApiExample {
+  url: string;
+  method: HttpMethod;
+  params: KeyValuePair[];
+  headers: KeyValuePair[];
+  body: string;
+  response: {
+    statusCode: number;
+    statusText: string;
+    headers: Record<string, string>;
+    body: string;
+  };
+}
+
+export function generateCompleteApiExample(
+  method: HttpMethod,
+  rawPath: string,
+  baseUrl: string,
+  endpoint?: DiscoveredApiEndpoint
+): CompleteApiExample {
+  const url = resolveSampleUrl(rawPath, baseUrl);
+  const params = generateRealisticQueryParams(method, rawPath, endpoint?.queryParams);
+  const headers = generateRealisticHeaders(rawPath, endpoint?.headers);
+  const body = generateRealisticRequestBody(method, rawPath, endpoint?.requestBody?.sampleJson);
+  const response = generateRealisticResponseExample(
+    method,
+    rawPath,
+    endpoint?.responses?.[0]?.sampleJson
+  );
+
+  return {
+    url,
+    method,
+    params,
+    headers,
+    body,
+    response,
   };
 }
