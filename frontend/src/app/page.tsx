@@ -267,7 +267,7 @@ export default function Home() {
       <StatusBar
         backendConnected={backendConnected}
         runningProcessesCount={runningProcessesCount}
-        port={3000}
+        port={process.env.NEXT_PUBLIC_PORT || 8200}
       />
     </div>
   );

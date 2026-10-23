@@ -41,26 +41,15 @@ const rootEnv = parseEnv(rootEnvPath);
 const hostedApiUrl =
   rootEnv.get("NEXT_PUBLIC_HOSTED_API_URL") ||
   rootEnv.get("HOSTED_API_URL") ||
-  rootEnv.get("NEXT_PUBLIC_HOSTED_BACKEND_URL") ||
-  rootEnv.get("HOSTED_BACKEND_URL") ||
   "";
+
+const backendPort = rootEnv.get("PORT") || "8300";
+const frontendPort = rootEnv.get("NEXT_PUBLIC_PORT") || "8200";
 
 const localApiUrl =
   rootEnv.get("NEXT_PUBLIC_API_URL") ||
   rootEnv.get("API_URL") ||
-  rootEnv.get("NEXT_PUBLIC_LOCAL_API_URL") ||
-  rootEnv.get("LOCAL_API_URL") ||
-  rootEnv.get("NEXT_PUBLIC_LOCAL_BACKEND_URL") ||
-  rootEnv.get("LOCAL_BACKEND_URL") ||
-  rootEnv.get("NEXT_PUBLIC_BACKEND_URL") ||
-  rootEnv.get("BACKEND_URL") ||
-  "http://localhost:5001";
-
-const frontendPort =
-  rootEnv.get("NEXT_PUBLIC_PORT") ||
-  rootEnv.get("PORT_FRONTEND") ||
-  rootEnv.get("FRONTEND_PORT") ||
-  "3000";
+  `http://localhost:${backendPort}`;
 
 // Active target URL: Hosted takes precedence via OR (||); falls back to local API URL
 const activeBackendUrl = hostedApiUrl || localApiUrl;
@@ -94,5 +83,14 @@ ELECTRON_START_URL=http://localhost:${frontendPort}
 `;
 fs.writeFileSync(desktopEnvPath, desktopContent);
 console.log("✓ Synced desktop/.env");
+
+// 3. Sync backend/.env
+const backendEnvPath = path.join(rootDir, "backend/.env");
+const backendContent = `PORT=${backendPort}
+HOST=127.0.0.1
+NODE_ENV=development
+`;
+fs.writeFileSync(backendEnvPath, backendContent);
+console.log("✓ Synced backend/.env");
 
 console.log("[DevDesk Env Sync] Environment synchronization complete!");

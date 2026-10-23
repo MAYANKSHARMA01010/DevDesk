@@ -17,11 +17,24 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const rootDir = path.resolve(__dirname, "..");
 
-// Parse ports from command line arguments or use default DevDesk ports
+function getEnvPorts() {
+  try {
+    const envContent = fs.readFileSync(path.join(rootDir, ".env"), "utf8");
+    const portMatch = envContent.match(/^PORT\s*=\s*(\d+)/m);
+    const feMatch = envContent.match(/^NEXT_PUBLIC_PORT\s*=\s*(\d+)/m);
+    const ports = [];
+    if (feMatch) ports.push(parseInt(feMatch[1], 10));
+    if (portMatch) ports.push(parseInt(portMatch[1], 10));
+    if (ports.length > 0) return ports;
+  } catch {}
+  return [8200, 8300];
+}
+
+// Parse ports from command line arguments or use configured DevDesk ports
 const args = process.argv.slice(2);
 const targetPorts = args.length > 0 
   ? args.map((p) => parseInt(p, 10)).filter((p) => !isNaN(p) && p > 0)
-  : [3000, 5001];
+  : getEnvPorts();
 
 console.log(`[DevDesk] Inspecting required ports: ${targetPorts.join(", ")}...`);
 

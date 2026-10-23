@@ -6,8 +6,8 @@
   "scripts": {
     "sync:env": "node scripts/sync-env.mjs",
     "dev": "node scripts/sync-env.mjs && node scripts/ensure-ports.mjs && pnpm -r --parallel dev",
-    "dev:frontend": "node scripts/sync-env.mjs && node scripts/ensure-ports.mjs 3000 && pnpm --filter frontend dev",
-    "dev:backend": "node scripts/sync-env.mjs && node scripts/ensure-ports.mjs 5001 && pnpm --filter backend dev",
+    "dev:frontend": "node scripts/sync-env.mjs && node scripts/ensure-ports.mjs 8200 && pnpm --filter frontend dev",
+    "dev:backend": "node scripts/sync-env.mjs && node scripts/ensure-ports.mjs 8300 && pnpm --filter backend dev",
     "dev:desktop": "node scripts/sync-env.mjs && pnpm --filter desktop dev",
     "free:ports": "node scripts/ensure-ports.mjs",
     "build": "pnpm install -y && pnpm --filter frontend run build && pnpm --filter backend run build && pnpm --filter desktop run build",

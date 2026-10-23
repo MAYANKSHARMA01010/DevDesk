@@ -77,11 +77,11 @@ const LOCAL_API_URL = (
   process.env.LOCAL_BACKEND_URL ||
   process.env.NEXT_PUBLIC_BACKEND_URL ||
   process.env.BACKEND_URL ||
-  "http://127.0.0.1:5001"
+  "http://127.0.0.1:8300"
 ).trim().replace(/\/+$/, "");
 
 // Hosted takes precedence; falls back to local API URL via OR (||)
-const BACKEND_URL = HOSTED_API_URL || LOCAL_API_URL || "http://127.0.0.1:5001";
+const BACKEND_URL = HOSTED_API_URL || LOCAL_API_URL || "http://127.0.0.1:8300";
 
 const IS_HOSTED_BACKEND =
   Boolean(HOSTED_API_URL) ||
@@ -89,7 +89,7 @@ const IS_HOSTED_BACKEND =
 
 const isDev = process.env.NODE_ENV === "development" || !app.isPackaged;
 const FRONTEND_DEV_URL =
-  process.env.ELECTRON_START_URL || "http://localhost:3000";
+  process.env.ELECTRON_START_URL || "http://localhost:8200";
 
 function getOfflineErrorHtml(targetUrl: string): string {
   return `data:text/html;charset=utf-8,${encodeURIComponent(`

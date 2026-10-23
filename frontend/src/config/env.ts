@@ -32,7 +32,7 @@ export const LOCAL_API_URL: string = normalizeUrl(
     process.env.LOCAL_BACKEND_URL ||
     process.env.NEXT_PUBLIC_BACKEND_URL ||
     process.env.BACKEND_URL ||
-    "http://localhost:5001"
+    "http://localhost:8300"
 );
 
 // Backward compatibility alias
@@ -40,7 +40,7 @@ export const LOCAL_BACKEND_URL = LOCAL_API_URL;
 export const HOSTED_BACKEND_URL = HOSTED_API_URL;
 
 // 2. Active Target URL: Hosted takes precedence via OR (||); falls back to Local API URL
-export const BACKEND_URL: string = HOSTED_API_URL || LOCAL_API_URL || "http://localhost:5001";
+export const BACKEND_URL: string = HOSTED_API_URL || LOCAL_API_URL || "http://localhost:8300";
 
 // 3. REST API Base URL
 export const API_BASE_URL: string = `${BACKEND_URL}/api`;
@@ -57,7 +57,7 @@ export function getBackendDisplayLabel(): string {
     if (IS_HOSTED_BACKEND) {
       return `Hosted (${parsed.hostname})`;
     }
-    return `Local (Port ${parsed.port || "5001"})`;
+    return `Local (Port ${parsed.port || "8300"})`;
   } catch {
     return BACKEND_URL;
   }
