@@ -567,6 +567,14 @@ async function createWindow(): Promise<void> {
     }
   });
 
+  // Intercept all window.open / <a target="_blank"> and open in default system browser
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    if (url.startsWith("http:") || url.startsWith("https:") || url.startsWith("mailto:")) {
+      shell.openExternal(url);
+    }
+    return { action: "deny" };
+  });
+
   if (isDev) {
     // Development mode: Attempt to load the Next.js dev server
     mainWindow.loadURL(FRONTEND_DEV_URL).catch((err) => {

@@ -308,3 +308,42 @@ export async function killSystemProcessController(
   }
 }
 
+/**
+ * Handles POST /api/processes/open-url
+ * Body: { url: string }
+ * Opens the URL in the host machine's default browser (macOS `open`, Windows `start`, Linux `xdg-open`).
+ */
+export async function openUrlController(
+  req: Request,
+  res: Response
+): Promise<void> {
+  try {
+    const { url } = req.body ?? {};
+    if (!url || typeof url !== "string" || !/^https?:\/\//i.test(url.trim())) {
+      res.status(400).json({ success: false, error: "Valid http/https URL is required" });
+      return;
+    }
+
+    const cleanUrl = url.trim();
+    const { exec } = await import("child_process");
+    let cmd = "";
+    if (process.platform === "darwin") {
+      cmd = `open "${cleanUrl.replace(/"/g, '\\"')}"`;
+    } else if (process.platform === "win32") {
+      cmd = `start "" "${cleanUrl.replace(/"/g, '\\"')}"`;
+    } else {
+      cmd = `xdg-open "${cleanUrl.replace(/"/g, '\\"')}"`;
+    }
+
+    exec(cmd, (err) => {
+      if (err) {
+        console.warn(`[DevDesk] Failed to open URL via system command: ${err.message}`);
+      }
+    });
+
+    res.json({ success: true, message: `Opening ${cleanUrl} in system browser` });
+  } catch (err: unknown) {
+    res.status(500).json({ success: false, error: (err as Error).message });
+  }
+}
+

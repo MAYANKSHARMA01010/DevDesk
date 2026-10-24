@@ -65,13 +65,35 @@ function createDefaultTab(index = 1): TerminalTab {
   };
 }
 
-export function openExternalUrl(url: string) {
-  if (typeof window !== "undefined") {
-    if (window.electron?.openExternal) {
-      window.electron.openExternal(url);
-    } else {
-      window.open(url, "_blank", "noopener,noreferrer");
+export async function openExternalUrl(url: string) {
+  if (!url || typeof url !== "string") return;
+  const clean = url.trim();
+
+  // 1. Try Desktop Electron IPC if available
+  if (typeof window !== "undefined" && window.electron?.openExternal) {
+    try {
+      const res = await window.electron.openExternal(clean);
+      if (res?.success) return;
+    } catch {
+      // fallback
     }
+  }
+
+  // 2. Call DevDesk backend open-url endpoint (launches system browser on macOS, Windows, Linux)
+  try {
+    const res = await fetch("http://localhost:8300/api/processes/open-url", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url: clean }),
+    });
+    if (res.ok) return;
+  } catch {
+    // fallback
+  }
+
+  // 3. Fallback to native window.open
+  if (typeof window !== "undefined") {
+    window.open(clean, "_blank", "noopener,noreferrer");
   }
 }
 
@@ -436,6 +458,47 @@ export function TerminalView({ isActive, initialSelection }: TerminalViewProps =
     }
   };
 
+  // Horizontal scrolling state for detected services row
+  const servicesScrollRef = useRef<HTMLDivElement>(null);
+  const [canScrollServicesLeft, setCanScrollServicesLeft] = useState<boolean>(false);
+  const [canScrollServicesRight, setCanScrollServicesRight] = useState<boolean>(false);
+
+  // In-App Web Preview state
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewInputUrl, setPreviewInputUrl] = useState<string>("");
+  const [previewViewport, setPreviewViewport] = useState<"desktop" | "tablet" | "mobile">("desktop");
+  const [previewKey, setPreviewKey] = useState<number>(0);
+  const [copiedUrl, setCopiedUrl] = useState<string | null>(null);
+
+  const checkServicesScroll = useCallback(() => {
+    const el = servicesScrollRef.current;
+    if (el) {
+      setCanScrollServicesLeft(el.scrollLeft > 4);
+      setCanScrollServicesRight(el.scrollLeft < el.scrollWidth - el.clientWidth - 4);
+    }
+  }, []);
+
+  const scrollServices = (direction: "left" | "right") => {
+    if (servicesScrollRef.current) {
+      const offset = direction === "left" ? -240 : 240;
+      servicesScrollRef.current.scrollBy({ left: offset, behavior: "smooth" });
+    }
+  };
+
+  const handleCopyUrl = (url: string) => {
+    if (typeof navigator !== "undefined" && navigator.clipboard) {
+      navigator.clipboard.writeText(url);
+      setCopiedUrl(url);
+      setTimeout(() => setCopiedUrl(null), 2000);
+    }
+  };
+
+  const handleOpenPreview = (url: string) => {
+    setPreviewUrl(url);
+    setPreviewInputUrl(url);
+    setPreviewKey((k) => k + 1);
+  };
+
   // Active tab derived
   const activeTab = tabs.find((t) => t.id === activeTabId) || tabs[0] || null;
 
@@ -501,14 +564,43 @@ export function TerminalView({ isActive, initialSelection }: TerminalViewProps =
     checkScriptsScroll();
     const el = scriptsScrollRef.current;
     if (el) {
+      const handleWheel = (e: WheelEvent) => {
+        if (e.deltaY !== 0 && el.scrollWidth > el.clientWidth) {
+          e.preventDefault();
+          el.scrollLeft += e.deltaY;
+        }
+      };
+      el.addEventListener("wheel", handleWheel, { passive: false });
       el.addEventListener("scroll", checkScriptsScroll, { passive: true });
       window.addEventListener("resize", checkScriptsScroll);
       return () => {
+        el.removeEventListener("wheel", handleWheel);
         el.removeEventListener("scroll", checkScriptsScroll);
         window.removeEventListener("resize", checkScriptsScroll);
       };
     }
   }, [scriptKeys, activeTab?.projectId, checkScriptsScroll]);
+
+  useEffect(() => {
+    checkServicesScroll();
+    const el = servicesScrollRef.current;
+    if (el) {
+      const handleWheel = (e: WheelEvent) => {
+        if (e.deltaY !== 0 && el.scrollWidth > el.clientWidth) {
+          e.preventDefault();
+          el.scrollLeft += e.deltaY;
+        }
+      };
+      el.addEventListener("wheel", handleWheel, { passive: false });
+      el.addEventListener("scroll", checkServicesScroll, { passive: true });
+      window.addEventListener("resize", checkServicesScroll);
+      return () => {
+        el.removeEventListener("wheel", handleWheel);
+        el.removeEventListener("scroll", checkServicesScroll);
+        window.removeEventListener("resize", checkServicesScroll);
+      };
+    }
+  }, [checkServicesScroll, activeTab?.logs]);
 
   // 1. Initialize workspaces, restore tabs from localStorage, and handle initialSelection
   useEffect(() => {
@@ -1868,42 +1960,113 @@ export function TerminalView({ isActive, initialSelection }: TerminalViewProps =
           if (!hasActiveInfo) return null;
 
           return (
-            <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-1.5 bg-[#171A20]/95 border-b border-[#303642] text-[11px] font-mono text-[#A5ADBA]">
-              <div className="flex items-center gap-2 truncate min-w-0">
-                <span className="text-[#7C8594] text-[10px] uppercase font-sans font-semibold shrink-0">
-                  Executing:
-                </span>
-                <span className="text-[#8CA9CF] font-semibold truncate">
-                  {activeProcess?.command ||
-                    (activeTab?.script
-                      ? `${activeProject?.packageManager || "npm"} run ${activeTab.script}`
-                      : activeTab?.customCommand || "Terminal Session")}
-                </span>
-                {activeProcess?.startedAt && (
-                  <span className="text-[#7C8594] text-[10px] hidden md:inline shrink-0">
-                    (started {new Date(activeProcess.startedAt).toLocaleTimeString()})
+            <div className="flex flex-col gap-1 px-3 py-1.5 bg-[#171A20]/95 border-b border-[#303642] text-[11px] font-mono text-[#A5ADBA] shrink-0">
+              {/* Row 1: Executing status */}
+              <div className="flex items-center justify-between gap-2 min-w-0">
+                <div className="flex items-center gap-2 truncate min-w-0">
+                  <span className="text-[#7C8594] text-[10px] uppercase font-sans font-semibold shrink-0">
+                    Executing:
                   </span>
+                  <span className="text-[#8CA9CF] font-semibold truncate">
+                    {activeProcess?.command ||
+                      (activeTab?.script
+                        ? `${activeProject?.packageManager || "npm"} run ${activeTab.script}`
+                        : activeTab?.customCommand || "Terminal Session")}
+                  </span>
+                  {activeProcess?.startedAt && (
+                    <span className="text-[#7C8594] text-[10px] hidden md:inline shrink-0">
+                      (started {new Date(activeProcess.startedAt).toLocaleTimeString()})
+                    </span>
+                  )}
+                </div>
+
+                {detectedServices.length > 0 && (
+                  <div className="flex items-center gap-1.5 text-[10px] text-[#7C8594] shrink-0">
+                    <span>{detectedServices.length} service{detectedServices.length > 1 ? "s" : ""} live</span>
+                  </div>
                 )}
               </div>
 
-              {/* Detected Services & Ports with one-click open */}
+              {/* Row 2: Detected Services Single-Line Horizontally Scrollable Track */}
               {detectedServices.length > 0 && (
-                <div className="flex items-center gap-1.5 flex-wrap shrink-0">
-                  <span className="text-[10px] text-[#7C8594] uppercase font-sans font-semibold">
-                    Services:
-                  </span>
-                  {detectedServices.map((svc) => (
-                    <button
-                      key={svc.url}
-                      onClick={() => openExternalUrl(svc.url)}
-                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono font-medium bg-[#35465E] hover:bg-[#8CA9CF] text-[#8CA9CF] hover:text-[#101216] border border-[#8CA9CF]/40 transition cursor-pointer shadow-xs"
-                      title={`Click to open ${svc.url} in browser`}
+                <div className="flex items-center gap-2 min-w-0 w-full pt-1 border-t border-[#303642]/40">
+                  <div className="flex items-center gap-1.5 shrink-0 select-none">
+                    <span className="text-[10px] text-[#7C8594] uppercase font-sans font-semibold whitespace-nowrap">
+                      Services:
+                    </span>
+                    <span className="text-[10px] font-mono px-1.5 py-0.2 rounded-full bg-[#272D38] text-[#8CA9CF] border border-[#303642]">
+                      {detectedServices.length}
+                    </span>
+                  </div>
+
+                  {/* Horizontally scrollable services container */}
+                  <div className="relative flex-1 min-w-0 flex items-center group">
+                    {canScrollServicesLeft && (
+                      <button
+                        type="button"
+                        onClick={() => scrollServices("left")}
+                        className="absolute left-0 z-10 w-5 h-5 rounded-full bg-[#171A20]/95 hover:bg-[#272D38] text-[#8CA9CF] border border-[#303642] flex items-center justify-center text-xs shadow-md transition cursor-pointer"
+                        title="Scroll services left"
+                      >
+                        ‹
+                      </button>
+                    )}
+
+                    <div
+                      ref={servicesScrollRef}
+                      className="flex items-center gap-1.5 overflow-x-auto no-scrollbar scroll-smooth py-0.5 w-full"
                     >
-                      <span>🌐</span>
-                      <span>{svc.label}</span>
-                      <span className="text-[9px]">↗</span>
-                    </button>
-                  ))}
+                      {detectedServices.map((svc) => (
+                        <div
+                          key={svc.url}
+                          className="inline-flex items-center rounded-md bg-[#272D38] border border-[#303642] hover:border-[#8CA9CF]/60 shadow-xs shrink-0 whitespace-nowrap overflow-hidden transition group/svc"
+                        >
+                          {/* Main Button: Open in Default Web Browser */}
+                          <button
+                            type="button"
+                            onClick={() => openExternalUrl(svc.url)}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-mono font-medium text-[#8CA9CF] hover:text-[#E8EBF1] hover:bg-[#35465E]/60 transition cursor-pointer"
+                            title={`Click to open ${svc.url} in your default web browser`}
+                          >
+                            <span>🌐</span>
+                            <span>{svc.label}</span>
+                            <span className="text-[10px] text-[#7C8594] group-hover/svc:text-[#8CA9CF]">↗</span>
+                          </button>
+
+                          {/* In-App Web Preview Button */}
+                          <button
+                            type="button"
+                            onClick={() => handleOpenPreview(svc.url)}
+                            className="px-1.5 py-1 text-[10px] font-mono text-[#7C8594] hover:text-[#8CA9CF] hover:bg-[#35465E]/60 border-l border-[#303642] transition cursor-pointer"
+                            title={`Preview ${svc.url} inside DevDesk`}
+                          >
+                            👁️
+                          </button>
+
+                          {/* Copy URL Button */}
+                          <button
+                            type="button"
+                            onClick={() => handleCopyUrl(svc.url)}
+                            className="px-1.5 py-1 text-[10px] font-mono text-[#7C8594] hover:text-[#77B58A] hover:bg-[#35465E]/60 border-l border-[#303642] transition cursor-pointer"
+                            title={`Copy ${svc.url} to clipboard`}
+                          >
+                            {copiedUrl === svc.url ? "✓" : "📋"}
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+
+                    {canScrollServicesRight && (
+                      <button
+                        type="button"
+                        onClick={() => scrollServices("right")}
+                        className="absolute right-0 z-10 w-5 h-5 rounded-full bg-[#171A20]/95 hover:bg-[#272D38] text-[#8CA9CF] border border-[#303642] flex items-center justify-center text-xs shadow-md transition cursor-pointer"
+                        title="Scroll services right"
+                      >
+                        ›
+                      </button>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
@@ -2125,6 +2288,168 @@ export function TerminalView({ isActive, initialSelection }: TerminalViewProps =
           </button>
         )}
       </div>
+
+      {/* 5. In-App Web Preview Modal / Drawer */}
+      {previewUrl && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-xs p-3 sm:p-5 animate-in fade-in duration-150">
+          <div
+            className="flex flex-col bg-[#171A20] border border-[#303642] rounded-xl shadow-2xl overflow-hidden transition-all duration-200"
+            style={{
+              width:
+                previewViewport === "mobile"
+                  ? "400px"
+                  : previewViewport === "tablet"
+                  ? "800px"
+                  : "min(1280px, 95vw)",
+              height: "min(880px, 92vh)",
+            }}
+          >
+            {/* Preview Window Header & Address Bar */}
+            <div className="flex flex-wrap items-center justify-between gap-2 px-3.5 py-2.5 bg-[#1D2129] border-b border-[#303642] shrink-0 text-xs">
+              <div className="flex items-center gap-2 flex-1 min-w-[240px]">
+                {/* Traffic dots */}
+                <div className="flex items-center gap-1.5 mr-1">
+                  <span className="w-2.5 h-2.5 rounded-full bg-[#E18B8B]/80 inline-block" />
+                  <span className="w-2.5 h-2.5 rounded-full bg-[#E0B36D]/80 inline-block" />
+                  <span className="w-2.5 h-2.5 rounded-full bg-[#77B58A]/80 inline-block" />
+                </div>
+
+                {/* Reload Button */}
+                <button
+                  type="button"
+                  onClick={() => setPreviewKey((k) => k + 1)}
+                  className="p-1 px-1.5 rounded bg-[#272D38] hover:bg-[#35465E] text-[#A5ADBA] hover:text-[#E8EBF1] border border-[#303642] transition cursor-pointer text-xs"
+                  title="Reload preview"
+                >
+                  ↻
+                </button>
+
+                {/* Interactive Address Bar */}
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    if (previewInputUrl.trim()) {
+                      let u = previewInputUrl.trim();
+                      if (!u.startsWith("http://") && !u.startsWith("https://")) {
+                        u = `http://${u}`;
+                      }
+                      setPreviewUrl(u);
+                      setPreviewInputUrl(u);
+                      setPreviewKey((k) => k + 1);
+                    }
+                  }}
+                  className="flex-1 flex items-center min-w-0"
+                >
+                  <div className="relative w-full flex items-center">
+                    <span className="absolute left-2.5 text-[#7C8594] text-[11px] select-none">🌐</span>
+                    <input
+                      type="text"
+                      value={previewInputUrl}
+                      onChange={(e) => setPreviewInputUrl(e.target.value)}
+                      placeholder="http://localhost:3000..."
+                      className="w-full pl-7 pr-16 py-1 rounded-md bg-[#101216] border border-[#303642] text-[#E8EBF1] text-xs font-mono focus:outline-none focus:border-[#8CA9CF]"
+                    />
+                    <span className="absolute right-2 text-[10px] text-[#7C8594] font-sans">
+                      Enter ↵
+                    </span>
+                  </div>
+                </form>
+              </div>
+
+              {/* Viewport switchers & Actions */}
+              <div className="flex items-center gap-1.5 shrink-0">
+                {/* Viewport switchers */}
+                <div className="inline-flex rounded-md border border-[#303642] bg-[#101216] p-0.5 text-[11px]">
+                  <button
+                    type="button"
+                    onClick={() => setPreviewViewport("desktop")}
+                    className={`px-2 py-0.5 rounded transition cursor-pointer ${
+                      previewViewport === "desktop"
+                        ? "bg-[#272D38] text-[#E8EBF1] font-semibold"
+                        : "text-[#7C8594] hover:text-[#A5ADBA]"
+                    }`}
+                    title="Desktop View (100%)"
+                  >
+                    🖥️ Full
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPreviewViewport("tablet")}
+                    className={`px-2 py-0.5 rounded transition cursor-pointer ${
+                      previewViewport === "tablet"
+                        ? "bg-[#272D38] text-[#E8EBF1] font-semibold"
+                        : "text-[#7C8594] hover:text-[#A5ADBA]"
+                    }`}
+                    title="Tablet View (800px)"
+                  >
+                    📱 Tablet
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPreviewViewport("mobile")}
+                    className={`px-2 py-0.5 rounded transition cursor-pointer ${
+                      previewViewport === "mobile"
+                        ? "bg-[#272D38] text-[#E8EBF1] font-semibold"
+                        : "text-[#7C8594] hover:text-[#A5ADBA]"
+                    }`}
+                    title="Mobile View (400px)"
+                  >
+                    📱 Mobile
+                  </button>
+                </div>
+
+                {/* Open in Default Web Browser Button */}
+                <button
+                  type="button"
+                  onClick={() => openExternalUrl(previewUrl)}
+                  className="px-2.5 py-1 rounded bg-[#35465E] hover:bg-[#8CA9CF] text-[#8CA9CF] hover:text-[#101216] border border-[#8CA9CF]/40 text-xs font-medium transition cursor-pointer flex items-center gap-1 shadow-xs"
+                  title="Open this link in your default web browser"
+                >
+                  <span>Open in Browser</span>
+                  <span>↗</span>
+                </button>
+
+                {/* Copy URL */}
+                <button
+                  type="button"
+                  onClick={() => handleCopyUrl(previewUrl)}
+                  className="px-2 py-1 rounded bg-[#272D38] hover:bg-[#303642] text-[#A5ADBA] hover:text-[#E8EBF1] border border-[#303642] text-xs transition cursor-pointer"
+                  title="Copy URL"
+                >
+                  {copiedUrl === previewUrl ? "✓ Copied" : "📋 Copy"}
+                </button>
+
+                {/* Close Button */}
+                <button
+                  type="button"
+                  onClick={() => setPreviewUrl(null)}
+                  className="w-6 h-6 rounded flex items-center justify-center text-[#7C8594] hover:text-[#E8EBF1] hover:bg-[#272D38] transition text-base font-bold cursor-pointer ml-1"
+                  title="Close preview"
+                >
+                  ×
+                </button>
+              </div>
+            </div>
+
+            {/* Preview Frame Container */}
+            <div className="flex-1 bg-[#101216] flex items-center justify-center overflow-hidden relative">
+              <iframe
+                key={previewKey}
+                src={previewUrl}
+                title="Service Preview"
+                className="w-full h-full bg-white border-0"
+                sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals"
+              />
+            </div>
+
+            {/* Bottom info strip */}
+            <div className="flex items-center justify-between px-3 py-1.5 bg-[#171A20] border-t border-[#303642] text-[10px] text-[#7C8594]">
+              <span>Active URL: <strong className="text-[#A5ADBA] font-mono">{previewUrl}</strong></span>
+              <span>Tip: If a service restricts iframe embedding (X-Frame-Options), click <strong>Open in Browser ↗</strong>.</span>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

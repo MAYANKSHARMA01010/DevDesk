@@ -8,9 +8,13 @@ import {
   restartProcessController,
   startProcessController,
   stopProcessController,
+  openUrlController,
 } from "../controllers/processController.js";
 
 const router = Router();
+
+// POST /api/processes/open-url - Open URL in default system browser
+router.post("/open-url", openUrlController);
 
 // GET /api/processes/system-ports - List all system listening TCP ports
 router.get("/system-ports", getSystemPortsController);
