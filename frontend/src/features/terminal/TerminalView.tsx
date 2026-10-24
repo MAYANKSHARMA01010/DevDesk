@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { fetchWorkspaces } from "@/services/projects";
 import {
   fetchProcesses,
@@ -416,6 +416,26 @@ export function TerminalView({ isActive, initialSelection }: TerminalViewProps =
   const pollingRef = useRef<boolean>(false);
   const [, startTransition] = useTransition();
 
+  // Horizontal scrolling state for detected scripts row
+  const scriptsScrollRef = useRef<HTMLDivElement>(null);
+  const [canScrollScriptsLeft, setCanScrollScriptsLeft] = useState<boolean>(false);
+  const [canScrollScriptsRight, setCanScrollScriptsRight] = useState<boolean>(false);
+
+  const checkScriptsScroll = useCallback(() => {
+    const el = scriptsScrollRef.current;
+    if (el) {
+      setCanScrollScriptsLeft(el.scrollLeft > 4);
+      setCanScrollScriptsRight(el.scrollLeft < el.scrollWidth - el.clientWidth - 4);
+    }
+  }, []);
+
+  const scrollScripts = (direction: "left" | "right") => {
+    if (scriptsScrollRef.current) {
+      const offset = direction === "left" ? -240 : 240;
+      scriptsScrollRef.current.scrollBy({ left: offset, behavior: "smooth" });
+    }
+  };
+
   // Active tab derived
   const activeTab = tabs.find((t) => t.id === activeTabId) || tabs[0] || null;
 
@@ -476,6 +496,19 @@ export function TerminalView({ isActive, initialSelection }: TerminalViewProps =
       terminalScrollRef.current.scrollTo({ top: 0, behavior: "smooth" });
     }
   };
+
+  useEffect(() => {
+    checkScriptsScroll();
+    const el = scriptsScrollRef.current;
+    if (el) {
+      el.addEventListener("scroll", checkScriptsScroll, { passive: true });
+      window.addEventListener("resize", checkScriptsScroll);
+      return () => {
+        el.removeEventListener("scroll", checkScriptsScroll);
+        window.removeEventListener("resize", checkScriptsScroll);
+      };
+    }
+  }, [scriptKeys, activeTab?.projectId, checkScriptsScroll]);
 
   // 1. Initialize workspaces, restore tabs from localStorage, and handle initialSelection
   useEffect(() => {
@@ -1128,18 +1161,34 @@ export function TerminalView({ isActive, initialSelection }: TerminalViewProps =
   }
 
   function getScriptIcon(key: string, def?: string): string {
-    if (key.startsWith("cargo:")) return "🦀";
-    if (key.startsWith("go:")) return "🐹";
-    if (key.startsWith("make:")) return "⚙️";
-    if (key.startsWith("sh:")) return "🐚";
-    if (key.startsWith("composer:")) return "🐘";
-    if (key === "runserver" || key === "migrate" || key.endsWith(".py") || key.startsWith("pip")) {
+    const k = key.toLowerCase();
+    const d = (def || "").toLowerCase();
+
+    if (k.startsWith("cargo:") || d.includes("cargo")) return "🦀";
+    if (k.startsWith("go:") || d.includes("go run")) return "🐹";
+    if (k.startsWith("make:") || d.startsWith("make")) return "⚙️";
+    if (k.startsWith("sh:") || k.endsWith(".sh") || d.startsWith("bash") || d.startsWith("sh ")) return "🐚";
+    if (k.startsWith("composer:")) return "🐘";
+    if (k === "runserver" || k === "migrate" || k.endsWith(".py") || k.startsWith("pip") || d.includes("python")) {
       return "🐍";
     }
-    if (key === "dev" || key === "start") return "⚡";
-    if (key === "build") return "📦";
-    if (key === "test") return "🧪";
-    if (key === "lint" || key === "typecheck") return "🔍";
+
+    if (k.includes("server") || k.includes("backend") || k.includes("api")) return "🖥️";
+    if (k.includes("client") || k.includes("frontend") || k.includes("ui") || k.includes("web")) return "🌐";
+    if (k === "dev" || k === "start:dev" || k === "develop" || k.includes("watch")) return "⚡";
+    if (k === "start" || k === "serve" || k.startsWith("prod")) return "🚀";
+    if (k === "build" || k.startsWith("build")) return "📦";
+    if (k.includes("coverage")) return "📊";
+    if (k === "test" || k.startsWith("test") || k.includes("jest") || k.includes("vitest")) return "🧪";
+    if (k.includes("lint") || k.includes("typecheck") || k.includes("format") || k.includes("prettier")) return "🔍";
+    if (k.includes("studio")) return "📊";
+    if (k.includes("migrate")) return "🗄️";
+    if (k.includes("generate") || k.includes("codegen")) return "⚙️";
+    if (k.startsWith("db:") || k.includes("db") || k.includes("prisma")) return "🗄️";
+    if (k.startsWith("install") || k === "prepare" || k === "setup") return "📥";
+    if (k.includes("clean")) return "🧹";
+    if (k.includes("docker")) return "🐳";
+
     return "📜";
   }
 
@@ -1465,7 +1514,7 @@ export function TerminalView({ isActive, initialSelection }: TerminalViewProps =
 
         {/* Project Location Bar */}
         {activeProject && (
-          <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-1.5 rounded-md bg-[#101216] border border-[#303642] text-xs font-mono text-[#A5ADBA]">
+          <div className="flex items-center justify-between gap-2 px-3 py-1 rounded-md bg-[#101216] border border-[#303642] text-xs font-mono text-[#A5ADBA]">
             <div className="flex items-center gap-2 truncate min-w-0">
               <span className="text-[#7C8594] font-sans text-[11px] font-semibold uppercase tracking-wider shrink-0">
                 Path:
@@ -1483,18 +1532,20 @@ export function TerminalView({ isActive, initialSelection }: TerminalViewProps =
               <button
                 type="button"
                 onClick={() => handleCopyPath(activeProject.path)}
-                className="px-2 py-0.5 rounded bg-[#272D38] border border-[#303642] hover:bg-[#35465E] hover:text-[#E8EBF1] text-[#A5ADBA] text-[11px] transition cursor-pointer"
+                className="px-2 py-0.5 rounded bg-[#272D38] border border-[#303642] hover:bg-[#303642] hover:text-[#E8EBF1] text-[#A5ADBA] text-[11px] transition cursor-pointer flex items-center gap-1"
                 title="Copy full directory path to clipboard"
               >
-                {copiedPath ? "✓ Copied" : "📋 Copy Path"}
+                <span>{copiedPath ? "✓" : "📋"}</span>
+                <span>{copiedPath ? "Copied" : "Copy Path"}</span>
               </button>
               <button
                 type="button"
                 onClick={() => handleRevealInFinder(activeProject.path)}
-                className="px-2 py-0.5 rounded bg-[#272D38] border border-[#303642] hover:bg-[#35465E] hover:text-[#E8EBF1] text-[#A5ADBA] text-[11px] transition cursor-pointer"
+                className="px-2 py-0.5 rounded bg-[#272D38] border border-[#303642] hover:bg-[#303642] hover:text-[#E8EBF1] text-[#A5ADBA] text-[11px] transition cursor-pointer flex items-center gap-1"
                 title="Reveal folder in Finder"
               >
-                📁 Reveal in Finder
+                <span>📁</span>
+                <span>Finder</span>
               </button>
             </div>
           </div>
@@ -1509,35 +1560,81 @@ export function TerminalView({ isActive, initialSelection }: TerminalViewProps =
             </div>
           ) : !activeTab?.isCustom && hasDetectedScripts ? (
             /* Auto-detected Scripts */
-            <div className="space-y-2.5">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-[11px] text-[#A5ADBA] font-medium">Detected Scripts:</span>
-                <div className="flex flex-wrap items-center gap-1.5">
-                  {scriptKeys.map((key) => {
-                    const isSelected = activeTab?.script === key;
-                    const def = activeScripts[key];
-                    return (
-                      <button
-                        key={key}
-                        onClick={() => handleSelectScript(key)}
-                        onDoubleClick={() => !isRunning && handleSelectScript(key, true)}
-                        disabled={isRunning}
-                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-mono font-medium transition cursor-pointer ${
-                          isSelected
-                            ? "bg-[#35465E] text-[#8CA9CF] border border-[#8CA9CF]/40 shadow-xs"
-                            : "bg-[#272D38] text-[#A5ADBA] border border-[#303642] hover:text-[#E8EBF1] hover:bg-[#303642]/60"
-                        } disabled:opacity-50`}
-                        title={`Command: ${def}\nDouble-click to run immediately`}
-                      >
-                        <span>{getScriptIcon(key, def)}</span>
-                        <span>{key}</span>
-                      </button>
-                    );
-                  })}
+            <div className="space-y-2">
+              {/* Strictly single-line Detected Scripts container with horizontal scroll */}
+              <div className="flex items-center gap-2 min-w-0 w-full">
+                <div className="flex items-center gap-1.5 shrink-0 select-none">
+                  <span className="text-[11px] text-[#A5ADBA] font-semibold whitespace-nowrap">
+                    Detected Scripts:
+                  </span>
+                  <span className="text-[10px] font-mono px-1.5 py-0.2 rounded-full bg-[#272D38] text-[#8CA9CF] border border-[#303642]">
+                    {scriptKeys.length}
+                  </span>
+                </div>
+
+                {/* Horizontally scrollable container with smooth nudge controls */}
+                <div className="relative flex-1 min-w-0 flex items-center group">
+                  {canScrollScriptsLeft && (
+                    <button
+                      type="button"
+                      onClick={() => scrollScripts("left")}
+                      className="absolute left-0 z-10 w-6 h-6 rounded-full bg-[#171A20]/95 hover:bg-[#272D38] text-[#8CA9CF] border border-[#303642] flex items-center justify-center text-xs shadow-md transition cursor-pointer"
+                      title="Scroll left"
+                    >
+                      ‹
+                    </button>
+                  )}
+
+                  <div
+                    ref={scriptsScrollRef}
+                    className="flex items-center gap-1.5 overflow-x-auto no-scrollbar scroll-smooth py-0.5 w-full"
+                  >
+                    {scriptKeys.map((key) => {
+                      const isSelected = activeTab?.script === key;
+                      const def = activeScripts[key];
+                      const isRunningThis =
+                        isRunning &&
+                        (activeProcess?.script === key ||
+                          (isSelected && (activeTab.status === "running" || activeTab.status === "starting")));
+
+                      return (
+                        <button
+                          key={key}
+                          onClick={() => handleSelectScript(key)}
+                          onDoubleClick={() => !isRunning && handleSelectScript(key, true)}
+                          disabled={isRunning}
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-mono font-medium transition cursor-pointer whitespace-nowrap shrink-0 ${
+                            isSelected
+                              ? "bg-[#35465E] text-[#8CA9CF] border border-[#8CA9CF]/60 shadow-xs ring-1 ring-[#8CA9CF]/30"
+                              : "bg-[#272D38] text-[#A5ADBA] border border-[#303642] hover:text-[#E8EBF1] hover:bg-[#303642] hover:border-[#8CA9CF]/30"
+                          } disabled:opacity-50`}
+                          title={`Command: ${def}\nClick to inspect, double-click to run immediately`}
+                        >
+                          {isRunningThis ? (
+                            <span className="w-2 h-2 rounded-full bg-[#77B58A] animate-pulse" />
+                          ) : (
+                            <span className="text-xs">{getScriptIcon(key, def)}</span>
+                          )}
+                          <span>{key}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {canScrollScriptsRight && (
+                    <button
+                      type="button"
+                      onClick={() => scrollScripts("right")}
+                      className="absolute right-0 z-10 w-6 h-6 rounded-full bg-[#171A20]/95 hover:bg-[#272D38] text-[#8CA9CF] border border-[#303642] flex items-center justify-center text-xs shadow-md transition cursor-pointer"
+                      title="Scroll right"
+                    >
+                      ›
+                    </button>
+                  )}
                 </div>
               </div>
 
-              {/* Script Inspector & Command Details Card */}
+              {/* Compact Script Inspector Bar */}
               {activeTab?.script && (
                 (() => {
                   const scriptInfo = getScriptDescription(
@@ -1552,63 +1649,56 @@ export function TerminalView({ isActive, initialSelection }: TerminalViewProps =
                       activeTab.status === "starting");
 
                   return (
-                    <div className="p-3 rounded-lg bg-[#1D2129] border border-[#303642] flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs shadow-xs">
-                      <div className="flex items-start gap-3 min-w-0">
-                        <div className="w-9 h-9 rounded-md bg-[#272D38] border border-[#303642] flex items-center justify-center text-lg shrink-0">
-                          {scriptInfo.icon}
-                        </div>
-                        <div className="min-w-0 space-y-1">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-semibold text-[#E8EBF1] font-mono text-sm">
-                              {activeTab.script}
+                    <div className="px-3 py-1.5 rounded-md bg-[#1D2129] border border-[#303642] flex flex-wrap items-center justify-between gap-2 text-xs shadow-xs">
+                      <div className="flex items-center gap-2 min-w-0 flex-1 flex-wrap">
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <span className="text-sm">{scriptInfo.icon}</span>
+                          <span className="font-semibold text-[#E8EBF1] font-mono text-xs">
+                            {activeTab.script}
+                          </span>
+                          <span className="px-1.5 py-0.2 rounded text-[10px] uppercase font-mono font-medium bg-[#35465E]/60 text-[#8CA9CF] border border-[#8CA9CF]/30">
+                            {scriptInfo.category}
+                          </span>
+                          {isCurrentScriptRunning && (
+                            <span className="px-1.5 py-0.2 rounded text-[10px] font-mono font-medium bg-[#77B58A]/15 text-[#77B58A] border border-[#77B58A]/30 flex items-center gap-1">
+                              <span className="w-1.5 h-1.5 rounded-full bg-[#77B58A] animate-pulse" />
+                              Active
                             </span>
-                            <span className="px-2 py-0.5 rounded text-[10px] uppercase font-mono font-medium bg-[#35465E]/60 text-[#8CA9CF] border border-[#8CA9CF]/30">
-                              {scriptInfo.category}
-                            </span>
-                            {isCurrentScriptRunning && (
-                              <span className="px-2 py-0.5 rounded text-[10px] font-mono font-medium bg-[#77B58A]/15 text-[#77B58A] border border-[#77B58A]/30 flex items-center gap-1">
-                                <span className="w-1.5 h-1.5 rounded-full bg-[#77B58A] animate-pulse" />
-                                Currently Active
-                              </span>
-                            )}
-                          </div>
-
-                          <p className="text-xs text-[#A5ADBA] leading-relaxed">
-                            {scriptInfo.summary}
-                          </p>
-
-                          <div className="flex items-center gap-2 font-mono text-[11px] text-[#7C8594] pt-0.5 flex-wrap">
-                            <span className="text-[#8CA9CF] font-bold">&gt;</span>
-                            <code className="text-[#E8EBF1] bg-[#101216] px-2 py-0.5 rounded border border-[#303642] max-w-xl truncate">
-                              {scriptInfo.fullCommand}
-                            </code>
-                            {activeScripts[activeTab.script] && (
-                              <span
-                                className="text-[#7C8594] truncate text-[11px]"
-                                title={activeScripts[activeTab.script]}
-                              >
-                                → {activeScripts[activeTab.script]}
-                              </span>
-                            )}
-                          </div>
-
-                          {scriptInfo.expectedServices && (
-                            <div className="text-[11px] text-[#8CA9CF]/90 flex items-center gap-1.5 pt-0.5">
-                              <span>⚡ Target Service:</span>
-                              <span className="font-mono text-[10px] bg-[#272D38] px-1.5 py-0.5 rounded text-[#E8EBF1] border border-[#303642]">
-                                {scriptInfo.expectedServices}
-                              </span>
-                            </div>
                           )}
                         </div>
+
+                        {/* Executed command snippet */}
+                        <div className="flex items-center gap-1 font-mono text-[11px] min-w-0">
+                          <span className="text-[#8CA9CF] font-bold">&gt;</span>
+                          <code className="text-[#E8EBF1] bg-[#101216] px-1.5 py-0.5 rounded border border-[#303642] text-[11px] truncate max-w-sm sm:max-w-md" title={scriptInfo.fullCommand}>
+                            {scriptInfo.fullCommand}
+                          </code>
+                          {activeScripts[activeTab.script] && (
+                            <span
+                              className="text-[#7C8594] truncate text-[11px] hidden sm:inline"
+                              title={activeScripts[activeTab.script]}
+                            >
+                              → {activeScripts[activeTab.script]}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Expected Services */}
+                        {scriptInfo.expectedServices && (
+                          <div className="text-[10px] text-[#8CA9CF] flex items-center gap-1 shrink-0 bg-[#272D38] px-2 py-0.5 rounded border border-[#303642] hidden md:flex">
+                            <span>⚡</span>
+                            <span className="font-mono text-[#A5ADBA] truncate max-w-xs">{scriptInfo.expectedServices}</span>
+                          </div>
+                        )}
                       </div>
 
-                      <div className="flex items-center gap-2 shrink-0 self-end md:self-center">
+                      {/* Right: Quick Run or Stop action */}
+                      <div className="flex items-center gap-1.5 shrink-0 ml-auto">
                         {!isRunning ? (
                           <button
                             onClick={() => handleStart(activeTab.script)}
                             disabled={actionLoading}
-                            className="px-3.5 py-1.5 rounded-md text-xs font-semibold text-[#101216] bg-[#8CA9CF] hover:bg-[#A6BDE0] disabled:opacity-50 transition cursor-pointer flex items-center gap-1.5 shadow-xs"
+                            className="px-2.5 py-1 rounded text-xs font-semibold text-[#101216] bg-[#8CA9CF] hover:bg-[#A6BDE0] disabled:opacity-50 transition cursor-pointer flex items-center gap-1 shadow-xs"
                             title="Execute this script in the project directory"
                           >
                             <span>▶</span>
@@ -1618,11 +1708,11 @@ export function TerminalView({ isActive, initialSelection }: TerminalViewProps =
                           <button
                             onClick={handleStop}
                             disabled={actionLoading}
-                            className="px-3.5 py-1.5 rounded-md text-xs font-semibold text-[#101216] bg-[#E18B8B] hover:bg-[#e89d9d] disabled:opacity-50 transition cursor-pointer flex items-center gap-1.5 shadow-xs"
+                            className="px-2.5 py-1 rounded text-xs font-semibold text-[#101216] bg-[#E18B8B] hover:bg-[#e89d9d] disabled:opacity-50 transition cursor-pointer flex items-center gap-1 shadow-xs"
                             title="Stop running process"
                           >
                             <span>⏹</span>
-                            <span>Stop Process</span>
+                            <span>Stop</span>
                           </button>
                         )}
                       </div>
