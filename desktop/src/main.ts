@@ -878,6 +878,18 @@ function registerIpcHandlers(): void {
     return revealInFinder(projectPath);
   });
 
+  ipcMain.handle("system:open-external", async (_event, url: string) => {
+    try {
+      if (typeof url === "string" && (url.startsWith("http://") || url.startsWith("https://"))) {
+        await shell.openExternal(url);
+        return { success: true };
+      }
+      return { success: false, error: "Invalid or unsupported URL" };
+    } catch (err: unknown) {
+      return { success: false, error: (err as Error).message };
+    }
+  });
+
   console.log("[DevDesk] IPC handlers registered");
 }
 

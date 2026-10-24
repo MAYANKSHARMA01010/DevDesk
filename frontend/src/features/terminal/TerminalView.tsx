@@ -65,6 +65,303 @@ function createDefaultTab(index = 1): TerminalTab {
   };
 }
 
+export function openExternalUrl(url: string) {
+  if (typeof window !== "undefined") {
+    if (window.electron?.openExternal) {
+      window.electron.openExternal(url);
+    } else {
+      window.open(url, "_blank", "noopener,noreferrer");
+    }
+  }
+}
+
+export interface ScriptDetails {
+  icon: string;
+  category: string;
+  summary: string;
+  fullCommand: string;
+  expectedServices?: string;
+}
+
+export function getScriptDescription(
+  key: string,
+  commandDef?: string,
+  pm?: string
+): ScriptDetails {
+  const normKey = key.toLowerCase();
+  const def = (commandDef || "").toLowerCase();
+  const packageManager = pm || "npm";
+  const fullCommand = `${packageManager} run ${key}`;
+
+  // 1. Development & Hot-Reload
+  if (normKey === "dev" || normKey === "start:dev" || normKey === "develop") {
+    return {
+      icon: "⚡",
+      category: "Development",
+      summary: "Starts local development services with hot module reloading (HMR) and watcher listeners.",
+      fullCommand,
+      expectedServices: "Local web server or API (e.g. http://localhost:3000, 5173, 8000)",
+    };
+  }
+  if (normKey === "dev:server" || normKey === "server:dev") {
+    return {
+      icon: "🖥️",
+      category: "Backend Server",
+      summary: "Spawns the backend HTTP/WebSocket server in watch mode with live request logging.",
+      fullCommand,
+      expectedServices: "Backend API service (e.g. http://localhost:8300, 8080, 5000)",
+    };
+  }
+  if (normKey === "dev:client" || normKey === "client:dev") {
+    return {
+      icon: "🌐",
+      category: "Frontend Client",
+      summary: "Launches the client interface dev server (Vite / Next.js) with fast refresh.",
+      fullCommand,
+      expectedServices: "Frontend UI (e.g. http://localhost:3000, 5173, 8200)",
+    };
+  }
+
+  // 2. Production & Start
+  if (normKey === "start" || normKey === "start:prod") {
+    return {
+      icon: "🚀",
+      category: "Production Runtime",
+      summary: "Launches the compiled production application server.",
+      fullCommand,
+      expectedServices: "Production application listening on configured PORT",
+    };
+  }
+  if (normKey === "build" || normKey.startsWith("build:")) {
+    return {
+      icon: "📦",
+      category: "Build & Bundle",
+      summary: "Compiles source code, transpiles TypeScript, and optimizes bundle assets.",
+      fullCommand,
+    };
+  }
+
+  // 3. Testing & Coverage
+  if (normKey === "test:coverage" || normKey === "coverage") {
+    return {
+      icon: "📊",
+      category: "Test Coverage",
+      summary: "Executes complete test suite and generates code coverage metrics & HTML reports.",
+      fullCommand,
+    };
+  }
+  if (normKey === "test" || normKey.startsWith("test:")) {
+    return {
+      icon: "🧪",
+      category: "Testing",
+      summary: "Runs automated test runners (Vitest, Jest, Playwright, Cypress) for code validation.",
+      fullCommand,
+    };
+  }
+
+  // 4. Database & ORM
+  if (normKey === "db:migrate" || normKey === "migrate") {
+    return {
+      icon: "🗄️",
+      category: "Database",
+      summary: "Applies pending database migrations to create or alter tables and relationships.",
+      fullCommand,
+      expectedServices: "Database instance (Postgres, MySQL, SQLite, etc.)",
+    };
+  }
+  if (normKey === "db:generate" || normKey === "generate") {
+    return {
+      icon: "⚙️",
+      category: "Database ORM",
+      summary: "Generates type-safe schema definitions and ORM query clients.",
+      fullCommand,
+    };
+  }
+  if (normKey === "db:studio" || normKey === "studio") {
+    return {
+      icon: "🎛️",
+      category: "Database GUI",
+      summary: "Opens an interactive browser-based database management GUI interface.",
+      fullCommand,
+      expectedServices: "Studio Web GUI (e.g. http://localhost:5555)",
+    };
+  }
+  if (normKey === "db:seed" || normKey === "seed") {
+    return {
+      icon: "🌱",
+      category: "Database Seed",
+      summary: "Populates database with mock seed data, fixtures, and initial admin records.",
+      fullCommand,
+    };
+  }
+
+  // 5. Code Quality & Linting
+  if (normKey === "lint" || normKey.startsWith("lint:")) {
+    return {
+      icon: "🔍",
+      category: "Linting",
+      summary: "Scans codebase with ESLint/Prettier to enforce style rules and flag code smell.",
+      fullCommand,
+    };
+  }
+  if (normKey === "typecheck" || normKey.startsWith("typecheck:")) {
+    return {
+      icon: "🛡️",
+      category: "Type Checking",
+      summary: "Runs TypeScript compiler (tsc --noEmit) to detect static type errors.",
+      fullCommand,
+    };
+  }
+
+  // 6. Monorepo & Setup
+  if (normKey === "install:all" || normKey === "install") {
+    return {
+      icon: "📥",
+      category: "Dependencies",
+      summary: "Installs and links all dependencies across monorepo packages.",
+      fullCommand,
+    };
+  }
+  if (normKey === "prepare") {
+    return {
+      icon: "🔧",
+      category: "Lifecycle Setup",
+      summary: "Configures Git hooks, Husky, or native build extensions upon install.",
+      fullCommand,
+    };
+  }
+
+  // Fallbacks based on definition
+  if (def.includes("docker")) {
+    return {
+      icon: "🐳",
+      category: "Containers",
+      summary: "Manages Docker containers, daemon compositions, and network services.",
+      fullCommand,
+    };
+  }
+  if (def.includes("sh ") || def.endsWith(".sh")) {
+    return {
+      icon: "🐚",
+      category: "Shell Script",
+      summary: `Executes custom shell workflow (${commandDef}).`,
+      fullCommand,
+    };
+  }
+
+  return {
+    icon: "📜",
+    category: "Project Script",
+    summary: `Runs "${key}" script defined in project package.json.`,
+    fullCommand,
+  };
+}
+
+export function stripAnsi(text: string): string {
+  if (!text) return "";
+  return text
+    // standard ESC [ ... m or other command
+    .replace(/\u001b\[[0-9;]*[a-zA-Z]/g, "")
+    .replace(/\x1b\[[0-9;]*[a-zA-Z]/g, "")
+    // unescaped bracketed color codes like [0;36m, [1m, [0m, [31m, [39m, [49m, [2m, [22m, etc.
+    .replace(/\[\d+(?:;\d+)*m/g, "")
+    .replace(/\[\d+m/g, "");
+}
+
+export function extractDetectedServices(
+  logs: ProcessLogEntry[],
+  processPorts?: number[]
+): { url: string; label: string }[] {
+  const serviceMap = new Map<string, { url: string; label: string }>();
+
+  // 1. From live assigned ports on managed process
+  if (processPorts && Array.isArray(processPorts)) {
+    for (const port of processPorts) {
+      if (port > 0) {
+        const url = `http://localhost:${port}`;
+        serviceMap.set(url, {
+          url,
+          label: `http://localhost:${port}`,
+        });
+      }
+    }
+  }
+
+  // 2. Scan recent 150 log entries for URLs and listening ports
+  const recentLogs = logs.slice(-150);
+  const urlRegex = /(https?:\/\/(?:localhost|127\.0\.0\.1|0\.0\.0\.0)(?::\d+)?(?:[^\s\)\],;>]*))/g;
+  const portRegex = /(?:port|listening on|ready on|running at|available at)[^\d]*(\d{3,5})/gi;
+
+  for (const log of recentLogs) {
+    const cleanMessage = stripAnsi(log.message);
+
+    // Check URLs
+    let urlMatch: RegExpExecArray | null;
+    while ((urlMatch = urlRegex.exec(cleanMessage)) !== null) {
+      let rawUrl = urlMatch[1]
+        .replace(/[\x00-\x1F\x7F-\x9F]/g, "")
+        .replace(/[[\\\])}>]+$/, "");
+      if (rawUrl.includes("0.0.0.0")) {
+        rawUrl = rawUrl.replace("0.0.0.0", "localhost");
+      }
+      if (!serviceMap.has(rawUrl)) {
+        serviceMap.set(rawUrl, {
+          url: rawUrl,
+          label: rawUrl,
+        });
+      }
+    }
+
+    // Check port mentions
+    let portMatch: RegExpExecArray | null;
+    while ((portMatch = portRegex.exec(cleanMessage)) !== null) {
+      const portNum = parseInt(portMatch[1], 10);
+      if (portNum >= 1000 && portNum <= 65535) {
+        const portUrl = `http://localhost:${portNum}`;
+        if (!serviceMap.has(portUrl)) {
+          serviceMap.set(portUrl, {
+            url: portUrl,
+            label: `http://localhost:${portNum}`,
+          });
+        }
+      }
+    }
+  }
+
+  return Array.from(serviceMap.values());
+}
+
+export function renderLogMessage(message: string) {
+  const cleanMessage = stripAnsi(message);
+  const urlRegex = /(https?:\/\/[^\s\)\],;>]+)/g;
+  if (!urlRegex.test(cleanMessage)) {
+    return cleanMessage;
+  }
+  const parts = cleanMessage.split(urlRegex);
+  return parts.map((part, index) => {
+    if (part.match(/^https?:\/\//)) {
+      const cleanUrl = part.replace(/[.,;!?:)]+$/, "").replace(/[[\\\])}>]+$/, "");
+      return (
+        <a
+          key={index}
+          href={cleanUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={(e) => {
+            e.preventDefault();
+            openExternalUrl(cleanUrl);
+          }}
+          className="text-[#8CA9CF] underline underline-offset-2 hover:text-[#A6BDE0] font-semibold cursor-pointer"
+          title={`Click to open ${cleanUrl}`}
+        >
+          {cleanUrl} ↗
+        </a>
+      );
+    }
+    return part;
+  });
+}
+
 export function TerminalView({ isActive, initialSelection }: TerminalViewProps = {}) {
   // Workspaces state
   const [workspaces, setWorkspaces] = useState<WorkspaceWithProjects[]>([]);
@@ -94,6 +391,12 @@ export function TerminalView({ isActive, initialSelection }: TerminalViewProps =
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [showScrollBottomBtn, setShowScrollBottomBtn] = useState<boolean>(false);
   const [copiedPath, setCopiedPath] = useState<boolean>(false);
+
+  // Additional Terminal Features: Search, Stream filter, Line wrap, Copy output
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [streamFilter, setStreamFilter] = useState<"all" | "stderr" | "stdout" | "system">("all");
+  const [wrapLines, setWrapLines] = useState<boolean>(true);
+  const [copiedOutput, setCopiedOutput] = useState<boolean>(false);
 
   const handleCopyPath = (path: string) => {
     if (typeof navigator !== "undefined" && navigator.clipboard) {
@@ -133,6 +436,46 @@ export function TerminalView({ isActive, initialSelection }: TerminalViewProps =
   const activeProcess = activeTab?.processId
     ? runningProcesses[activeTab.processId] || null
     : null;
+
+  // Derived filtered logs & counts for active tab
+  const totalLogsCount = activeTab?.logs.length || 0;
+  const errorCount = (activeTab?.logs || []).filter((l) => l.stream === "stderr").length;
+  const stdoutCount = (activeTab?.logs || []).filter((l) => l.stream === "stdout").length;
+  const systemCount = (activeTab?.logs || []).filter((l) => l.stream === "system").length;
+
+  const filteredLogs = (activeTab?.logs || []).filter((log) => {
+    if (streamFilter !== "all" && log.stream !== streamFilter) {
+      return false;
+    }
+    if (searchQuery.trim().length > 0) {
+      const q = searchQuery.toLowerCase();
+      const cleanMsg = stripAnsi(log.message).toLowerCase();
+      return cleanMsg.includes(q) || log.stream.toLowerCase().includes(q);
+    }
+    return true;
+  });
+
+  const handleCopyOutput = () => {
+    if (!activeTab || activeTab.logs.length === 0) return;
+    const linesToCopy = filteredLogs.length > 0 ? filteredLogs : activeTab.logs;
+    const text = linesToCopy
+      .map(
+        (l) =>
+          `[${new Date(l.timestamp).toLocaleTimeString()}] [${l.stream.toUpperCase()}] ${stripAnsi(l.message)}`
+      )
+      .join("\n");
+    if (typeof navigator !== "undefined" && navigator.clipboard) {
+      navigator.clipboard.writeText(text);
+      setCopiedOutput(true);
+      setTimeout(() => setCopiedOutput(false), 2000);
+    }
+  };
+
+  const scrollToTop = () => {
+    if (terminalScrollRef.current) {
+      terminalScrollRef.current.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  };
 
   // 1. Initialize workspaces, restore tabs from localStorage, and handle initialSelection
   useEffect(() => {
@@ -594,7 +937,7 @@ export function TerminalView({ isActive, initialSelection }: TerminalViewProps =
   }
 
   // Script selection or custom command update
-  function handleSelectScript(scriptKey: string) {
+  function handleSelectScript(scriptKey: string, autoRun = false) {
     if (!activeTab) return;
     const label = activeTab.projectDisplayName || activeTab.projectName;
     updateActiveTab({
@@ -604,15 +947,20 @@ export function TerminalView({ isActive, initialSelection }: TerminalViewProps =
         ? `${label}: ${scriptKey}`
         : scriptKey,
     });
+    if (autoRun && activeTab.projectId && !isRunning) {
+      setTimeout(() => {
+        handleStart(scriptKey);
+      }, 50);
+    }
   }
 
   // Process Actions: Start, Stop, Restart, Clear Logs, Export Logs
-  async function handleStart() {
+  async function handleStart(overrideScript?: string) {
     if (!activeTab || !activeTab.projectId) return;
 
     const isCustomMode = activeTab.isCustom || !hasDetectedScripts;
     const commandToRun = isCustomMode ? activeTab.customCommand.trim() : "";
-    const scriptToRun = !isCustomMode ? activeTab.script : "";
+    const scriptToRun = overrideScript || (!isCustomMode ? activeTab.script : "");
 
     if (!commandToRun && !scriptToRun) {
       setErrorMessage(
@@ -647,6 +995,7 @@ export function TerminalView({ isActive, initialSelection }: TerminalViewProps =
       updateActiveTab({
         processId: proc.id,
         status: "starting",
+        script: scriptToRun || activeTab.script,
         latestSeqId: startLog.id,
         logs: [...activeTab.logs, startLog],
         title: label
@@ -665,7 +1014,12 @@ export function TerminalView({ isActive, initialSelection }: TerminalViewProps =
   }
 
   async function handleStop() {
-    if (!activeTab?.processId) return;
+    if (!activeTab) return;
+
+    if (!activeTab.processId) {
+      updateActiveTab({ status: "stopped" });
+      return;
+    }
 
     try {
       setActionLoading(true);
@@ -675,8 +1029,39 @@ export function TerminalView({ isActive, initialSelection }: TerminalViewProps =
       updateActiveTab({ status: updated.status });
       setRunningProcesses((prev) => ({ ...prev, [updated.id]: updated }));
     } catch (err: unknown) {
+      updateActiveTab({ status: "stopped" });
       setErrorMessage(
         err instanceof Error ? err.message : "Failed to stop process."
+      );
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
+  async function handleStopTab(tabId: string, e?: React.MouseEvent) {
+    if (e) e.stopPropagation();
+    const tabToStop = tabs.find((t) => t.id === tabId);
+    if (!tabToStop) return;
+
+    if (!tabToStop.processId) {
+      setTabs((prev) =>
+        prev.map((t) => (t.id === tabId ? { ...t, status: "stopped" } : t))
+      );
+      return;
+    }
+
+    try {
+      setActionLoading(true);
+      setErrorMessage(null);
+
+      const updated = await stopProcess(tabToStop.processId);
+      setTabs((prev) =>
+        prev.map((t) => (t.id === tabId ? { ...t, status: updated.status } : t))
+      );
+      setRunningProcesses((prev) => ({ ...prev, [updated.id]: updated }));
+    } catch (err: unknown) {
+      setTabs((prev) =>
+        prev.map((t) => (t.id === tabId ? { ...t, status: "stopped" } : t))
       );
     } finally {
       setActionLoading(false);
@@ -825,7 +1210,7 @@ export function TerminalView({ isActive, initialSelection }: TerminalViewProps =
       </div>
 
       {/* 2. Multi-Terminal Tab Bar */}
-      <div className="flex items-center gap-1 overflow-x-auto pb-1 mb-3 border-b border-zinc-800/80 shrink-0">
+      <div className="flex items-center gap-1 overflow-x-auto pb-1 mb-3 border-b border-[#303642] shrink-0">
         {tabs.map((tab, idx) => {
           const isActive = tab.id === activeTabId;
           const isTabRunning = tab.status === "running";
@@ -848,9 +1233,9 @@ export function TerminalView({ isActive, initialSelection }: TerminalViewProps =
                 <span
                   className={`inline-flex rounded-full h-1.5 w-1.5 ${
                     isTabRunning
-                      ? "bg-[#77B58A]"
+                      ? "bg-[#77B58A] animate-pulse"
                       : isTabStarting
-                      ? "bg-[#E0B36D]"
+                      ? "bg-[#E0B36D] animate-pulse"
                       : isTabFailed
                       ? "bg-[#E18B8B]"
                       : "bg-[#7C8594]"
@@ -871,7 +1256,7 @@ export function TerminalView({ isActive, initialSelection }: TerminalViewProps =
                   }}
                   autoFocus
                   onClick={(e) => e.stopPropagation()}
-                  className="px-1 py-0.5 rounded bg-zinc-800 text-zinc-100 border border-zinc-600 text-xs w-28 focus:outline-none"
+                  className="px-1 py-0.5 rounded bg-[#272D38] text-[#E8EBF1] border border-[#303642] text-xs w-28 focus:outline-none"
                 />
               ) : (
                 <span
@@ -883,10 +1268,21 @@ export function TerminalView({ isActive, initialSelection }: TerminalViewProps =
                 </span>
               )}
 
+              {/* Stop button on tab if running */}
+              {(isTabRunning || isTabStarting) && (
+                <button
+                  onClick={(e) => handleStopTab(tab.id, e)}
+                  className="w-4 h-4 rounded-full flex items-center justify-center text-[#E18B8B] hover:text-[#101216] hover:bg-[#E18B8B] transition text-[9px] font-bold"
+                  title="Stop this running session"
+                >
+                  ⏹
+                </button>
+              )}
+
               {/* Tab close button */}
               <button
                 onClick={(e) => handleCloseTab(tab.id, e)}
-                className="w-4 h-4 rounded-full flex items-center justify-center text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800 transition ml-1"
+                className="w-4 h-4 rounded-full flex items-center justify-center text-[#7C8594] hover:text-[#E8EBF1] hover:bg-[#272D38] transition ml-0.5"
                 title="Close terminal tab"
               >
                 ×
@@ -898,7 +1294,7 @@ export function TerminalView({ isActive, initialSelection }: TerminalViewProps =
         {/* Plus Button */}
         <button
           onClick={handleAddTab}
-          className="px-2 py-1.5 rounded text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 text-xs transition font-semibold"
+          className="px-2 py-1.5 rounded text-[#A5ADBA] hover:text-[#E8EBF1] hover:bg-[#272D38] text-xs transition font-semibold"
           title="Add another terminal tab"
         >
           +
@@ -906,18 +1302,18 @@ export function TerminalView({ isActive, initialSelection }: TerminalViewProps =
       </div>
 
       {/* 3. Tab Configuration Toolbar (Workspace, Project, Script / Custom Command) */}
-      <div className="flex flex-col gap-2.5 p-3 rounded-lg bg-zinc-900/60 border border-zinc-800 mb-3 shrink-0">
+      <div className="flex flex-col gap-2.5 p-3 rounded-lg bg-[#171A20] border border-[#303642] mb-3 shrink-0">
         {/* Row A: Selectors & Actions */}
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-2">
             {/* Workspace dropdown */}
             <div className="flex items-center gap-1.5">
-              <span className="text-[11px] font-medium text-zinc-400 uppercase">WS:</span>
+              <span className="text-[11px] font-medium text-[#7C8594] uppercase">WS:</span>
               <select
                 value={activeTab?.workspaceId || ""}
                 onChange={(e) => handleWorkspaceChange(e.target.value)}
                 disabled={isRunning}
-                className="px-2.5 py-1 rounded bg-zinc-950 border border-zinc-800 text-zinc-200 text-xs hover:border-zinc-700 focus:outline-none disabled:opacity-50 cursor-pointer max-w-[160px] truncate"
+                className="px-2.5 py-1 rounded bg-[#101216] border border-[#303642] text-[#E8EBF1] text-xs hover:border-[#8CA9CF]/60 focus:outline-none disabled:opacity-50 cursor-pointer max-w-[160px] truncate"
               >
                 <option value="">(Select Workspace)</option>
                 {workspaces.map((w) => (
@@ -930,12 +1326,12 @@ export function TerminalView({ isActive, initialSelection }: TerminalViewProps =
 
             {/* Project dropdown */}
             <div className="flex items-center gap-1.5">
-              <span className="text-[11px] font-medium text-zinc-400 uppercase">Project:</span>
+              <span className="text-[11px] font-medium text-[#7C8594] uppercase">Project:</span>
               <select
                 value={activeTab?.projectId || ""}
                 onChange={(e) => handleProjectChange(e.target.value)}
                 disabled={!activeTab?.workspaceId || isRunning}
-                className="px-2.5 py-1 rounded bg-zinc-950 border border-zinc-800 text-zinc-200 text-xs hover:border-zinc-700 focus:outline-none disabled:opacity-50 cursor-pointer max-w-[280px] truncate"
+                className="px-2.5 py-1 rounded bg-[#101216] border border-[#303642] text-[#E8EBF1] text-xs hover:border-[#8CA9CF]/60 focus:outline-none disabled:opacity-50 cursor-pointer max-w-[280px] truncate"
               >
                 <option value="">(Select Project)</option>
                 {(activeWorkspace?.projects || [])
@@ -951,14 +1347,14 @@ export function TerminalView({ isActive, initialSelection }: TerminalViewProps =
 
             {/* Mode Toggle: Detected Scripts vs Custom Command */}
             {hasDetectedScripts ? (
-              <div className="inline-flex rounded-md border border-zinc-800 bg-zinc-950 p-0.5 text-[11px]">
+              <div className="inline-flex rounded-md border border-[#303642] bg-[#101216] p-0.5 text-[11px]">
                 <button
                   type="button"
                   onClick={() => updateActiveTab({ isCustom: false })}
                   className={`px-2 py-0.5 rounded font-medium transition cursor-pointer ${
                     !activeTab?.isCustom
-                      ? "bg-zinc-800 text-zinc-100 shadow-xs"
-                      : "text-zinc-400 hover:text-zinc-200"
+                      ? "bg-[#272D38] text-[#E8EBF1] shadow-xs"
+                      : "text-[#7C8594] hover:text-[#A5ADBA]"
                   }`}
                 >
                   Auto-Detected Scripts
@@ -968,73 +1364,98 @@ export function TerminalView({ isActive, initialSelection }: TerminalViewProps =
                   onClick={() => updateActiveTab({ isCustom: true })}
                   className={`px-2 py-0.5 rounded font-medium transition cursor-pointer ${
                     activeTab?.isCustom
-                      ? "bg-zinc-800 text-zinc-100 shadow-xs"
-                      : "text-zinc-400 hover:text-zinc-200"
+                      ? "bg-[#272D38] text-[#E8EBF1] shadow-xs"
+                      : "text-[#7C8594] hover:text-[#A5ADBA]"
                   }`}
                 >
                   Custom Command
                 </button>
               </div>
             ) : (
-              <span className="px-2 py-1 rounded text-[11px] font-mono text-zinc-400 bg-zinc-900 border border-zinc-800">
+              <span className="px-2 py-1 rounded text-[11px] font-mono text-[#7C8594] bg-[#101216] border border-[#303642]">
                 Custom Command
               </span>
             )}
           </div>
 
-          {/* Action buttons (Start, Stop, Restart, Clear) */}
+          {/* Action buttons (Start, Stop, Restart, Clear, Export) */}
           <div className="flex items-center gap-2">
-            {!isRunning ? (
-              <button
-                onClick={handleStart}
-                disabled={actionLoading || !activeTab?.projectId}
-                className="px-3.5 py-1.5 rounded-md text-xs font-semibold text-[#101216] bg-[#8CA9CF] hover:bg-[#A6BDE0] disabled:opacity-50 transition shadow-xs flex items-center gap-1.5 cursor-pointer"
-              >
-                {actionLoading ? (
-                  <span className="w-3 h-3 rounded-full border border-[#101216] border-t-transparent animate-spin" />
-                ) : (
-                  <span>▶</span>
-                )}
-                <span>Start</span>
-              </button>
-            ) : (
-              <>
-                <button
-                  onClick={handleStop}
-                  disabled={actionLoading}
-                  className="px-3.5 py-1.5 rounded-md text-xs font-semibold text-[#101216] bg-[#E18B8B] hover:bg-[#e89d9d] disabled:opacity-50 transition shadow-xs flex items-center gap-1.5 cursor-pointer"
-                >
-                  {actionLoading ? (
-                    <span className="w-3 h-3 rounded-full border border-[#101216] border-t-transparent animate-spin" />
-                  ) : (
-                    <span>⏹</span>
-                  )}
-                  <span>Stop</span>
-                </button>
-                <button
-                  onClick={handleRestart}
-                  disabled={actionLoading}
-                  className="px-3 py-1.5 rounded-md text-xs font-medium text-[#E0B36D] bg-[rgba(224,179,109,0.12)] border border-[#E0B36D]/35 hover:bg-[rgba(224,179,109,0.2)] disabled:opacity-50 transition flex items-center gap-1 cursor-pointer"
-                >
-                  <span>↻</span>
-                  <span>Restart</span>
-                </button>
-              </>
-            )}
+            {/* Start Button */}
+            <button
+              onClick={() => handleStart()}
+              disabled={actionLoading || isRunning || !activeTab?.projectId}
+              className={`px-3.5 py-1.5 rounded-md text-xs font-semibold transition shadow-xs flex items-center gap-1.5 cursor-pointer ${
+                !isRunning && activeTab?.projectId
+                  ? "text-[#101216] bg-[#8CA9CF] hover:bg-[#A6BDE0]"
+                  : "text-[#7C8594] bg-[#272D38] border border-[#303642] cursor-not-allowed opacity-60"
+              }`}
+              title={
+                isRunning
+                  ? "Script is already running"
+                  : !activeTab?.projectId
+                  ? "Select a project first"
+                  : "Start script or custom command"
+              }
+            >
+              {actionLoading && !isRunning ? (
+                <span className="w-3 h-3 rounded-full border border-[#101216] border-t-transparent animate-spin" />
+              ) : (
+                <span>▶</span>
+              )}
+              <span>Start</span>
+            </button>
 
+            {/* Stop Button - ALWAYS VISIBLE */}
+            <button
+              onClick={handleStop}
+              disabled={actionLoading || (!isRunning && !activeTab?.processId)}
+              className={`px-3.5 py-1.5 rounded-md text-xs font-semibold transition shadow-xs flex items-center gap-1.5 cursor-pointer ${
+                isRunning || activeTab?.processId
+                  ? "text-[#101216] bg-[#E18B8B] hover:bg-[#e89d9d]"
+                  : "text-[#7C8594] bg-[#272D38] border border-[#303642] cursor-not-allowed opacity-50"
+              }`}
+              title={
+                isRunning
+                  ? "Stop running process (SIGTERM/SIGKILL)"
+                  : activeTab?.processId
+                  ? "Terminate process session"
+                  : "No running process to stop"
+              }
+            >
+              {actionLoading && isRunning ? (
+                <span className="w-3 h-3 rounded-full border border-[#101216] border-t-transparent animate-spin" />
+              ) : (
+                <span>⏹</span>
+              )}
+              <span>Stop</span>
+            </button>
+
+            {/* Restart / Rerun Button */}
+            <button
+              onClick={isRunning ? handleRestart : () => handleStart()}
+              disabled={actionLoading || !activeTab?.projectId}
+              className="px-3 py-1.5 rounded-md text-xs font-medium text-[#E0B36D] bg-[rgba(224,179,109,0.12)] border border-[#E0B36D]/35 hover:bg-[rgba(224,179,109,0.2)] disabled:opacity-40 disabled:cursor-not-allowed transition flex items-center gap-1 cursor-pointer"
+              title={isRunning ? "Restart current running process" : "Rerun script"}
+            >
+              <span>↻</span>
+              <span>{isRunning ? "Restart" : "Rerun"}</span>
+            </button>
+
+            {/* Clear Button */}
             <button
               onClick={handleClearLogs}
               disabled={!activeTab || activeTab.logs.length === 0}
-              className="px-2.5 py-1.5 rounded-md text-xs font-medium text-zinc-400 bg-zinc-950 border border-zinc-800 hover:text-zinc-200 hover:border-zinc-700 disabled:opacity-40 transition cursor-pointer"
+              className="px-2.5 py-1.5 rounded-md text-xs font-medium text-[#A5ADBA] bg-[#101216] border border-[#303642] hover:text-[#E8EBF1] hover:border-[#8CA9CF]/60 disabled:opacity-40 transition cursor-pointer"
               title="Clear terminal buffer for this tab"
             >
               Clear
             </button>
 
+            {/* Export Button */}
             <button
               onClick={handleExportLogs}
               disabled={!activeTab || activeTab.logs.length === 0}
-              className="px-2.5 py-1.5 rounded-md text-xs font-medium text-zinc-400 bg-zinc-950 border border-zinc-800 hover:text-zinc-200 hover:border-zinc-700 disabled:opacity-40 transition cursor-pointer"
+              className="px-2.5 py-1.5 rounded-md text-xs font-medium text-[#A5ADBA] bg-[#101216] border border-[#303642] hover:text-[#E8EBF1] hover:border-[#8CA9CF]/60 disabled:opacity-40 transition cursor-pointer"
               title="Download session logs"
             >
               Export
@@ -1044,16 +1465,16 @@ export function TerminalView({ isActive, initialSelection }: TerminalViewProps =
 
         {/* Project Location Bar */}
         {activeProject && (
-          <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-1.5 rounded-md bg-zinc-950/80 border border-zinc-800/80 text-xs font-mono text-zinc-300">
+          <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-1.5 rounded-md bg-[#101216] border border-[#303642] text-xs font-mono text-[#A5ADBA]">
             <div className="flex items-center gap-2 truncate min-w-0">
-              <span className="text-zinc-500 font-sans text-[11px] font-semibold uppercase tracking-wider shrink-0">
+              <span className="text-[#7C8594] font-sans text-[11px] font-semibold uppercase tracking-wider shrink-0">
                 Path:
               </span>
-              <span className="truncate select-all text-zinc-200" title={activeProject.path}>
+              <span className="truncate select-all text-[#E8EBF1]" title={activeProject.path}>
                 {activeProject.path}
               </span>
               {activeProject.relativePath && activeProject.relativePath !== "." && (
-                <span className="text-[10px] text-zinc-500 hidden md:inline shrink-0">
+                <span className="text-[10px] text-[#7C8594] hidden md:inline shrink-0">
                   📁 {activeProject.relativePath}
                 </span>
               )}
@@ -1062,7 +1483,7 @@ export function TerminalView({ isActive, initialSelection }: TerminalViewProps =
               <button
                 type="button"
                 onClick={() => handleCopyPath(activeProject.path)}
-                className="px-2 py-0.5 rounded bg-zinc-900 border border-zinc-700/80 hover:bg-zinc-800 hover:text-white text-zinc-300 text-[11px] transition cursor-pointer"
+                className="px-2 py-0.5 rounded bg-[#272D38] border border-[#303642] hover:bg-[#35465E] hover:text-[#E8EBF1] text-[#A5ADBA] text-[11px] transition cursor-pointer"
                 title="Copy full directory path to clipboard"
               >
                 {copiedPath ? "✓ Copied" : "📋 Copy Path"}
@@ -1070,7 +1491,7 @@ export function TerminalView({ isActive, initialSelection }: TerminalViewProps =
               <button
                 type="button"
                 onClick={() => handleRevealInFinder(activeProject.path)}
-                className="px-2 py-0.5 rounded bg-zinc-900 border border-zinc-700/80 hover:bg-zinc-800 hover:text-white text-zinc-300 text-[11px] transition cursor-pointer"
+                className="px-2 py-0.5 rounded bg-[#272D38] border border-[#303642] hover:bg-[#35465E] hover:text-[#E8EBF1] text-[#A5ADBA] text-[11px] transition cursor-pointer"
                 title="Reveal folder in Finder"
               >
                 📁 Reveal in Finder
@@ -1080,57 +1501,156 @@ export function TerminalView({ isActive, initialSelection }: TerminalViewProps =
         )}
 
         {/* Row B: Script selector OR Custom Command input */}
-        <div className="pt-2 border-t border-zinc-800/60">
+        <div className="pt-2 border-t border-[#303642]/60">
           {loadingScripts ? (
-            <div className="flex items-center gap-2 text-xs text-zinc-500 italic py-0.5">
-              <span className="w-2.5 h-2.5 rounded-full border border-zinc-500 border-t-transparent animate-spin" />
+            <div className="flex items-center gap-2 text-xs text-[#7C8594] italic py-0.5">
+              <span className="w-2.5 h-2.5 rounded-full border border-[#7C8594] border-t-transparent animate-spin" />
               <span>Scanning project files for scripts...</span>
             </div>
           ) : !activeTab?.isCustom && hasDetectedScripts ? (
             /* Auto-detected Scripts */
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-[11px] text-zinc-400 font-medium">Detected Scripts:</span>
-              <div className="flex flex-wrap items-center gap-1.5">
-                {scriptKeys.map((key) => {
-                  const isSelected = activeTab?.script === key;
-                  const def = activeScripts[key];
-                  return (
-                    <button
-                      key={key}
-                      onClick={() => handleSelectScript(key)}
-                      disabled={isRunning}
-                      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-mono font-medium transition cursor-pointer ${
-                        isSelected
-                          ? "bg-[#35465E] text-[#8CA9CF] border border-[#8CA9CF]/40 shadow-xs"
-                          : "bg-[#272D38] text-[#A5ADBA] border border-[#303642] hover:text-[#E8EBF1] hover:bg-[#303642]/60"
-                      } disabled:opacity-50`}
-                      title={`Command: ${def}`}
-                    >
-                      <span>{getScriptIcon(key, def)}</span>
-                      <span>{key}</span>
-                    </button>
-                  );
-                })}
+            <div className="space-y-2.5">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-[11px] text-[#A5ADBA] font-medium">Detected Scripts:</span>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {scriptKeys.map((key) => {
+                    const isSelected = activeTab?.script === key;
+                    const def = activeScripts[key];
+                    return (
+                      <button
+                        key={key}
+                        onClick={() => handleSelectScript(key)}
+                        onDoubleClick={() => !isRunning && handleSelectScript(key, true)}
+                        disabled={isRunning}
+                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-mono font-medium transition cursor-pointer ${
+                          isSelected
+                            ? "bg-[#35465E] text-[#8CA9CF] border border-[#8CA9CF]/40 shadow-xs"
+                            : "bg-[#272D38] text-[#A5ADBA] border border-[#303642] hover:text-[#E8EBF1] hover:bg-[#303642]/60"
+                        } disabled:opacity-50`}
+                        title={`Command: ${def}\nDouble-click to run immediately`}
+                      >
+                        <span>{getScriptIcon(key, def)}</span>
+                        <span>{key}</span>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
+
+              {/* Script Inspector & Command Details Card */}
+              {activeTab?.script && (
+                (() => {
+                  const scriptInfo = getScriptDescription(
+                    activeTab.script,
+                    activeScripts[activeTab.script],
+                    activeProject?.packageManager
+                  );
+                  const isCurrentScriptRunning =
+                    isRunning &&
+                    (activeProcess?.script === activeTab.script ||
+                      activeTab.status === "running" ||
+                      activeTab.status === "starting");
+
+                  return (
+                    <div className="p-3 rounded-lg bg-[#1D2129] border border-[#303642] flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs shadow-xs">
+                      <div className="flex items-start gap-3 min-w-0">
+                        <div className="w-9 h-9 rounded-md bg-[#272D38] border border-[#303642] flex items-center justify-center text-lg shrink-0">
+                          {scriptInfo.icon}
+                        </div>
+                        <div className="min-w-0 space-y-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-semibold text-[#E8EBF1] font-mono text-sm">
+                              {activeTab.script}
+                            </span>
+                            <span className="px-2 py-0.5 rounded text-[10px] uppercase font-mono font-medium bg-[#35465E]/60 text-[#8CA9CF] border border-[#8CA9CF]/30">
+                              {scriptInfo.category}
+                            </span>
+                            {isCurrentScriptRunning && (
+                              <span className="px-2 py-0.5 rounded text-[10px] font-mono font-medium bg-[#77B58A]/15 text-[#77B58A] border border-[#77B58A]/30 flex items-center gap-1">
+                                <span className="w-1.5 h-1.5 rounded-full bg-[#77B58A] animate-pulse" />
+                                Currently Active
+                              </span>
+                            )}
+                          </div>
+
+                          <p className="text-xs text-[#A5ADBA] leading-relaxed">
+                            {scriptInfo.summary}
+                          </p>
+
+                          <div className="flex items-center gap-2 font-mono text-[11px] text-[#7C8594] pt-0.5 flex-wrap">
+                            <span className="text-[#8CA9CF] font-bold">&gt;</span>
+                            <code className="text-[#E8EBF1] bg-[#101216] px-2 py-0.5 rounded border border-[#303642] max-w-xl truncate">
+                              {scriptInfo.fullCommand}
+                            </code>
+                            {activeScripts[activeTab.script] && (
+                              <span
+                                className="text-[#7C8594] truncate text-[11px]"
+                                title={activeScripts[activeTab.script]}
+                              >
+                                → {activeScripts[activeTab.script]}
+                              </span>
+                            )}
+                          </div>
+
+                          {scriptInfo.expectedServices && (
+                            <div className="text-[11px] text-[#8CA9CF]/90 flex items-center gap-1.5 pt-0.5">
+                              <span>⚡ Target Service:</span>
+                              <span className="font-mono text-[10px] bg-[#272D38] px-1.5 py-0.5 rounded text-[#E8EBF1] border border-[#303642]">
+                                {scriptInfo.expectedServices}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0 self-end md:self-center">
+                        {!isRunning ? (
+                          <button
+                            onClick={() => handleStart(activeTab.script)}
+                            disabled={actionLoading}
+                            className="px-3.5 py-1.5 rounded-md text-xs font-semibold text-[#101216] bg-[#8CA9CF] hover:bg-[#A6BDE0] disabled:opacity-50 transition cursor-pointer flex items-center gap-1.5 shadow-xs"
+                            title="Execute this script in the project directory"
+                          >
+                            <span>▶</span>
+                            <span>Run {activeTab.script}</span>
+                          </button>
+                        ) : (
+                          <button
+                            onClick={handleStop}
+                            disabled={actionLoading}
+                            className="px-3.5 py-1.5 rounded-md text-xs font-semibold text-[#101216] bg-[#E18B8B] hover:bg-[#e89d9d] disabled:opacity-50 transition cursor-pointer flex items-center gap-1.5 shadow-xs"
+                            title="Stop running process"
+                          >
+                            <span>⏹</span>
+                            <span>Stop Process</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()
+              )}
             </div>
           ) : (
-            /* Custom Command Input (Shown when in Custom mode OR when project has no detected scripts) */
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-mono text-[#8CA9CF] font-bold">&gt;_</span>
-              <input
-                type="text"
-                value={activeTab?.customCommand || ""}
-                onChange={(e) => updateActiveTab({ customCommand: e.target.value })}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !isRunning) {
-                    handleStart();
-                  }
-                }}
-                disabled={isRunning}
-                placeholder="Enter command to execute in project directory (e.g. pnpm test, python3 app.py, cargo run, git status)..."
-                className="flex-1 px-3 py-1.5 rounded-md bg-[#272D38] border border-[#303642] text-[#E8EBF1] placeholder-[#7C8594] text-xs font-mono focus:outline-none focus:border-[#8CA9CF] disabled:opacity-50"
-              />
-              <span className="text-[11px] text-[#7C8594] hidden sm:inline">Press Enter to run</span>
+            /* Custom Command Input */
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-mono text-[#8CA9CF] font-bold">&gt;_</span>
+                <input
+                  type="text"
+                  value={activeTab?.customCommand || ""}
+                  onChange={(e) => updateActiveTab({ customCommand: e.target.value })}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !isRunning) {
+                      handleStart();
+                    }
+                  }}
+                  disabled={isRunning}
+                  placeholder="Enter command to execute in project directory (e.g. pnpm test, python3 app.py, cargo run, git status)..."
+                  className="flex-1 px-3 py-1.5 rounded-md bg-[#272D38] border border-[#303642] text-[#E8EBF1] placeholder-[#7C8594] text-xs font-mono focus:outline-none focus:border-[#8CA9CF] disabled:opacity-50"
+                />
+                <span className="text-[11px] text-[#7C8594] hidden sm:inline">Press Enter to run</span>
+              </div>
             </div>
           )}
         </div>
@@ -1138,11 +1658,11 @@ export function TerminalView({ isActive, initialSelection }: TerminalViewProps =
 
       {/* Error message banner */}
       {errorMessage && (
-        <div className="flex items-center justify-between p-3 rounded-lg bg-rose-950/40 border border-rose-800/60 text-xs text-rose-300 mb-3 shrink-0">
+        <div className="flex items-center justify-between p-3 rounded-lg bg-[rgba(225,139,139,0.15)] border border-[#E18B8B]/40 text-xs text-[#E18B8B] mb-3 shrink-0">
           <span>{errorMessage}</span>
           <button
             onClick={() => setErrorMessage(null)}
-            className="text-rose-400 hover:text-rose-200 text-sm font-bold ml-2"
+            className="text-[#E18B8B] hover:text-[#e89d9d] text-sm font-bold ml-2 cursor-pointer"
           >
             ×
           </button>
@@ -1150,37 +1670,60 @@ export function TerminalView({ isActive, initialSelection }: TerminalViewProps =
       )}
 
       {/* 4. Terminal Output Window */}
-      <div className="flex-1 min-h-0 flex flex-col rounded-lg bg-black/90 border border-zinc-800 shadow-xl overflow-hidden relative">
+      <div className="flex-1 min-h-0 flex flex-col rounded-lg bg-[#101216] border border-[#303642] shadow-xl overflow-hidden relative">
         {/* Terminal Title Bar */}
-        <div className="flex items-center justify-between px-3 py-2 bg-zinc-900/90 border-b border-zinc-800/80 text-[11px] text-zinc-400 shrink-0">
+        <div className="flex items-center justify-between px-3 py-2 bg-[#171A20] border-b border-[#303642] text-[11px] text-[#A5ADBA] shrink-0">
           <div className="flex items-center gap-2 truncate">
-            <span className="w-2.5 h-2.5 rounded-full bg-red-500/80 inline-block" />
-            <span className="w-2.5 h-2.5 rounded-full bg-yellow-500/80 inline-block" />
-            <span className="w-2.5 h-2.5 rounded-full bg-green-500/80 inline-block" />
-            <span className="font-mono text-zinc-300 font-medium truncate ml-1">
+            <span className="w-2.5 h-2.5 rounded-full bg-[#E18B8B]/80 inline-block" />
+            <span className="w-2.5 h-2.5 rounded-full bg-[#E0B36D]/80 inline-block" />
+            <span className="w-2.5 h-2.5 rounded-full bg-[#77B58A]/80 inline-block" />
+            <span className="font-mono text-[#E8EBF1] font-medium truncate ml-1">
               {activeTab?.title || "Terminal"}
             </span>
             {activeProject && (
-              <span className="font-mono text-zinc-500 text-[10px] truncate hidden md:inline" title={activeProject.path}>
+              <span className="font-mono text-[#7C8594] text-[10px] truncate hidden md:inline" title={activeProject.path}>
                 — {activeProject.path}
               </span>
             )}
             {activeProcess?.command && (
-              <span className="font-mono text-zinc-500 truncate hidden lg:inline">
+              <span className="font-mono text-[#7C8594] truncate hidden lg:inline">
                 ({activeProcess.command})
               </span>
             )}
           </div>
 
-          <div className="flex items-center gap-3 shrink-0">
+          <div className="flex items-center gap-2.5 shrink-0">
+            {/* Direct Stop / Rerun buttons right inside the Terminal Window */}
+            {isRunning ? (
+              <button
+                onClick={handleStop}
+                disabled={actionLoading}
+                className="px-2.5 py-0.5 rounded text-[11px] font-semibold bg-[#E18B8B] hover:bg-[#e89d9d] text-[#101216] transition cursor-pointer flex items-center gap-1 shadow-xs"
+                title="Stop current running process"
+              >
+                <span>⏹</span>
+                <span>Stop Process</span>
+              </button>
+            ) : activeTab?.status === "failed" || activeTab?.status === "stopped" ? (
+              <button
+                onClick={() => handleStart()}
+                disabled={actionLoading || !activeTab?.projectId}
+                className="px-2.5 py-0.5 rounded text-[11px] font-medium bg-[#8CA9CF]/20 text-[#8CA9CF] border border-[#8CA9CF]/40 hover:bg-[#8CA9CF]/30 transition cursor-pointer flex items-center gap-1"
+                title="Rerun script"
+              >
+                <span>↻</span>
+                <span>Rerun</span>
+              </button>
+            ) : null}
+
             {/* Status pill */}
             <span
               className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono font-medium ${
                 isRunning
-                  ? "bg-emerald-950/70 text-emerald-300 border border-emerald-800/60"
+                  ? "bg-[#77B58A]/15 text-[#77B58A] border border-[#77B58A]/35"
                   : activeTab?.status === "failed"
-                  ? "bg-rose-950/70 text-rose-300 border border-rose-800/60"
-                  : "bg-zinc-800 text-zinc-400 border border-zinc-700"
+                  ? "bg-[#E18B8B]/15 text-[#E18B8B] border border-[#E18B8B]/35"
+                  : "bg-[#272D38] text-[#A5ADBA] border border-[#303642]"
               }`}
             >
               <span>●</span>
@@ -1188,30 +1731,212 @@ export function TerminalView({ isActive, initialSelection }: TerminalViewProps =
               {activeProcess?.pid && <span>(PID: {activeProcess.pid})</span>}
             </span>
 
-            {/* Detected Ports */}
-            {activeProcess?.ports && activeProcess.ports.length > 0 && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono bg-[rgba(140,169,207,0.12)] text-[#8CA9CF] border border-[#8CA9CF]/35">
-                <span>PORT:</span>
-                <span>{activeProcess.ports.join(", ")}</span>
-              </span>
-            )}
-
             {/* Line count */}
-            <span className="text-zinc-500 font-mono text-[10px]">
+            <span className="text-[#7C8594] font-mono text-[10px]">
               {activeTab?.logs.length || 0} lines
             </span>
+
+            {/* Copy Output Button */}
+            <button
+              onClick={handleCopyOutput}
+              disabled={!activeTab || activeTab.logs.length === 0}
+              className={`px-2 py-0.5 rounded text-[10px] font-mono font-medium transition cursor-pointer flex items-center gap-1 ${
+                copiedOutput
+                  ? "bg-[#77B58A]/20 text-[#77B58A] border border-[#77B58A]/50"
+                  : "bg-[#272D38] hover:bg-[#303642] text-[#E8EBF1] border border-[#303642]"
+              } disabled:opacity-40 disabled:cursor-not-allowed`}
+              title="Copy all output logs to clipboard (clean text, no ANSI codes)"
+            >
+              <span>{copiedOutput ? "✓" : "📋"}</span>
+              <span>{copiedOutput ? "Copied!" : "Copy Output"}</span>
+            </button>
 
             {/* Auto-scroll toggle */}
             <button
               onClick={() => updateActiveTab({ autoScroll: !activeTab?.autoScroll })}
-              className={`text-[10px] font-mono px-1.5 py-0.5 rounded transition ${
+              className={`text-[10px] font-mono px-1.5 py-0.5 rounded transition cursor-pointer ${
                 activeTab?.autoScroll
-                  ? "text-zinc-300 bg-zinc-800"
-                  : "text-zinc-500 hover:text-zinc-300"
+                  ? "text-[#E8EBF1] bg-[#272D38] border border-[#303642]"
+                  : "text-[#7C8594] hover:text-[#E8EBF1]"
               }`}
               title="Toggle automatic scrolling to latest log output"
             >
               Scroll: {activeTab?.autoScroll ? "ON" : "OFF"}
+            </button>
+          </div>
+        </div>
+
+        {/* Live Execution & Detected Services Bar */}
+        {(() => {
+          const detectedServices = extractDetectedServices(
+            activeTab?.logs || [],
+            activeProcess?.ports
+          );
+          const hasActiveInfo =
+            activeProcess || isRunning || (activeTab && activeTab.logs.length > 0);
+
+          if (!hasActiveInfo) return null;
+
+          return (
+            <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-1.5 bg-[#171A20]/95 border-b border-[#303642] text-[11px] font-mono text-[#A5ADBA]">
+              <div className="flex items-center gap-2 truncate min-w-0">
+                <span className="text-[#7C8594] text-[10px] uppercase font-sans font-semibold shrink-0">
+                  Executing:
+                </span>
+                <span className="text-[#8CA9CF] font-semibold truncate">
+                  {activeProcess?.command ||
+                    (activeTab?.script
+                      ? `${activeProject?.packageManager || "npm"} run ${activeTab.script}`
+                      : activeTab?.customCommand || "Terminal Session")}
+                </span>
+                {activeProcess?.startedAt && (
+                  <span className="text-[#7C8594] text-[10px] hidden md:inline shrink-0">
+                    (started {new Date(activeProcess.startedAt).toLocaleTimeString()})
+                  </span>
+                )}
+              </div>
+
+              {/* Detected Services & Ports with one-click open */}
+              {detectedServices.length > 0 && (
+                <div className="flex items-center gap-1.5 flex-wrap shrink-0">
+                  <span className="text-[10px] text-[#7C8594] uppercase font-sans font-semibold">
+                    Services:
+                  </span>
+                  {detectedServices.map((svc) => (
+                    <button
+                      key={svc.url}
+                      onClick={() => openExternalUrl(svc.url)}
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono font-medium bg-[#35465E] hover:bg-[#8CA9CF] text-[#8CA9CF] hover:text-[#101216] border border-[#8CA9CF]/40 transition cursor-pointer shadow-xs"
+                      title={`Click to open ${svc.url} in browser`}
+                    >
+                      <span>🌐</span>
+                      <span>{svc.label}</span>
+                      <span className="text-[9px]">↗</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
+        {/* Terminal Sub-Toolbar: Stream Filters, Search, Display Toggles */}
+        <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-1.5 bg-[#171A20] border-b border-[#303642] text-[11px] shrink-0">
+          {/* Left: Stream Filter Tabs */}
+          <div className="flex items-center gap-1">
+            <span className="text-[10px] text-[#7C8594] uppercase font-sans font-semibold mr-1">
+              Stream:
+            </span>
+            <button
+              onClick={() => setStreamFilter("all")}
+              className={`px-2 py-0.5 rounded text-[10px] font-mono font-medium transition cursor-pointer ${
+                streamFilter === "all"
+                  ? "bg-[#8CA9CF]/20 text-[#8CA9CF] border border-[#8CA9CF]/50"
+                  : "bg-[#272D38] text-[#7C8594] hover:text-[#E8EBF1] border border-transparent"
+              }`}
+            >
+              All ({totalLogsCount})
+            </button>
+            <button
+              onClick={() => setStreamFilter("stderr")}
+              className={`px-2 py-0.5 rounded text-[10px] font-mono font-medium transition cursor-pointer flex items-center gap-1 ${
+                streamFilter === "stderr"
+                  ? "bg-[#E18B8B]/25 text-[#E18B8B] border border-[#E18B8B]/50 font-bold"
+                  : errorCount > 0
+                  ? "bg-[#E18B8B]/10 text-[#E18B8B] border border-[#E18B8B]/30 hover:bg-[#E18B8B]/20"
+                  : "bg-[#272D38] text-[#7C8594] hover:text-[#E8EBF1] border border-transparent"
+              }`}
+              title="Filter standard error logs"
+            >
+              {errorCount > 0 && <span className="w-1.5 h-1.5 rounded-full bg-[#E18B8B] animate-pulse" />}
+              <span>Errors ({errorCount})</span>
+            </button>
+            <button
+              onClick={() => setStreamFilter("stdout")}
+              className={`px-2 py-0.5 rounded text-[10px] font-mono font-medium transition cursor-pointer ${
+                streamFilter === "stdout"
+                  ? "bg-[#8CA9CF]/20 text-[#8CA9CF] border border-[#8CA9CF]/50"
+                  : "bg-[#272D38] text-[#7C8594] hover:text-[#E8EBF1] border border-transparent"
+              }`}
+              title="Filter standard output logs"
+            >
+              Stdout ({stdoutCount})
+            </button>
+            <button
+              onClick={() => setStreamFilter("system")}
+              className={`px-2 py-0.5 rounded text-[10px] font-mono font-medium transition cursor-pointer ${
+                streamFilter === "system"
+                  ? "bg-[#8CA9CF]/20 text-[#8CA9CF] border border-[#8CA9CF]/50"
+                  : "bg-[#272D38] text-[#7C8594] hover:text-[#E8EBF1] border border-transparent"
+              }`}
+              title="Filter DevDesk system messages"
+            >
+              System ({systemCount})
+            </button>
+          </div>
+
+          {/* Center/Right: Live Search Input */}
+          <div className="flex items-center gap-2 flex-1 max-w-xs min-w-[180px]">
+            <div className="relative w-full flex items-center">
+              <span className="absolute left-2 text-[#7C8594] text-[10px] select-none">🔍</span>
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Filter logs..."
+                className="w-full pl-6 pr-6 py-0.5 rounded bg-[#272D38] border border-[#303642] text-[#E8EBF1] placeholder-[#7C8594] text-[11px] font-mono focus:outline-none focus:border-[#8CA9CF]"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-2 text-[#7C8594] hover:text-[#E8EBF1] text-xs cursor-pointer"
+                  title="Clear search"
+                >
+                  ×
+                </button>
+              )}
+            </div>
+            {searchQuery && (
+              <span className="text-[10px] font-mono text-[#8CA9CF] whitespace-nowrap shrink-0">
+                {filteredLogs.length} found
+              </span>
+            )}
+          </div>
+
+          {/* Right: Quick actions: Line wrap, Scroll Top/Bottom, Clear */}
+          <div className="flex items-center gap-1.5 shrink-0">
+            <button
+              onClick={() => setWrapLines(!wrapLines)}
+              className={`px-2 py-0.5 rounded text-[10px] font-mono transition cursor-pointer ${
+                wrapLines
+                  ? "bg-[#272D38] text-[#E8EBF1] border border-[#303642]"
+                  : "bg-[#1D2129] text-[#7C8594] hover:text-[#E8EBF1] border border-[#303642]"
+              }`}
+              title="Toggle line wrapping"
+            >
+              Wrap: {wrapLines ? "ON" : "OFF"}
+            </button>
+            <button
+              onClick={scrollToTop}
+              className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-[#272D38] hover:bg-[#303642] text-[#A5ADBA] hover:text-[#E8EBF1] border border-[#303642] transition cursor-pointer"
+              title="Scroll to top of logs"
+            >
+              Top ↑
+            </button>
+            <button
+              onClick={scrollToBottom}
+              className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-[#272D38] hover:bg-[#303642] text-[#A5ADBA] hover:text-[#E8EBF1] border border-[#303642] transition cursor-pointer"
+              title="Scroll to bottom of logs"
+            >
+              Bottom ↓
+            </button>
+            <button
+              onClick={handleClearLogs}
+              disabled={!activeTab || activeTab.logs.length === 0}
+              className="px-2 py-0.5 rounded text-[10px] font-mono bg-[#272D38] hover:bg-[#E18B8B]/20 text-[#A5ADBA] hover:text-[#E18B8B] border border-[#303642] hover:border-[#E18B8B]/40 transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+              title="Clear terminal buffer for this tab"
+            >
+              Clear
             </button>
           </div>
         </div>
@@ -1223,55 +1948,77 @@ export function TerminalView({ isActive, initialSelection }: TerminalViewProps =
           className="flex-1 p-4 overflow-y-auto font-mono text-xs leading-relaxed select-text"
         >
           {activeTab && activeTab.logs.length > 0 ? (
-            <div className="space-y-0.5">
-              {activeTab.logs.map((log) => {
-                const isErr = log.stream === "stderr";
-                const isSys = log.stream === "system";
+            filteredLogs.length > 0 ? (
+              <div className="space-y-0.5">
+                {filteredLogs.map((log) => {
+                  const isErr = log.stream === "stderr";
+                  const isSys = log.stream === "system";
 
-                return (
-                  <div key={log.id} className="flex items-start gap-2 group hover:bg-zinc-900/40 px-1 rounded">
-                    <span className="text-zinc-600 select-none text-[10px] shrink-0 w-16 text-right">
-                      {new Date(log.timestamp).toLocaleTimeString([], {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                        second: "2-digit",
-                      })}
-                    </span>
-                    <span
-                      className={`text-[10px] select-none shrink-0 uppercase px-1 rounded ${
-                        isSys
-                          ? "text-[#8CA9CF] bg-[rgba(140,169,207,0.12)]"
-                          : isErr
-                          ? "text-[#E18B8B] bg-[rgba(225,139,139,0.12)]"
-                          : "text-[#7C8594]"
-                      }`}
-                    >
-                      {log.stream}
-                    </span>
-                    <span
-                      className={`whitespace-pre-wrap break-all flex-1 ${
-                        isSys
-                          ? "text-[#8CA9CF] font-semibold"
-                          : isErr
-                          ? "text-[#E18B8B]"
-                          : "text-[#E8EBF1]"
-                      }`}
-                    >
-                      {log.message}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
+                  return (
+                    <div key={log.id} className="flex items-start gap-2 group hover:bg-[#1D2129]/60 px-1 rounded">
+                      <span className="text-[#7C8594] select-none text-[10px] shrink-0 w-16 text-right">
+                        {new Date(log.timestamp).toLocaleTimeString([], {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                          second: "2-digit",
+                        })}
+                      </span>
+                      <span
+                        className={`text-[10px] select-none shrink-0 uppercase px-1 rounded ${
+                          isSys
+                            ? "text-[#8CA9CF] bg-[rgba(140,169,207,0.12)]"
+                            : isErr
+                            ? "text-[#E18B8B] bg-[rgba(225,139,139,0.12)]"
+                            : "text-[#7C8594]"
+                        }`}
+                      >
+                        {log.stream}
+                      </span>
+                      <span
+                        className={`${
+                          wrapLines ? "whitespace-pre-wrap break-all" : "whitespace-pre overflow-x-auto"
+                        } flex-1 ${
+                          isSys
+                            ? "text-[#8CA9CF] font-semibold"
+                            : isErr
+                            ? "text-[#E18B8B]"
+                            : "text-[#E8EBF1]"
+                        }`}
+                      >
+                        {renderLogMessage(log.message)}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="h-full flex flex-col items-center justify-center text-center text-[#7C8594] select-none py-12">
+                <span className="text-xl mb-1">🔍</span>
+                <p className="text-sm font-medium text-[#A5ADBA]">No matching logs</p>
+                <p className="text-xs text-[#7C8594] mt-1">
+                  No log entries matched stream: <strong className="text-[#E8EBF1]">{streamFilter}</strong>
+                  {searchQuery && <> and query: <strong className="text-[#8CA9CF]">"{searchQuery}"</strong></>}
+                </p>
+                <button
+                  onClick={() => {
+                    setStreamFilter("all");
+                    setSearchQuery("");
+                  }}
+                  className="mt-3 px-2.5 py-1 rounded text-xs bg-[#272D38] hover:bg-[#303642] text-[#8CA9CF] border border-[#303642] transition cursor-pointer"
+                >
+                  Reset Filters
+                </button>
+              </div>
+            )
           ) : (
-            <div className="h-full flex flex-col items-center justify-center text-center text-zinc-600 select-none">
-              <span className="font-mono text-3xl mb-2 text-zinc-700">&gt;_</span>
-              <p className="text-sm font-medium text-zinc-400">Terminal Ready</p>
-              <p className="text-xs text-zinc-500 mt-1 max-w-sm">
-                Select a project and click <strong className="text-zinc-300">Start</strong> to launch a script, or enter a custom command.
+            <div className="h-full flex flex-col items-center justify-center text-center text-[#7C8594] select-none">
+              <span className="font-mono text-3xl mb-2 text-[#303642]">&gt;_</span>
+              <p className="text-sm font-medium text-[#A5ADBA]">Terminal Ready</p>
+              <p className="text-xs text-[#7C8594] mt-1 max-w-sm">
+                Select a script from above or click <strong className="text-[#E8EBF1]">Start</strong> to launch, or enter a custom command.
               </p>
-              <p className="text-[11px] text-zinc-600 mt-2">
-                Open multiple terminals with <strong className="text-zinc-400">+ New Terminal</strong>. Sessions and outputs are automatically preserved.
+              <p className="text-[11px] text-[#7C8594]/80 mt-2">
+                Click any script to inspect what it does, or double-click to execute immediately.
               </p>
             </div>
           )}
@@ -1281,7 +2028,7 @@ export function TerminalView({ isActive, initialSelection }: TerminalViewProps =
         {showScrollBottomBtn && (
           <button
             onClick={scrollToBottom}
-            className="absolute bottom-4 right-6 px-3 py-1.5 rounded-full bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-sans shadow-lg border border-zinc-700 flex items-center gap-1.5 transition cursor-pointer"
+            className="absolute bottom-4 right-6 px-3 py-1.5 rounded-full bg-[#272D38] hover:bg-[#35465E] text-[#E8EBF1] text-xs font-sans shadow-lg border border-[#303642] flex items-center gap-1.5 transition cursor-pointer"
           >
             <span>↓</span>
             <span>Jump to Bottom</span>

@@ -11,6 +11,8 @@ const electronAPI: ElectronAPI = {
     ipcRenderer.invoke("project:open-editor", projectPath, editorId),
   revealInFinder: (projectPath: string): Promise<ActionResult> =>
     ipcRenderer.invoke("project:reveal-finder", projectPath),
+  openExternal: (url: string): Promise<ActionResult> =>
+    ipcRenderer.invoke("system:open-external", url),
   platform: process.platform,
   versions: {
     node: process.versions.node,

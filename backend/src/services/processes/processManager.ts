@@ -33,6 +33,9 @@ export class ProcessManager {
    */
   private getEnvironment(): NodeJS.ProcessEnv {
     const env: NodeJS.ProcessEnv = { ...process.env, FORCE_COLOR: "1" };
+    // Do not leak DevDesk's internal daemon port to child processes
+    delete env.PORT;
+
     if (process.platform === "darwin" || process.platform === "linux") {
       const standardPaths = [
         "/opt/homebrew/bin",
@@ -117,7 +120,25 @@ export class ProcessManager {
     for (const line of lines) {
       if (line.length > 0 || text.includes("\n")) {
         this.appendLog(internal, stream, line);
+        this.extractPortsFromLog(internal, line);
       }
+    }
+  }
+
+  /**
+   * Automatically extracts listening ports and localhost URLs from process output.
+   */
+  private extractPortsFromLog(internal: ManagedProcessInternal, line: string): void {
+    const portMatches = line.matchAll(/(?:localhost|127\.0\.0\.1|0\.0\.0\.0|port)[:\s/]+(\d{2,5})/gi);
+    const existing = new Set(internal.process.ports || []);
+    for (const match of portMatches) {
+      const portNum = parseInt(match[1], 10);
+      if (portNum >= 80 && portNum <= 65535) {
+        existing.add(portNum);
+      }
+    }
+    if (existing.size > (internal.process.ports?.length || 0)) {
+      internal.process.ports = Array.from(existing).sort((a, b) => a - b);
     }
   }
 
@@ -180,15 +201,35 @@ export class ProcessManager {
     let executable = "npm";
     let spawnArgs: string[] = ["run", cleanScriptName];
     let fullCommand = `${executable} run ${cleanScriptName}`;
-    let useShell = false;
+    let useShell = true;
 
-    const isSpecialRuntime =
-      cleanScriptName.includes(":") ||
+    // Check if script is defined in package.json
+    let isPackageJsonScript = false;
+    try {
+      const pkgPath = path.join(project.path, "package.json");
+      const pkgRaw = await fs.readFile(pkgPath, "utf-8");
+      const pkg = JSON.parse(pkgRaw);
+      if (pkg?.scripts && typeof pkg.scripts === "object" && cleanScriptName in pkg.scripts) {
+        isPackageJsonScript = true;
+      }
+    } catch {
+      // not a package.json script
+    }
+
+    const isNonNpmSpecialRuntime =
+      cleanScriptName.startsWith("cargo:") ||
+      cleanScriptName.startsWith("go:") ||
+      cleanScriptName.startsWith("make:") ||
+      cleanScriptName.startsWith("sh:") ||
+      cleanScriptName.startsWith("composer:") ||
+      cleanScriptName.startsWith("pip:") ||
+      cleanScriptName.startsWith("pipenv:") ||
+      cleanScriptName.startsWith("poetry:") ||
       cleanScriptName.startsWith("python") ||
-      cleanScriptName.startsWith("cargo") ||
+      cleanScriptName.startsWith("cargo ") ||
       cleanScriptName.startsWith("go ") ||
-      cleanScriptName.startsWith("make") ||
-      cleanScriptName.startsWith("bash") ||
+      cleanScriptName.startsWith("make ") ||
+      cleanScriptName.startsWith("bash ") ||
       cleanScriptName === "runserver" ||
       cleanScriptName === "migrate" ||
       cleanScriptName === "makemigrations" ||
@@ -201,23 +242,18 @@ export class ProcessManager {
       spawnArgs = parts.slice(1);
       fullCommand = cleanCustomCommand;
       useShell = true;
-    } else if (isSpecialRuntime && scriptDef) {
+    } else if (!isPackageJsonScript && isNonNpmSpecialRuntime && scriptDef) {
       const parts = scriptDef.split(" ").filter(Boolean);
       executable = parts[0];
       spawnArgs = parts.slice(1);
       fullCommand = scriptDef;
+      useShell = true;
     } else {
-      if (project.packageManager === "pnpm") {
-        executable = "pnpm";
-      } else if (project.packageManager === "yarn") {
-        executable = "yarn";
-      } else if (project.packageManager === "bun") {
-        executable = "bun";
-      } else {
-        executable = "npm";
-      }
+      const pm = project.packageManager || "npm";
+      executable = pm;
       spawnArgs = ["run", cleanScriptName];
-      fullCommand = `${executable} run ${cleanScriptName}`;
+      fullCommand = `${pm} run ${cleanScriptName}`;
+      useShell = true;
     }
 
     const processId = crypto.randomUUID();
@@ -233,6 +269,7 @@ export class ProcessManager {
       status: "starting",
       exitCode: null,
       startedAt: now,
+      ports: [],
     };
 
     const internal: ManagedProcessInternal = {
@@ -259,6 +296,7 @@ export class ProcessManager {
         shell: useShell,
         env: this.getEnvironment(),
         stdio: ["ignore", "pipe", "pipe"],
+        detached: process.platform !== "win32",
       });
 
       internal.child = child;
@@ -388,6 +426,18 @@ export class ProcessManager {
 
     // 1. Graceful termination with SIGTERM
     try {
+      if (child.pid && process.platform !== "win32") {
+        try {
+          process.kill(-child.pid, "SIGTERM");
+        } catch {
+          try {
+            // Fallback to killing direct children spawned by the shell
+            spawn("pkill", ["-TERM", "-P", String(child.pid)]);
+          } catch {
+            // ignore error if pkill fails
+          }
+        }
+      }
       child.kill("SIGTERM");
     } catch (err: unknown) {
       const error = err as Error;
@@ -407,6 +457,17 @@ export class ProcessManager {
           `[DevDesk] Process did not exit within ${STOP_TIMEOUT_MS / 1000}s. Sending SIGKILL...`
         );
         try {
+          if (internal.child.pid && process.platform !== "win32") {
+            try {
+              process.kill(-internal.child.pid, "SIGKILL");
+            } catch {
+              try {
+                spawn("pkill", ["-9", "-P", String(internal.child.pid)]);
+              } catch {
+                // ignore
+              }
+            }
+          }
           internal.child.kill("SIGKILL");
         } catch {
           // ignore error if already killed

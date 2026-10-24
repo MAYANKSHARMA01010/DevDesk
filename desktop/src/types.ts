@@ -15,6 +15,7 @@ export interface ElectronAPI {
   openInVSCode: (projectPath: string) => Promise<ActionResult>;
   openInEditor: (projectPath: string, editorId?: string) => Promise<ActionResult>;
   revealInFinder: (projectPath: string) => Promise<ActionResult>;
+  openExternal?: (url: string) => Promise<ActionResult>;
   platform: NodeJS.Platform;
   versions: ElectronVersions;
 }
