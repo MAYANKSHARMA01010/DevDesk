@@ -15,7 +15,7 @@ execSync("node scripts/sync-env.mjs", { cwd: rootDir, stdio: "inherit" });
 
 // 1. Build Frontend static export
 console.log("\n[1/5] Building Frontend static export (Next.js)...");
-execSync("pnpm --filter frontend run build", { cwd: rootDir, stdio: "inherit" });
+execSync("./frontend/node_modules/.bin/next build frontend", { cwd: rootDir, stdio: "inherit" });
 
 const frontendOut = path.join(rootDir, "frontend/out");
 if (!fs.existsSync(frontendOut)) {
@@ -26,7 +26,7 @@ console.log("✓ Frontend static export verified in frontend/out");
 
 // 2. Build Desktop Electron TypeScript
 console.log("\n[2/5] Building Desktop Electron shell...");
-execSync("pnpm --filter desktop run build", { cwd: rootDir, stdio: "inherit" });
+execSync("./desktop/node_modules/.bin/tsc -p desktop/tsconfig.json", { cwd: rootDir, stdio: "inherit" });
 
 const desktopDist = path.join(rootDir, "desktop/dist");
 if (!fs.existsSync(desktopDist)) {
@@ -35,27 +35,31 @@ if (!fs.existsSync(desktopDist)) {
 }
 console.log("✓ Desktop compiled in desktop/dist");
 
-// 3. Optional Backend packaging (skipped when using hosted cloud backend)
-const packageBackend = process.env.PACKAGE_BACKEND === "true";
-if (packageBackend) {
-  console.log("\n[3/5] Packaging local backend...");
-  execSync("pnpm --filter backend run build", { cwd: rootDir, stdio: "inherit" });
-  const backendDist = path.join(rootDir, "backend/dist");
-  const backendDeployDir = path.join(rootDir, ".packaging/backend");
-  if (fs.existsSync(backendDeployDir)) {
-    fs.rmSync(backendDeployDir, { recursive: true, force: true });
-  }
-  fs.mkdirSync(backendDeployDir, { recursive: true });
-  execSync(`pnpm --filter=backend deploy "${backendDeployDir}" --prod --legacy --node-linker=hoisted`, {
-    cwd: rootDir,
-    stdio: "inherit",
-  });
-  const deployDistDir = path.join(backendDeployDir, "dist");
-  fs.cpSync(backendDist, deployDistDir, { recursive: true });
-  console.log("✓ Standalone production backend deployed to .packaging/backend");
-} else {
-  console.log("\n[3/5] Skipping local backend packaging (DMG configured for Frontend + Electron with hosted backend link)");
+// 3. Package standalone local Backend
+console.log("\n[3/5] Packaging standalone local backend...");
+execSync("./desktop/node_modules/.bin/tsc -p backend/tsconfig.json", { cwd: rootDir, stdio: "inherit" });
+const backendDist = path.join(rootDir, "backend/dist");
+const backendDeployDir = path.join(rootDir, ".packaging/backend");
+if (fs.existsSync(backendDeployDir)) {
+  fs.rmSync(backendDeployDir, { recursive: true, force: true });
 }
+fs.mkdirSync(backendDeployDir, { recursive: true });
+execSync(`pnpm --filter=backend deploy "${backendDeployDir}" --prod --legacy --node-linker=hoisted --ignore-scripts`, {
+  cwd: rootDir,
+  stdio: "inherit",
+});
+const deployDistDir = path.join(backendDeployDir, "dist");
+fs.cpSync(backendDist, deployDistDir, { recursive: true });
+
+// Copy prebuilt sqlite addon if present
+const prebuiltSqlite = path.join(rootDir, "node_modules/.pnpm/better-sqlite3@11.10.0/node_modules/better-sqlite3/build");
+const deploySqliteBuild = path.join(backendDeployDir, "node_modules/better-sqlite3/build");
+if (fs.existsSync(prebuiltSqlite) && !fs.existsSync(deploySqliteBuild)) {
+  try {
+    fs.cpSync(prebuiltSqlite, deploySqliteBuild, { recursive: true });
+  } catch {}
+}
+console.log("✓ Standalone production backend deployed to .packaging/backend");
 
 // 4. Ensure application icon
 console.log("\n[4/5] Checking macOS application icon...");

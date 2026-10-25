@@ -402,18 +402,28 @@ async function startProductionBackend(): Promise<{
     return { success: true };
   }
 
+  // Dynamically resolve target port from configured BACKEND_URL (default: 8300)
+  const targetPort = (() => {
+    try {
+      const u = new URL(BACKEND_URL);
+      return parseInt(u.port, 10) || 8300;
+    } catch {
+      return 8300;
+    }
+  })();
+
   // 1. Port conflict check
-  const portCheck = await checkPortOccupied(5001);
+  const portCheck = await checkPortOccupied(targetPort);
   if (portCheck.occupied) {
     if (portCheck.isDevDesk) {
-      console.log("[DevDesk] Found existing healthy DevDesk backend on port 5001. Attaching...");
+      console.log(`[DevDesk] Found existing healthy DevDesk backend on port ${targetPort}. Attaching...`);
       return { success: true };
     }
     return {
       success: false,
-      error: "Port 5001 is already in use by another application on your Mac.",
+      error: `Port ${targetPort} is already in use by another application on your Mac.`,
       suggestion:
-        "Please identify and close the process using port 5001 (e.g., run 'lsof -i :5001' in terminal), then click Retry Startup.",
+        `Please identify and close the process using port ${targetPort} (e.g., run 'lsof -i :${targetPort}' in terminal), then click Retry Startup.`,
     };
   }
 
@@ -440,7 +450,7 @@ async function startProductionBackend(): Promise<{
       env: {
         ...process.env,
         ELECTRON_RUN_AS_NODE: "1",
-        PORT: "5001",
+        PORT: String(targetPort),
         HOST: "127.0.0.1",
         NODE_ENV: "production",
         DEVDESK_DATA_DIR: path.join(app.getPath("appData"), "DevDesk"),
@@ -475,7 +485,7 @@ async function startProductionBackend(): Promise<{
         return {
           success: false,
           error: `Backend process exited prematurely (${exitMessage.slice(0, 150) || "Unknown error"}).`,
-          suggestion: "Ensure port 5001 is free and system permissions allow execution.",
+          suggestion: `Ensure port ${targetPort} is free and system permissions allow execution.`,
         };
       }
       return {
@@ -485,7 +495,7 @@ async function startProductionBackend(): Promise<{
       };
     }
 
-    console.log("[DevDesk] Backend successfully started on http://127.0.0.1:5001");
+    console.log(`[DevDesk] Backend successfully started on http://127.0.0.1:${targetPort}`);
     return { success: true };
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Process spawn failed";
