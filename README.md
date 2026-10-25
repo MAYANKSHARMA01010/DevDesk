@@ -3,105 +3,119 @@
 > **The Native Desktop Command Center for Software Engineers.**  
 > Effortlessly orchestrate workspaces, run project scripts with live logs, monitor processes and listening ports, manage Git repositories, test HTTP APIs, safely edit environment files, and query relational databases — all inside a single, high-performance desktop application.
 
+[![Version](https://img.shields.io/badge/version-1.0.0-blue.svg?style=flat-square)](package.json)
+[![Platform](https://img.shields.io/badge/platform-macOS%20Apple%20Silicon%20%28arm64%29-black.svg?style=flat-square&logo=apple)](https://drive.google.com/file/d/1TuhrkWh8yWVEEfLqJRypAuFlFmMr2_Jm/view?usp=sharing)
+[![Electron](https://img.shields.io/badge/electron-44.4.4-47848F.svg?style=flat-square&logo=electron)](desktop/package.json)
+[![Next.js](https://img.shields.io/badge/next.js-16.3.8-000000.svg?style=flat-square&logo=nextdotjs)](frontend/package.json)
+[![React](https://img.shields.io/badge/react-19.2.8-61DAFB.svg?style=flat-square&logo=react)](frontend/package.json)
+[![TypeScript](https://img.shields.io/badge/typescript-5.9.3-3178C6.svg?style=flat-square&logo=typescript)](tsconfig.json)
+[![License](https://img.shields.io/badge/license-ISC-green.svg?style=flat-square)](LICENSE)
+[![Privacy](https://img.shields.io/badge/privacy-100%25%20Local%20%7C%20Zero%20Cloud-success.svg?style=flat-square)](#security--privacy-policy)
+
+---
+
+## 🚀 Direct Download
+
+DevDesk is available as a standalone, self-contained macOS installer with all dependencies embedded:
+
+<table>
+  <tr>
+    <td align="center" style="padding: 20px;">
+      <h3>📦 macOS Apple Silicon (M1/M2/M3/M4)</h3>
+      <p>Self-contained installer with embedded Node.js backend & SQLite engine (140 MB)</p>
+      <a href="https://drive.google.com/file/d/1TuhrkWh8yWVEEfLqJRypAuFlFmMr2_Jm/view?usp=sharing">
+        <img src="https://img.shields.io/badge/⬇️_Download_DevDesk_DMG-Google_Drive-4285F4?style=for-the-badge&logo=googledrive&logoColor=white" alt="Download DevDesk DMG" />
+      </a>
+      <br /><br />
+      <sub>Direct Drive Link: <a href="https://drive.google.com/file/d/1TuhrkWh8yWVEEfLqJRypAuFlFmMr2_Jm/view?usp=sharing">https://drive.google.com/file/d/1TuhrkWh8yWVEEfLqJRypAuFlFmMr2_Jm/view?usp=sharing</a></sub>
+    </td>
+  </tr>
+</table>
+
+> [!TIP]
+> **First-Launch macOS Notice**: Because this build is signed ad-hoc for developer evaluation without a paid Apple Developer certificate, right-click `DevDesk.app` in Finder and select **Open** (or run `xattr -cr /Applications/DevDesk.app` in terminal). See [Gatekeeper Instructions](#macos-gatekeeper-first-launch-guide).
+
 ---
 
 ## Table of Contents
 
-- [Overview](#overview)
+- [Overview & Philosophy](#overview--philosophy)
 - [Key Features](#key-features)
-- [Technology Stack](#technology-stack)
 - [System Architecture](#system-architecture)
-- [Repository Structure](#repository-structure)
-- [Prerequisites](#prerequisites)
-- [Development Setup](#development-setup)
-- [Running in Development](#running-in-development)
+- [Design System (Midnight Slate)](#design-system-midnight-slate)
+- [Documentation Index](#documentation-index)
+- [Local Development Setup](#local-development-setup)
 - [Building the Production Package](#building-the-production-package)
-- [Installation and Launch (macOS)](#installation-and-launch-macos)
-- [macOS Gatekeeper & Unsigned Application Notice](#macos-gatekeeper--unsigned-application-notice)
-- [Application Data & SQLite Storage](#application-data--sqlite-storage)
-- [Security Model & Credential Policy](#security-model--credential-policy)
-- [Troubleshooting & Port Conflicts](#troubleshooting--port-conflicts)
-- [Platform Support & Verified Status](#platform-support--verified-status)
-- [Release & Demonstration Guides](#release--demonstration-guides)
-- [Screenshots](#screenshots)
+- [macOS Gatekeeper First-Launch Guide](#macos-gatekeeper-first-launch-guide)
+- [Security & Privacy Policy](#security--privacy-policy)
 - [License](#license)
 
 ---
 
-## Overview
+## Overview & Philosophy
 
-Modern software development requires juggling dozens of disparate tools: terminal windows, Postman/Insomnia, database GUIs, Git clients, process monitors, and text editors. **DevDesk** consolidates these critical developer workflows into a unified native desktop dashboard with zero cloud dependencies, instant local persistence, and rock-solid privacy.
+Modern software development requires juggling half a dozen disparate tools simultaneously: terminal tabs, Postman, database GUIs, Git clients, process monitors, and text editors.
 
-Built with **Electron**, **Next.js**, **React**, **TypeScript**, **Express**, and **SQLite**, DevDesk runs entirely on your local machine, connecting to your local tools without shipping telemetry, tokens, or project code to external servers.
+**DevDesk** unifies these critical workflows into a single high-performance desktop dashboard:
+
+- **100% Local & Offline**: Operates entirely on your machine. Zero telemetry, zero analytics, zero external network calls.
+- **True Desktop Integration**: Built with Electron, offering native directory selection dialogs, VS Code project launching, and system Finder integration.
+- **Independent Monorepo & Multi-Project Isolation**: Deeply scans workspaces up to 4 levels deep, distinguishing root repositories from nested microservices.
+- **AST-Guarded Database Studio**: Browse PostgreSQL and MySQL tables with strict AST validation that blocks destructive SQL commands (`INSERT`, `UPDATE`, `DELETE`, `DROP`). Passwords are kept solely in volatile memory during active sessions and are never saved to disk.
 
 ---
 
 ## Key Features
 
-### 1. Workspace & Project Discovery
-- **Native Directory Picker**: Select any folder on your Mac using standard native dialogs (`dialog:select-directory`).
-- **Auto-Discovery**: Deep-scans directories to identify Node.js, Next.js, Express, Vite, and other projects along with package managers (`pnpm`, `npm`, `yarn`).
-- **Quick Actions**: One-click **Open in VS Code** (`code <path>`) and **Reveal in Finder** (`showItemInFolder`).
-- **SQLite Persistence**: Automatically remembers workspaces and project metadata across reboots.
+### 📁 1. Workspace & Project Discovery
+- **Deep Recursive Scanner**: Scans workspace folders up to 4 directory levels deep, accurately tagging root projects (`isRoot: true`) and nested packages.
+- **Tech Stack & Tooling Badges**: Automatically detects Next.js, React, Express, Vite, Python, Go, Rust, and package managers (`pnpm`, `npm`, `yarn`, `bun`).
+- **Single-Line Horizontal Script Bar**: Projects automatically inspect `package.json` scripts (`dev`, `build`, `test`, `start`, `lint`) and render them in a clean, scrollable horizontal row with smart action badges.
+- **One-Click Native Actions**: Open projects directly in **Visual Studio Code** (`code <path>`) or **Reveal in Finder** (`showItemInFolder`).
+- **SQLite Persistence**: Automatically preserves workspaces across restarts in local SQLite storage.
 
-### 2. Project Script Runner & Live Terminal
-- **Script Inspection**: Reads `package.json` scripts and presents intuitive one-click launch controls.
-- **Managed Execution**: Starts, stops, and restarts child processes with bounded, non-blocking standard I/O streaming.
-- **Log Streaming**: Colorized, incremental stdout/stderr output with real-time status badges (`running`, `stopped`, `failed`).
-
-### 3. Process & TCP Port Manager
-- **Port Detection**: Detects actual TCP listening ports bound by DevDesk-managed services in real time using non-blocking OS inspection (`lsof`).
-- **Zero Foreign Process Interference**: Strictly reports and controls processes started by DevDesk, protecting unrelated system services from accidental disruption.
+### ⚡ 2. Project Script Runner & Live Terminal
+- **Managed Child Processes**: Spawns development scripts with detached process group isolation for clean teardown.
+- **Bounded Stream Buffering**: Real-time stdout and stderr log inspection with colorized terminal output and status badges (`running`, `stopped`, `failed`).
 - **Lifecycle Safety**: Cleanly terminates background processes and releases allocated ports when DevDesk closes.
 
-### 4. Git Integration
-- **Repository Inspection**: Branch status, tracking info, ahead/behind counters, and uncommitted change summaries.
-- **Interactive Staging**: Stage and unstage individual files or entire trees with support for unborn branches (empty repos).
-- **Commit Workflow**: Commit directly from DevDesk with safety validation preventing empty messages or staging anomalies.
-- **Unified Diff Viewer**: Side-by-side / unified diff inspection with line additions and deletions.
-- **Branch Switching**: Safe checkout safeguards preventing branch changes when uncommitted changes would conflict.
+### 🔍 3. Process & TCP Port Manager
+- **Live Port Detection**: Detects actual TCP listening ports bound by DevDesk-managed processes in real time using non-blocking OS inspection (`lsof`).
+- **Horizontal Services Bar**: Interactive service cards with horizontal scroll controls and quick status indicators.
+- **Default Browser Opener**: One-click opening of local servers (`http://localhost:3000`) in your default macOS browser via Electron IPC.
+- **In-App Interactive Web Preview**: Built-in modal preview with editable address bar, viewport switcher (**Desktop**, **Tablet**, **Mobile**), and instant reload.
 
-### 5. HTTP API Tester
+### 🌿 4. Multi-Repository Git Control Suite
+- **Isolated Repository Targeting**: Resolves each project's exact Git root independently, preventing subdirectories from polluting parent repositories.
+- **Credential Redaction**: Automatically redacts embedded tokens and passwords from remote URLs in UI and persistent storage (`https://***:***@github.com/...`).
+- **Stage All & Commit**: One-click staging and commit workflow, eliminating roadblocks when 0 files are staged.
+- **Commit & Push 🚀**: Integrated push and pull triggers allowing you to sync changes with remote branches without leaving DevDesk.
+- **Side-by-Side / Unified Diff Viewer**: Clear inspection of additions, deletions, and file status badges.
+
+### 🧪 5. HTTP API Tester
 - **Full Method Support**: `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `HEAD`, `OPTIONS`.
 - **Query & Header Editor**: Key-value table builders with instant URL sync and custom header injection.
 - **JSON Body Editor**: Real-time syntax validation, formatting error notifications, and payload size safeguards.
 - **Response Inspector**: Formatted JSON viewer, raw text viewer, header tables, response timing (ms), and size metrics.
 - **Cancellation & Timeouts**: Cancel in-flight HTTP requests instantly with configurable timeout bounds (default 30s) and a 2 MB response truncation guard.
 
-### 6. Environment Variables Manager
+### 🔐 6. Environment Variables Manager
 - **Multi-File Detection**: Automatically lists `.env`, `.env.local`, `.env.development`, `.env.test`, `.env.production`, and `.env.example`.
 - **Secret Masking**: Sensitive variables (tokens, passwords, secret keys) are masked by default with single-click visibility toggles.
 - **Format Preservation**: Preserves original comments, section spacing, double quotes, and inline annotations.
 - **Safety Backups & Atomic Writes**: Automatically creates timestamped `.bak` files before saving and uses atomic file replacement to eliminate data loss or partial writes.
 - **Symlink & Path Traversal Guards**: Strict allowlist preventing symlink escapes or directory traversal outside the project root.
 
-### 7. PostgreSQL & MySQL Database Manager
+### 🗄️ 7. PostgreSQL & MySQL Database Studio
 - **Multi-Engine Support**: Native connection support for both PostgreSQL and MySQL.
 - **Schema & Table Browser**: Browse schemas, tables, and views with column metadata (primary keys, nullable fields, data types).
-- **Read-Only SQL Execution Guard**: Proprietary AST parser and regex validator that blocks destructive statements (`INSERT`, `UPDATE`, `DELETE`, `DROP`, `ALTER`, `TRUNCATE`, `GRANT`, `REVOKE`, file outputs, and multi-statement injection).
+- **Read-Only SQL Execution Guard**: Proprietary AST parser and validator that blocks destructive statements (`INSERT`, `UPDATE`, `DELETE`, `DROP`, `ALTER`, `TRUNCATE`, `GRANT`, `REVOKE`, file outputs, and multi-statement injection).
 - **Table Data Previews**: Rapid pagination previews with configurable row limits (default 50).
 - **Zero Password Persistence**: Database credentials are strictly stored in volatile memory for active sessions—passwords are **never** written to SQLite or disk.
 
-### 8. System Diagnostics & Keyboard Shortcuts
+### 🛠️ 8. System Diagnostics & Keyboard Shortcuts
 - **Live Diagnostics**: Health checks, memory usage, uptime, Node version, Electron version, active processes, and data paths.
 - **Universal Shortcuts**: Navigate between views instantly (`Cmd+1` through `Cmd+8`), rescan workspaces (`Cmd+R`), open folders (`Cmd+O`), or trigger diagnostics (`Cmd+D`).
-
----
-
-## Technology Stack
-
-| Layer | Technologies |
-| :--- | :--- |
-| **Desktop Shell** | Electron 44.4.4, Node.js 24 (bundled) |
-| **Frontend Framework** | Next.js 16.3.8 (Static HTML/JS Export), React 19.2.8 |
-| **Language & Typing** | TypeScript 5.9.3 |
-| **Styling & Design** | TailwindCSS 4.3.3, Custom Dark Mode Design System |
-| **Local API Server** | Express 5.2.1 (bound strictly to `127.0.0.1:5001`) |
-| **Local Database** | SQLite 3 via `better-sqlite3` 11.8.1 (Native C++ Addon) |
-| **Database Drivers** | `pg` 8.23.1 (PostgreSQL), `mysql2` 3.24.6 (MySQL) |
-| **SQL AST Parser** | `node-sql-parser` 5.4.0 |
-| **Package Manager** | `pnpm` 11.24.0 (Monorepo Workspaces) |
-| **Packaging & Distribution**| `electron-builder` 26.15.3 (macOS DMG & ZIP) |
 
 ---
 
@@ -110,326 +124,143 @@ Built with **Electron**, **Next.js**, **React**, **TypeScript**, **Express**, an
 ```mermaid
 flowchart TB
     subgraph DesktopApp ["DevDesk Desktop Application (macOS)"]
-        subgraph ElectronMain ["Electron Main Process"]
+        subgraph ElectronMain ["Electron Main Process (Node.js & Chromium)"]
             Shell["Desktop Shell (main.ts)"]
-            Protocol["Custom app:// Protocol Handler"]
-            IPC["Secure Typed IPC Handlers"]
-            Lifecycle["Backend Process Manager"]
+            Protocol["Privileged app:// Protocol Handler"]
+            IPC["Secure Context-Isolated IPC Bridge"]
+            Lifecycle["Managed Backend Process Runner"]
         end
 
         subgraph PackagedFrontend ["Packaged Frontend (Resources/frontend)"]
             StaticExport["Next.js Static Export (HTML / CSS / JS)"]
             UI["React 19 Views (Projects, Git, Terminal, DB, Env, API)"]
+            Theme["Midnight Slate Design System"]
         end
 
         subgraph PackagedBackend ["Packaged Backend (Resources/backend)"]
-            Express["Express 5 REST API (http://127.0.0.1:5001)"]
-            Services["Core Services (Git, ProcessManager, EnvManager, DBService)"]
-            SQLiteDriver["better-sqlite3 Native Addon"]
+            Express["Express REST API (127.0.0.1:5001 / Dynamic Port)"]
+            Services["Core Services Engine"]
+            SQLiteDriver["better-sqlite3 / node:sqlite Driver"]
         end
     end
 
-    subgraph OS ["Operating System & Local Resources"]
+    subgraph OS ["Host Operating System & Storage"]
         AppData[("~/Library/Application Support/DevDesk/devdesk.db")]
-        ProjectsDir["Local Developer Workspaces & Repositories"]
-        ExternalDB[("Local PostgreSQL / MySQL Daemons")]
+        ProjectsDir["Local Developer Workspaces & Git Repositories"]
+        ExternalDB[("Local PostgreSQL & MySQL Instances")]
     end
 
     Shell -->|"Serves app://devdesk/"| StaticExport
     StaticExport --> UI
-    UI -->|"Typed IPC (Folder Picker, VS Code, Finder)"| IPC
-    UI -->|"REST API / Fetch"| Express
-    Lifecycle -->|"Spawns with ELECTRON_RUN_AS_NODE=1"| Express
+    UI -->|"Typed IPC (Dialogs, External URLs, Finder)"| IPC
+    UI -->|"HTTP Fetch API (127.0.0.1:5001)"| Express
+    Lifecycle -->|"Spawns backend process"| Express
     Express --> Services
     Services --> SQLiteDriver
     SQLiteDriver -->|"Reads/Writes Metadata"| AppData
-    Services -->|"Manages Scripts & Git"| ProjectsDir
-    Services -->|"Read-Only Queries"| ExternalDB
+    Services -->|"Spawns scripts & lsof port inspection"| ProjectsDir
+    Services -->|"Read-only queries via AST parser"| ExternalDB
 ```
 
 ---
 
-## Repository Structure
+## Design System (Midnight Slate)
 
-```text
-DevDesk/
-├── backend/                   # Local Express REST API service
-│   ├── src/
-│   │   ├── config/            # SQLite database & data dir configuration
-│   │   ├── controllers/       # Route request handlers
-│   │   ├── routes/            # REST API endpoint definitions
-│   │   ├── services/          # Business logic (git, processes, env, database, api-tester)
-│   │   └── index.ts           # Express server entry point (bound to 127.0.0.1:5001)
-│   ├── package.json
-│   └── tsconfig.json
-├── desktop/                   # Electron desktop shell
-│   ├── build-resources/       # Multi-resolution icon.icns & packaging assets
-│   ├── scripts/               # Packaging after-pack hooks (after-pack.cjs)
-│   ├── src/
-│   │   ├── main.ts            # Electron main process, app:// protocol & backend runner
-│   │   ├── preload.ts         # Secure, context-isolated typed IPC bridge
-│   │   └── types.ts           # Desktop IPC type definitions
-│   ├── electron-builder.yml   # electron-builder macOS DMG/ZIP configuration
-│   ├── package.json
-│   └── tsconfig.json
-├── frontend/                  # Next.js 16 + React 19 desktop user interface
-│   ├── src/
-│   │   ├── app/               # Next.js App Router entry & layouts
-│   │   ├── components/        # View components (Projects, Git, Terminal, Processes, etc.)
-│   │   └── services/          # Frontend API client services
-│   ├── next.config.ts         # Static export configuration (output: "export")
-│   ├── package.json
-│   └── tsconfig.json
-├── release/                   # Generated macOS distribution outputs (DMG, ZIP, .app)
-├── scripts/
-│   └── prepare-packaging.mjs  # Multi-package build orchestrator
-├── pnpm-workspace.yaml        # Monorepo workspace configuration
-├── package.json               # Root scripts & orchestrations
-└── README.md                  # Project documentation
-```
+DevDesk features the **Midnight Slate** engineering design system, designed specifically to avoid generic dark-mode aesthetics:
+
+| Element | Color Token | Hex Code | Description |
+| :--- | :--- | :--- | :--- |
+| **App Canvas** | Slate Dark | `#0B0F17` / `#101216` | Deep neutral background, comfortable for all-day use. |
+| **Header & Sidebar** | Surface Neutral | `#111827` / `#171A20` | Clean structural frame with high-contrast active tabs. |
+| **Cards & Panels** | Slate Surface | `#161F30` / `#1D2129` | High-contrast elevated panels with subtle border lines. |
+| **Borders & Dividers** | Muted Stroke | `#1F293D` / `#303642` | Crisp 1px borders delineating workspaces and modules. |
+| **Primary Accent** | Electric Blue | `#3B82F6` / `#8CA9CF` | Focused primary actions, active indicators, and selection. |
+| **Running / Success** | Emerald | `#10B981` | Active scripts, listening ports, clean git status. |
+| **Warning / Notice** | Amber | `#F59E0B` | Stale branches, uncommitted changes, modified env vars. |
+| **Danger / Stopped** | Rose | `#F43F5E` | Stopped processes, port conflicts, AST query blocks. |
 
 ---
 
-## Prerequisites
+## Documentation Index
 
-- **Operating System**: macOS 13.0 (Ventura) or newer (Apple Silicon `arm64` tested).
-- **Node.js**: `v20.17.0` or newer (`v22.13.0` recommended).
-- **Package Manager**: `pnpm` `v11.0.0` or newer (`npm install -g pnpm@11.24.0`).
-- **Development Tools** (Optional):
-  - Visual Studio Code (for "Open in VS Code" project action).
-  - Git CLI (`git` available in PATH).
-  - PostgreSQL daemon (if testing live Database Manager connections).
+Comprehensive senior-engineer documentation is available in the [`docs/`](docs/) directory:
 
----
-
-## Development Setup
-
-1. **Clone the repository**:
-   ```bash
-   git clone https://github.com/your-username/DevDesk.git
-   cd DevDesk
-   ```
-
-2. **Install all workspace dependencies**:
-   ```bash
-   pnpm install
-   ```
-
-3. **Verify TypeScript compilation**:
-   ```bash
-   pnpm run build
-   ```
+- 🏛️ [**System Architecture (`docs/ARCHITECTURE.md`)**](docs/ARCHITECTURE.md): Multi-tier architecture, IPC communication protocol, process isolation, and security design.
+- 💻 [**Developer Setup & Engineering Guide (`docs/DEVELOPMENT_GUIDE.md`)**](docs/DEVELOPMENT_GUIDE.md): Monorepo setup, running individual tiers, TypeScript guidelines, and adding new features.
+- 📦 [**Packaging & Release Engineering (`docs/PACKAGING_AND_RELEASES.md`)**](docs/PACKAGING_AND_RELEASES.md): How `prepare-packaging.mjs` bundles 129 production dependencies, DMG build specs, and Gatekeeper verification.
+- 🤖📜 [**Complete AI Development History (`docs/AI_DEVELOPMENT_HISTORY.md`)**](docs/AI_DEVELOPMENT_HISTORY.md): Full chronological transcripts and architectural evolution covering both the ChatGPT session and Antigravity IDE pair-programming.
 
 ---
 
-## Running in Development
+## Local Development Setup
 
-Run all three tiers (Frontend dev server, Express backend, and Electron desktop shell) concurrently:
+### Prerequisites
+- macOS 13.0+ (Apple Silicon or Intel)
+- Node.js `v20.17+` (`v22+` recommended)
+- `pnpm` `v11.0+` (`npm install -g pnpm@11.24.0`)
+
+### Installation & Launch
 
 ```bash
+# 1. Clone repository
+git clone https://github.com/MAYANKSHARMA01010/DevDesk.git
+cd DevDesk
+
+# 2. Install monorepo dependencies
+pnpm install
+
+# 3. Verify TypeScript build
+pnpm run build
+
+# 4. Start all tiers concurrently (Frontend, Backend, and Electron Shell)
 pnpm run dev
-```
-
-Alternatively, start individual tiers in dedicated terminals:
-
-```bash
-# Terminal 1: Backend service (http://127.0.0.1:5001 with hot reload)
-pnpm run dev:backend
-
-# Terminal 2: Frontend dev server (http://localhost:3000)
-pnpm run dev:frontend
-
-# Terminal 3: Electron desktop shell
-pnpm run dev:desktop
 ```
 
 ---
 
 ## Building the Production Package
 
-To produce an installable macOS application and disk image (`.dmg`), run the automated packaging pipeline:
+To produce the standalone macOS Disk Image (`.dmg`):
 
 ```bash
 pnpm run package:mac
 ```
 
-This single command automatically:
-1. Verifies and syncs workspace dependencies.
-2. Compiles Next.js into a standalone static export in `frontend/out`.
-3. Compiles Express backend TypeScript into `backend/dist`.
-4. Compiles Electron main and preload TypeScript into `desktop/dist`.
-5. Deploys an isolated standalone production backend bundle with native modules.
-6. Verifies multi-resolution Apple Icon (`desktop/build-resources/icon.icns`).
-7. Bundles the final macOS DMG and ZIP archives into the `release/` directory.
-
-### Build Outputs
-- **macOS DMG Installer**: `release/DevDesk-1.0.0-arm64.dmg` (~138 MB)
-- **macOS ZIP Archive**: `release/DevDesk-1.0.0-arm64-mac.zip` (~140 MB)
-- **Standalone App Bundle**: `release/mac-arm64/DevDesk.app`
+This automated orchestrator:
+1. Builds Next.js into a static export (`frontend/out/`).
+2. Compiles backend TypeScript (`backend/dist/`).
+3. Deploys an isolated production backend bundle with all 129 dependencies into `.packaging/backend/`.
+4. Compiles Electron main and preload scripts (`desktop/dist/`).
+5. Generates the final macOS Disk Image in `release/DevDesk-1.0.0-arm64.dmg` (~140 MB).
 
 ---
 
-## Installation and Launch (macOS)
+## macOS Gatekeeper First-Launch Guide
 
-1. **Open the Disk Image**:
-   Double-click `DevDesk-1.0.0-arm64.dmg` or run:
-   ```bash
-   open release/DevDesk-1.0.0-arm64.dmg
-   ```
-2. **Install to Applications**:
-   Drag the **DevDesk** icon into the **Applications** folder link.
-3. **Launch DevDesk**:
-   Launch **DevDesk** from macOS Launchpad, Spotlight, or the Applications folder.
+Because locally packaged developer builds are signed ad-hoc without a commercial Apple Developer ID, macOS Gatekeeper may present a prompt on first launch (*"developer cannot be verified"*).
 
----
-
-## macOS Gatekeeper & Unsigned Application Notice
-
-Because this is a locally built developer release that has not been submitted to Apple's commercial Notary service with a paid Apple Developer certificate, macOS Gatekeeper may show a security notice on first launch:
-
-> *"DevDesk.app cannot be opened because the developer cannot be verified."*
-
-### How to Safely Allow First Launch
-
-You can open the application using either of the following standard macOS developer methods:
-
-#### Method A: Finder Right-Click (GUI)
+### Option A: Finder Right-Click (Recommended)
 1. Open your **Applications** folder in Finder.
 2. **Right-click** (or `Control`-click) on **DevDesk.app**.
 3. Select **Open** from the context menu.
-4. In the dialog that appears, click **Open**. macOS will remember your approval for future launches.
+4. Click **Open** in the confirmation dialog. macOS will permanently remember this approval.
 
-#### Method B: Terminal Attribute Clear (CLI)
-Remove the quarantine flag set by macOS on downloaded or unpacked bundles:
+### Option B: Terminal Command
 ```bash
 xattr -cr /Applications/DevDesk.app
 ```
-Then launch DevDesk normally.
 
 ---
 
-## Application Data & SQLite Storage
+## Security & Privacy Policy
 
-DevDesk stores persistent user data **strictly outside** the application bundle and outside `app.asar`, ensuring data survives application updates and reinstallations.
-
-- **macOS Location**:
-  ```text
-  ~/Library/Application Support/DevDesk/devdesk.db
-  ```
-- **Tables**:
-  - `workspaces`: Registered workspace root folders, project scan timestamps, and metadata.
-  - `projects`: Discovered projects, project types, and package managers.
-  - `database_connections`: Database connection profiles (host, port, username, database name, engine type).
-
----
-
-## Security Model & Credential Policy
-
-DevDesk follows a strict defense-in-depth local security architecture:
-
-1. **Zero Database Passwords in SQLite**:
-   - Database connection passwords are **never written to disk or SQLite**.
-   - Passwords exist solely in volatile memory within the local Express process for active pool connections.
-   - Closing DevDesk or disconnecting completely clears credentials from memory.
-2. **Loopback Only (`127.0.0.1`)**:
-   - The Express API server binds strictly to `127.0.0.1`. It does not listen on `0.0.0.0` or broadcast to local networks.
-3. **Electron Isolation**:
-   - `contextIsolation: true`
-   - `nodeIntegration: false`
-   - `sandbox: true`
-   - Preload exposes only tightly scoped, typed IPC handlers (`selectDirectory`, `openInVSCode`, `revealInFinder`).
-4. **Read-Only Database Enforcement**:
-   - SQL queries executed through the Database Manager are parsed and validated via AST analysis to block all write/mutate/DDL commands (`INSERT`, `UPDATE`, `DELETE`, `DROP`, `ALTER`, `GRANT`, `REVOKE`, file dumps, and multi-statement queries).
-5. **Environment File Protection**:
-   - Symlinks resolving outside project roots are rejected.
-   - Path traversal attempts (`../`) are blocked.
-   - Atomic replacement prevents file corruption.
-
----
-
-## Troubleshooting & Port Conflicts
-
-### Backend Port 5001 Already in Use
-DevDesk requires port `5001` for its internal loopback API. If another application occupies port 5001:
-- DevDesk **does not** kill the unrelated application.
-- DevDesk displays an informative error card:
-  > *"Port 5001 is already in use by another application on your Mac."*
-- **Resolution**:
-  Identify and terminate the process holding port 5001:
-  ```bash
-  lsof -i :5001
-  kill -9 <PID>
-  ```
-  Then click **Retry Startup** in DevDesk.
-
-### Visual Studio Code Command Not Found
-- Ensure `code` is installed in your terminal PATH:
-  In VS Code, open the Command Palette (`Cmd+Shift+P`) and run:
-  `Shell Command: Install 'code' command in PATH`.
-
-### Resetting Corrupted Application Data
-If your local database ever needs a fresh start:
-```bash
-# Backup existing database
-mv ~/Library/Application\ Support/DevDesk/devdesk.db ~/Desktop/devdesk.db.backup
-```
-DevDesk will automatically initialize a fresh SQLite database on next launch.
-
----
-
-## Platform Support & Verified Status
-
-| Feature / Platform | Status | Verification Details |
-| :--- | :---: | :--- |
-| **macOS Apple Silicon (`arm64`)** | **Verified** | Fully packaged and tested on Apple Silicon (M-series). |
-| **macOS Intel (`x64`)** | **Planned** | Requires compilation on x64 host or cross-compiled native modules. |
-| **PostgreSQL Database Manager** | **Verified** | Tested with local and ephemeral PostgreSQL clusters. |
-| **MySQL Database Manager** | **Unverified Live** | Full driver & parser integration ready; live connection unverified due to lack of local MySQL test daemon. |
-| **Git Integration** | **Verified** | Status, diffs, branch checkout, staging, and commits verified. |
-| **API Tester** | **Verified** | All HTTP methods, query params, timeouts, and cancellations verified. |
-| **Env Variables Manager** | **Verified** | Comment preservation, atomic writes, backups, and masking verified. |
-
----
-
-## Release & Demonstration Guides
-
-For comprehensive release engineering, live demo workflows, and quality assurance checklists, explore the project documentation:
-
-- 🎬 [**5–7 Minute Product Demonstration Plan**](docs/DEMO_SCRIPT.md): Live presentation walkthrough covering workspace discovery, script execution, port detection, Git diffs, API testing, safe environment variable edits, and read-only database queries.
-- 📋 [**Pre-Release Verification Checklist**](docs/RELEASE_CHECKLIST.md): Quality assurance criteria, artifact checksums, clean-install verification, and security checklists.
-- 🚀 [**GitHub v1.0.0 Release Notes**](docs/GITHUB_RELEASE.md): Distribution package summaries, SHA-256 hashes, Gatekeeper approval instructions, and release highlights.
-- 📸 [**Screenshot Capture Guide**](docs/SCREENSHOT_GUIDE.md): Guidelines and checklists for capturing visual assets across all major views.
-- 📜 [**Changelog**](CHANGELOG.md): Chronological history of completed modules and features.
-
----
-
-## Screenshots
-
-> *Screenshots captured from DevDesk v1.0.0 on macOS.*
-
-### 1. Projects & Workspaces View
-*Scan local directories, view discovered projects, run scripts, or open in VS Code.*
-```
-+---------------------------------------------------------------------------------------+
-|  DevDesk          [ Workspaces ]  [ Terminal ]  [ Git ]  [ API ]  [ Env ]  [ DB ]     |
-+---------------------------------------------------------------------------------------+
-|  Saved Workspaces: /Projects/WebApps                                                  |
-|  +--------------------+  +--------------------+  +--------------------+               |
-|  | Frontend App       |  | Backend API        |  | Analytics Service  |               |
-|  | Next.js • pnpm     |  | Express • Node.js  |  | Python • FastAPI   |               |
-|  | [Open in VS Code]  |  | [Open in VS Code]  |  | [Open in VS Code]  |               |
-|  +--------------------+  +--------------------+  +--------------------+               |
-+---------------------------------------------------------------------------------------+
-```
-
-### 2. Live Terminal & Script Runner
-*Real-time log streaming with process start, stop, and restart controls.*
-
-### 3. Database Manager & Read-Only Query Explorer
-*Inspect tables, view column schemas, and execute read-only queries with SQL safety enforcement.*
+- **Zero Cloud & Zero Telemetry**: DevDesk contains no tracking scripts, analytics, or external phone-home APIs.
+- **Strict Loopback Binding**: The Express microservice is strictly bound to `127.0.0.1`.
+- **Zero Database Password Persistence**: Database credentials are stored strictly in volatile process memory for active sessions—passwords are **never written to SQLite or disk**.
+- **AST Query Validation**: All SQL queries executed through the Database Studio are parsed into an Abstract Syntax Tree to prevent accidental or malicious data modification.
 
 ---
 
 ## License
 
-This project is licensed under the [ISC License](LICENSE).
+This project is open-source software licensed under the [ISC License](LICENSE).
