@@ -131,3 +131,29 @@ export interface GitHistoryResponse {
   data?: GitHistoryResult;
   error?: string;
 }
+
+export interface GitPushResult {
+  remote: string;
+  branch: string;
+  message: string;
+  summary: string;
+}
+
+export interface GitPullResult {
+  remote: string;
+  branch: string;
+  message: string;
+  summary: string;
+}
+
+export interface GitPushResponse {
+  success: boolean;
+  data?: GitPushResult;
+  error?: string;
+}
+
+export interface GitPullResponse {
+  success: boolean;
+  data?: GitPullResult;
+  error?: string;
+}

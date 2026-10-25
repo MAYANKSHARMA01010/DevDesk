@@ -9,6 +9,8 @@ import {
   fetchGitDiff,
   fetchGitHistory,
   fetchGitStatus,
+  pullGitChanges,
+  pushGitChanges,
   stageGitFiles,
   unstageGitFiles,
 } from "@/services/git";
@@ -409,12 +411,12 @@ export function GitView({ isActive, initialSelection }: GitViewProps = {}) {
   }
 
   // 5. Commit Action
-  async function handleCommit() {
+  async function handleCommit(stageAll: boolean = false) {
     if (!selectedProjectId || !commitMessage.trim()) return;
     try {
       setActionLoading(true);
       setErrorMessage(null);
-      const result = await commitGitChanges(selectedProjectId, commitMessage);
+      const result = await commitGitChanges(selectedProjectId, commitMessage, stageAll);
       setCommitMessage("");
       setSuccessMessage(`Committed ${result.commitHash.substring(0, 7)}: "${result.message}"`);
       setTimeout(() => setSuccessMessage(null), 4000);
@@ -422,6 +424,67 @@ export function GitView({ isActive, initialSelection }: GitViewProps = {}) {
     } catch (err: unknown) {
       setErrorMessage(
         err instanceof Error ? err.message : "Failed to create commit"
+      );
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
+  // 5b. Commit and Push Action
+  async function handleCommitAndPush(stageAll: boolean = false) {
+    if (!selectedProjectId || !commitMessage.trim()) return;
+    try {
+      setActionLoading(true);
+      setErrorMessage(null);
+      const commitRes = await commitGitChanges(selectedProjectId, commitMessage, stageAll);
+      setCommitMessage("");
+      const pushRes = await pushGitChanges(selectedProjectId);
+      setSuccessMessage(
+        `Committed ${commitRes.commitHash.substring(0, 7)} & Pushed to ${pushRes.remote}/${pushRes.branch}!`
+      );
+      setTimeout(() => setSuccessMessage(null), 5000);
+      await loadGitData(selectedProjectId);
+    } catch (err: unknown) {
+      setErrorMessage(
+        err instanceof Error ? err.message : "Failed to commit and push changes"
+      );
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
+  // 5c. Push Action
+  async function handlePush() {
+    if (!selectedProjectId) return;
+    try {
+      setActionLoading(true);
+      setErrorMessage(null);
+      const res = await pushGitChanges(selectedProjectId);
+      setSuccessMessage(res.message);
+      setTimeout(() => setSuccessMessage(null), 4000);
+      await loadGitData(selectedProjectId);
+    } catch (err: unknown) {
+      setErrorMessage(
+        err instanceof Error ? err.message : "Failed to push commits"
+      );
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
+  // 5d. Pull Action
+  async function handlePull() {
+    if (!selectedProjectId) return;
+    try {
+      setActionLoading(true);
+      setErrorMessage(null);
+      const res = await pullGitChanges(selectedProjectId);
+      setSuccessMessage(res.message);
+      setTimeout(() => setSuccessMessage(null), 4000);
+      await loadGitData(selectedProjectId);
+    } catch (err: unknown) {
+      setErrorMessage(
+        err instanceof Error ? err.message : "Failed to pull commits"
       );
     } finally {
       setActionLoading(false);
@@ -694,6 +757,55 @@ export function GitView({ isActive, initialSelection }: GitViewProps = {}) {
                   <span>{gitStatus.files.length} changed</span>
                 </span>
               )}
+
+              {/* Push & Pull Actions in Header Bar */}
+              <div className="flex items-center gap-1.5 pl-2 border-l border-zinc-800">
+                <button
+                  type="button"
+                  onClick={handlePush}
+                  disabled={actionLoading}
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-medium border transition-all cursor-pointer ${
+                    gitStatus.ahead > 0
+                      ? "bg-[#8CA9CF] hover:bg-[#A6BDE0] text-[#101216] border-[#8CA9CF] shadow-xs font-semibold"
+                      : "bg-[#272D38] hover:bg-[#35465E] text-[#8CA9CF] hover:text-[#E8EBF1] border-[#303642]"
+                  } disabled:opacity-50 disabled:cursor-not-allowed`}
+                  title={
+                    gitStatus.ahead > 0
+                      ? `Push ${gitStatus.ahead} commit(s) to remote`
+                      : "Push commits to remote"
+                  }
+                >
+                  <span>⬆ Push</span>
+                  {gitStatus.ahead > 0 && (
+                    <span className="px-1.5 py-0.2 rounded-full bg-[#101216]/30 text-[10px] font-mono">
+                      {gitStatus.ahead}
+                    </span>
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handlePull}
+                  disabled={actionLoading}
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-medium border transition-all cursor-pointer ${
+                    gitStatus.behind > 0
+                      ? "bg-amber-600/30 hover:bg-amber-600/50 text-amber-200 border-amber-600/60 font-semibold"
+                      : "bg-[#272D38] hover:bg-[#35465E] text-[#A5ADBA] hover:text-[#E8EBF1] border-[#303642]"
+                  } disabled:opacity-50 disabled:cursor-not-allowed`}
+                  title={
+                    gitStatus.behind > 0
+                      ? `Pull ${gitStatus.behind} commit(s) from remote`
+                      : "Pull latest commits from remote"
+                  }
+                >
+                  <span>⬇ Pull</span>
+                  {gitStatus.behind > 0 && (
+                    <span className="px-1.5 py-0.2 rounded-full bg-[#101216]/30 text-[10px] font-mono">
+                      {gitStatus.behind}
+                    </span>
+                  )}
+                </button>
+              </div>
             </div>
           )}
         </div>
@@ -842,26 +954,118 @@ export function GitView({ isActive, initialSelection }: GitViewProps = {}) {
             <div className="p-3.5 rounded-lg bg-zinc-900/80 border border-zinc-800 flex flex-col gap-2.5 shadow-sm">
               <div className="flex items-center justify-between text-xs">
                 <span className="font-semibold text-zinc-300">Create Commit</span>
-                <span className="text-[11px] text-zinc-500 font-mono">
-                  {stagedCount} staged {stagedCount === 1 ? "file" : "files"}
-                </span>
+                <div className="flex items-center gap-1 text-[11px] font-mono">
+                  <span className="text-[#8CA9CF] font-medium">{stagedCount} staged</span>
+                  <span className="text-zinc-600">/</span>
+                  <span className="text-zinc-400">{unstagedCount} unstaged</span>
+                </div>
               </div>
               <textarea
                 value={commitMessage}
                 onChange={(e) => setCommitMessage(e.target.value)}
-                placeholder="Commit message (e.g. 'feat: implement git staging')..."
+                onKeyDown={(e) => {
+                  if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+                    e.preventDefault();
+                    if (!actionLoading && commitMessage.trim()) {
+                      if (stagedCount > 0) {
+                        handleCommit(false);
+                      } else if (unstagedCount > 0) {
+                        handleCommit(true);
+                      }
+                    }
+                  }
+                }}
+                placeholder="Commit message (e.g. 'feat: implement git staging')... (Cmd+Enter to commit)"
                 rows={2}
                 disabled={actionLoading}
                 className="w-full px-3 py-2 text-xs rounded-md bg-[#272D38] border border-[#303642] text-[#E8EBF1] placeholder-[#7C8594] focus:outline-none focus:border-[#8CA9CF] resize-none transition-all"
               />
-              <button
-                onClick={handleCommit}
-                disabled={actionLoading || !commitMessage.trim() || stagedCount === 0}
-                className="w-full py-1.5 rounded-md text-xs font-semibold bg-[#8CA9CF] text-[#101216] hover:bg-[#A6BDE0] disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-1.5 shadow-xs cursor-pointer"
-              >
-                <span>Commit</span>
-                <span>({stagedCount} staged)</span>
-              </button>
+
+              {/* Action Buttons */}
+              <div className="flex flex-col gap-1.5">
+                {stagedCount > 0 ? (
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleCommit(false)}
+                      disabled={actionLoading || !commitMessage.trim()}
+                      className="flex-1 py-1.5 rounded-md text-xs font-semibold bg-[#8CA9CF] text-[#101216] hover:bg-[#A6BDE0] disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-1.5 shadow-xs cursor-pointer"
+                    >
+                      <span>Commit Staged</span>
+                      <span>({stagedCount})</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleCommitAndPush(false)}
+                      disabled={actionLoading || !commitMessage.trim()}
+                      className="py-1.5 px-3 rounded-md text-xs font-semibold bg-[#35465E] hover:bg-[#435978] text-[#E8EBF1] border border-[#8CA9CF]/40 disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-1 shadow-xs cursor-pointer shrink-0"
+                      title="Commit staged changes and immediately push to remote"
+                    >
+                      <span>Commit & Push 🚀</span>
+                    </button>
+                  </div>
+                ) : unstagedCount > 0 ? (
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleCommit(true)}
+                      disabled={actionLoading || !commitMessage.trim()}
+                      className="flex-1 py-1.5 rounded-md text-xs font-semibold bg-[#8CA9CF] text-[#101216] hover:bg-[#A6BDE0] disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-1.5 shadow-xs cursor-pointer"
+                      title="Stage all unstaged changes and commit"
+                    >
+                      <span>Stage All & Commit</span>
+                      <span>({unstagedCount})</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleCommitAndPush(true)}
+                      disabled={actionLoading || !commitMessage.trim()}
+                      className="py-1.5 px-3 rounded-md text-xs font-semibold bg-[#35465E] hover:bg-[#435978] text-[#E8EBF1] border border-[#8CA9CF]/40 disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-1 shadow-xs cursor-pointer shrink-0"
+                      title="Stage all changes, commit, and immediately push to remote"
+                    >
+                      <span>Commit & Push 🚀</span>
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    disabled
+                    className="w-full py-1.5 rounded-md text-xs font-medium bg-zinc-800 text-zinc-500 opacity-60 cursor-not-allowed flex items-center justify-center gap-1.5"
+                  >
+                    <span>Working Tree Clean</span>
+                  </button>
+                )}
+
+                {stagedCount > 0 && unstagedCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => handleCommit(true)}
+                    disabled={actionLoading || !commitMessage.trim()}
+                    className="w-full py-1 text-[11px] rounded text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/60 border border-zinc-800/80 transition-all cursor-pointer"
+                  >
+                    Or Stage All & Commit ({stagedCount + unstagedCount} files)
+                  </button>
+                )}
+              </div>
+
+              {/* Ahead banner inside Commit Box if commits are ready to push */}
+              {gitStatus && gitStatus.ahead > 0 && (
+                <div className="flex items-center justify-between p-2 rounded-md bg-[#272D38]/80 border border-[#8CA9CF]/30 text-xs">
+                  <div className="flex items-center gap-1.5 text-zinc-300">
+                    <span className="text-[#77B58A] font-bold">↑{gitStatus.ahead}</span>
+                    <span className="text-[11px]">
+                      {gitStatus.ahead === 1 ? "commit" : "commits"} ready to push
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handlePush}
+                    disabled={actionLoading}
+                    className="px-2.5 py-1 rounded bg-[#8CA9CF] hover:bg-[#A6BDE0] text-[#101216] font-semibold text-[11px] transition cursor-pointer shadow-xs"
+                  >
+                    Push Now ⬆
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Changes Accordion / List */}

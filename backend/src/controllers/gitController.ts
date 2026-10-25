@@ -308,7 +308,7 @@ export async function commitController(
 ): Promise<void> {
   try {
     const { projectId } = req.params;
-    const { message } = req.body ?? {};
+    const { message, stageAll } = req.body ?? {};
 
     if (!projectId || typeof projectId !== "string") {
       res.status(400).json({
@@ -326,7 +326,11 @@ export async function commitController(
       return;
     }
 
-    const result = await gitService.commit(projectId, message.trim());
+    const result = await gitService.commit(
+      projectId,
+      message.trim(),
+      Boolean(stageAll)
+    );
     res.status(201).json({
       success: true,
       data: result,
@@ -398,3 +402,85 @@ export async function getGitHistoryController(
     res.status(500).json({ success: false, error: msg });
   }
 }
+
+/**
+ * Handles POST /api/git/:projectId/push
+ * Body: { "remote"?: string, "branch"?: string, "setUpstream"?: boolean }
+ */
+export async function pushGitController(
+  req: Request,
+  res: Response
+): Promise<void> {
+  try {
+    const { projectId } = req.params;
+    const { remote, branch, setUpstream } = req.body ?? {};
+
+    if (!projectId || typeof projectId !== "string") {
+      res.status(400).json({
+        success: false,
+        error: "Project ID parameter is required",
+      });
+      return;
+    }
+
+    const result = await gitService.push(
+      projectId,
+      remote,
+      branch,
+      Boolean(setUpstream)
+    );
+    res.status(200).json({
+      success: true,
+      data: result,
+    });
+  } catch (err: unknown) {
+    const error = err as Error;
+    const msg = error.message || "Failed to push commits";
+
+    if (msg.includes("not found in database")) {
+      res.status(404).json({ success: false, error: msg });
+      return;
+    }
+
+    res.status(500).json({ success: false, error: msg });
+  }
+}
+
+/**
+ * Handles POST /api/git/:projectId/pull
+ * Body: { "remote"?: string, "branch"?: string }
+ */
+export async function pullGitController(
+  req: Request,
+  res: Response
+): Promise<void> {
+  try {
+    const { projectId } = req.params;
+    const { remote, branch } = req.body ?? {};
+
+    if (!projectId || typeof projectId !== "string") {
+      res.status(400).json({
+        success: false,
+        error: "Project ID parameter is required",
+      });
+      return;
+    }
+
+    const result = await gitService.pull(projectId, remote, branch);
+    res.status(200).json({
+      success: true,
+      data: result,
+    });
+  } catch (err: unknown) {
+    const error = err as Error;
+    const msg = error.message || "Failed to pull commits";
+
+    if (msg.includes("not found in database")) {
+      res.status(404).json({ success: false, error: msg });
+      return;
+    }
+
+    res.status(500).json({ success: false, error: msg });
+  }
+}
+

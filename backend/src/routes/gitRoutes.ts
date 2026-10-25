@@ -6,6 +6,8 @@ import {
   getGitDiffController,
   getGitHistoryController,
   getGitStatusController,
+  pullGitController,
+  pushGitController,
   stageFilesController,
   unstageFilesController,
 } from "../controllers/gitController.js";
@@ -32,6 +34,12 @@ router.post("/:projectId/unstage", unstageFilesController);
 
 // POST /api/git/:projectId/commit - Commit staged changes with message
 router.post("/:projectId/commit", commitController);
+
+// POST /api/git/:projectId/push - Push commits to remote repository
+router.post("/:projectId/push", pushGitController);
+
+// POST /api/git/:projectId/pull - Pull commits from remote repository
+router.post("/:projectId/pull", pullGitController);
 
 // GET /api/git/:projectId/history - Recent commit history (?limit=20)
 router.get("/:projectId/history", getGitHistoryController);

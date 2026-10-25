@@ -7,6 +7,10 @@ import {
   GitDiffResult,
   GitHistoryResponse,
   GitHistoryResult,
+  GitPullResponse,
+  GitPullResult,
+  GitPushResponse,
+  GitPushResult,
   GitStageResponse,
   GitStatusResponse,
   GitStatusResult,
@@ -264,12 +268,13 @@ export async function unstageGitFiles(
 }
 
 /**
- * Commits staged changes with a message.
+ * Commits staged changes with a message (or all changes if stageAll is true).
  * Calls POST /api/git/:projectId/commit
  */
 export async function commitGitChanges(
   projectId: string,
-  message: string
+  message: string,
+  stageAll?: boolean
 ): Promise<GitCommitResult> {
   const queryUrl = `${BACKEND_BASE_URL}/api/git/${encodeURIComponent(
     projectId.trim()
@@ -280,7 +285,7 @@ export async function commitGitChanges(
     response = await fetch(queryUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message }),
+      body: JSON.stringify({ message, stageAll }),
     });
   } catch (err: unknown) {
     const errorMsg = err instanceof Error ? err.message : "Network error";
@@ -300,6 +305,93 @@ export async function commitGitChanges(
 
   if (!response.ok || !json.success || !json.data) {
     throw new Error(json.error || `Failed to commit changes (${response.status})`);
+  }
+
+  return json.data;
+}
+
+/**
+ * Pushes commits to remote repository.
+ * Calls POST /api/git/:projectId/push
+ */
+export async function pushGitChanges(
+  projectId: string,
+  remote?: string,
+  branch?: string,
+  setUpstream?: boolean
+): Promise<GitPushResult> {
+  const queryUrl = `${BACKEND_BASE_URL}/api/git/${encodeURIComponent(
+    projectId.trim()
+  )}/push`;
+
+  let response: Response;
+  try {
+    response = await fetch(queryUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ remote, branch, setUpstream }),
+    });
+  } catch (err: unknown) {
+    const errorMsg = err instanceof Error ? err.message : "Network error";
+    throw new Error(
+      `Cannot connect to DevDesk backend at ${BACKEND_BASE_URL} (${errorMsg}). Ensure the backend is running.`
+    );
+  }
+
+  let json: GitPushResponse;
+  try {
+    json = (await response.json()) as GitPushResponse;
+  } catch {
+    throw new Error(
+      `Invalid response received from backend (${response.status}).`
+    );
+  }
+
+  if (!response.ok || !json.success || !json.data) {
+    throw new Error(json.error || `Failed to push commits (${response.status})`);
+  }
+
+  return json.data;
+}
+
+/**
+ * Pulls commits from remote repository.
+ * Calls POST /api/git/:projectId/pull
+ */
+export async function pullGitChanges(
+  projectId: string,
+  remote?: string,
+  branch?: string
+): Promise<GitPullResult> {
+  const queryUrl = `${BACKEND_BASE_URL}/api/git/${encodeURIComponent(
+    projectId.trim()
+  )}/pull`;
+
+  let response: Response;
+  try {
+    response = await fetch(queryUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ remote, branch }),
+    });
+  } catch (err: unknown) {
+    const errorMsg = err instanceof Error ? err.message : "Network error";
+    throw new Error(
+      `Cannot connect to DevDesk backend at ${BACKEND_BASE_URL} (${errorMsg}). Ensure the backend is running.`
+    );
+  }
+
+  let json: GitPullResponse;
+  try {
+    json = (await response.json()) as GitPullResponse;
+  } catch {
+    throw new Error(
+      `Invalid response received from backend (${response.status}).`
+    );
+  }
+
+  if (!response.ok || !json.success || !json.data) {
+    throw new Error(json.error || `Failed to pull commits (${response.status})`);
   }
 
   return json.data;

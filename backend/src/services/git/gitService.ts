@@ -11,6 +11,8 @@ import {
   GitFileChange,
   GitFileStatusType,
   GitHistoryResult,
+  GitPullResult,
+  GitPushResult,
   GitStatusResult,
 } from "../../types/git.js";
 
@@ -857,11 +859,12 @@ export class GitService {
 
   /**
    * Commits staged changes with a validated message.
-   * Rejects commits when nothing is staged. Never amends or auto-stages.
+   * Rejects commits when nothing is staged unless stageAll is true. Never amends.
    */
   public async commit(
     projectId: string,
-    message: string
+    message: string,
+    stageAll?: boolean
   ): Promise<GitCommitResult> {
     if (
       !message ||
@@ -873,6 +876,18 @@ export class GitService {
 
     const cleanMessage = message.trim();
     const { repositoryRoot } = await resolveProjectRepository(projectId);
+
+    // If stageAll requested, stage all tracked and untracked changes first
+    if (stageAll) {
+      const stageResult = await runGitCommand(repositoryRoot, ["add", "-A"]);
+      if (stageResult.code !== 0) {
+        throw new Error(
+          `Failed to stage changes before commit: ${
+            stageResult.stderr.trim() || stageResult.stdout.trim()
+          }`
+        );
+      }
+    }
 
     // Verify there are staged changes: git diff --cached --quiet exits 0 if clean, 1 if staged changes exist
     const diffCheck = await runGitCommand(repositoryRoot, [
@@ -973,6 +988,120 @@ export class GitService {
       total: commits.length,
     };
   }
+
+  /**
+   * Pushes current branch commits to remote repository.
+   * Automatically configures upstream tracking if needed.
+   */
+  public async push(
+    projectId: string,
+    targetRemote?: string,
+    targetBranch?: string,
+    setUpstream?: boolean
+  ): Promise<GitPushResult> {
+    const { repositoryRoot } = await resolveProjectRepository(projectId);
+
+    // Determine current branch
+    const branchCmd = await runGitCommand(repositoryRoot, [
+      "branch",
+      "--show-current",
+    ]);
+    const currentBranch = branchCmd.stdout.trim() || targetBranch || "main";
+
+    // Determine remote
+    let remote = targetRemote?.trim() || "";
+    if (!remote) {
+      const remoteCmd = await runGitCommand(repositoryRoot, ["remote"]);
+      const remotes = remoteCmd.stdout
+        .split("\n")
+        .map((r) => r.trim())
+        .filter(Boolean);
+      remote = remotes.includes("origin") ? "origin" : remotes[0] || "origin";
+    }
+
+    // Check if branch has an upstream set
+    const upstreamCheck = await runGitCommand(repositoryRoot, [
+      "rev-parse",
+      "--abbrev-ref",
+      "@{upstream}",
+    ]);
+    const hasUpstream =
+      upstreamCheck.code === 0 && Boolean(upstreamCheck.stdout.trim());
+
+    const branch = targetBranch?.trim() || currentBranch;
+    const args: string[] = ["push"];
+
+    if (!hasUpstream || setUpstream) {
+      args.push("-u", remote, branch);
+    } else if (remote && branch) {
+      args.push(remote, branch);
+    }
+
+    // 45-second timeout for network transfer
+    const pushResult = await runGitCommand(repositoryRoot, args, 45000);
+
+    if (pushResult.code !== 0) {
+      const err = pushResult.stderr.trim() || pushResult.stdout.trim();
+      throw new Error(`Git push failed: ${err}`);
+    }
+
+    const output = (pushResult.stderr + "\n" + pushResult.stdout).trim();
+    return {
+      remote,
+      branch,
+      message: `Successfully pushed to ${remote}/${branch}`,
+      summary: output,
+    };
+  }
+
+  /**
+   * Pulls latest commits from remote repository into current branch.
+   */
+  public async pull(
+    projectId: string,
+    targetRemote?: string,
+    targetBranch?: string
+  ): Promise<GitPullResult> {
+    const { repositoryRoot } = await resolveProjectRepository(projectId);
+
+    // Determine current branch
+    const branchCmd = await runGitCommand(repositoryRoot, [
+      "branch",
+      "--show-current",
+    ]);
+    const currentBranch = branchCmd.stdout.trim() || targetBranch || "main";
+
+    // Determine remote
+    let remote = targetRemote?.trim() || "";
+    if (!remote) {
+      const remoteCmd = await runGitCommand(repositoryRoot, ["remote"]);
+      const remotes = remoteCmd.stdout
+        .split("\n")
+        .map((r) => r.trim())
+        .filter(Boolean);
+      remote = remotes.includes("origin") ? "origin" : remotes[0] || "origin";
+    }
+
+    const branch = targetBranch?.trim() || currentBranch;
+    const args: string[] = ["pull", remote, branch];
+
+    // 45-second timeout for network pull
+    const pullResult = await runGitCommand(repositoryRoot, args, 45000);
+
+    if (pullResult.code !== 0) {
+      const err = pullResult.stderr.trim() || pullResult.stdout.trim();
+      throw new Error(`Git pull failed: ${err}`);
+    }
+
+    const output = (pullResult.stdout + "\n" + pullResult.stderr).trim();
+    return {
+      remote,
+      branch,
+      message: `Successfully pulled from ${remote}/${branch}`,
+      summary: output,
+    };
+  }
 }
 
 export const gitService = new GitService();
+
