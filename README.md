@@ -185,6 +185,7 @@ DevDesk features the **Midnight Slate** engineering design system, designed spec
 
 Comprehensive senior-engineer documentation is available in the [`docs/`](docs/) directory:
 
+- 🎓📄 [**Faculty Project Technical Briefing (`docs/FACULTY_PROJECT_REPORT.md`)**](docs/FACULTY_PROJECT_REPORT.md) *(Print-ready [PDF format](docs/DevDesk_Faculty_Project_Report.pdf))*: Academic executive summary, point-by-point feature breakdown, engineering motivations, and evaluation metrics.
 - 🏛️ [**System Architecture (`docs/ARCHITECTURE.md`)**](docs/ARCHITECTURE.md): Multi-tier architecture, IPC communication protocol, process isolation, and security design.
 - 💻 [**Developer Setup & Engineering Guide (`docs/DEVELOPMENT_GUIDE.md`)**](docs/DEVELOPMENT_GUIDE.md): Monorepo setup, running individual tiers, TypeScript guidelines, and adding new features.
 - 📦 [**Packaging & Release Engineering (`docs/PACKAGING_AND_RELEASES.md`)**](docs/PACKAGING_AND_RELEASES.md): How `prepare-packaging.mjs` bundles 129 production dependencies, DMG build specs, and Gatekeeper verification.

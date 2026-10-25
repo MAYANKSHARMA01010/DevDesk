@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>DevDesk - Faculty Project Technical Report</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+    
+    @page {
+      size: A4;
+      margin: 18mm 16mm 18mm 16mm;
+    }
+    
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      color: #1e293b;
+      line-height: 1.5;
+      font-size: 11pt;
+      background: #ffffff;
+      margin: 0;
+      padding: 0;
+    }
+
+    h1 {
+      font-size: 20pt;
+      font-weight: 700;
+      color: #0f172a;
+      margin-top: 0;
+      margin-bottom: 6px;
+      border-bottom: 2px solid #3b82f6;
+      padding-bottom: 6px;
+    }
+
+    h2 {
+      font-size: 13pt;
+      font-weight: 700;
+      color: #1e293b;
+      margin-top: 14pt;
+      margin-bottom: 6pt;
+      border-bottom: 1px solid #e2e8f0;
+      padding-bottom: 4px;
+    }
+
+    h3 {
+      font-size: 11.5pt;
+      font-weight: 600;
+      color: #2563eb;
+      margin-top: 10pt;
+      margin-bottom: 4pt;
+    }
+
+    h4 {
+      font-size: 10.5pt;
+      font-weight: 600;
+      color: #334155;
+      margin-top: 6pt;
+      margin-bottom: 2pt;
+    }
+
+    p {
+      margin-top: 0;
+      margin-bottom: 6pt;
+    }
+
+    blockquote {
+      background: #f8fafc;
+      border-left: 4px solid #3b82f6;
+      margin: 8pt 0;
+      padding: 6pt 12pt;
+      font-size: 10pt;
+      color: #475569;
+      border-radius: 0 4px 4px 0;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 10pt 0;
+      font-size: 9.5pt;
+      page-break-inside: avoid;
+    }
+
+    th {
+      background: #f1f5f9;
+      color: #0f172a;
+      font-weight: 600;
+      text-align: left;
+      padding: 6pt 8pt;
+      border: 1px solid #cbd5e1;
+    }
+
+    td {
+      padding: 5pt 8pt;
+      border: 1px solid #e2e8f0;
+      vertical-align: top;
+    }
+
+    tr:nth-child(even) td {
+      background: #f8fafc;
+    }
+
+    ul {
+      margin: 0 0 6pt 0;
+      padding-left: 18pt;
+    }
+
+    li {
+      margin-bottom: 3pt;
+    }
+
+    code {
+      font-family: 'JetBrains Mono', Consolas, monospace;
+      font-size: 9pt;
+      background: #f1f5f9;
+      color: #0f172a;
+      padding: 1.5pt 3pt;
+      border-radius: 3pt;
+      border: 1px solid #e2e8f0;
+    }
+
+    pre {
+      background: #0f172a;
+      color: #f8fafc;
+      padding: 8pt 10pt;
+      border-radius: 6px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 8.5pt;
+      line-height: 1.35;
+      overflow-x: auto;
+      margin: 8pt 0;
+      page-break-inside: avoid;
+    }
+
+    pre code {
+      background: transparent;
+      color: inherit;
+      padding: 0;
+      border: none;
+    }
+
+    hr {
+      border: none;
+      border-top: 1px solid #e2e8f0;
+      margin: 12pt 0;
+    }
+
+    a {
+      color: #2563eb;
+      text-decoration: none;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 2px 6px;
+      font-size: 8.5pt;
+      font-weight: 600;
+      border-radius: 4px;
+      background: #dbeafe;
+      color: #1e40af;
+    }
+  </style>
+</head>
+<body>
+  <h1>DevDesk: Native Developer Command Center 🖥️⚡</h1>
+<h2>Project Technical Briefing & Academic Faculty Evaluation Document</h2>
+<blockquote>**Author / Student**: Mayank Sharma</blockquote>
+<blockquote>**Project Name**: DevDesk</blockquote>
+<blockquote>**Target Architecture**: macOS Apple Silicon (`arm64`) & Intel (`x64`)</blockquote>
+<blockquote>**Source Repository**: [https://github.com/MAYANKSHARMA01010/DevDesk](https://github.com/MAYANKSHARMA01010/DevDesk)</blockquote>
+<blockquote>**Executable Distribution**: [Google Drive Standalone macOS DMG](https://drive.google.com/file/d/1TuhrkWh8yWVEEfLqJRypAuFlFmMr2_Jm/view?usp=sharing)</blockquote>
+<hr />
+<h2>1. Executive Summary & Objective</h2>
+<p><strong>DevDesk</strong> is an open-source, local-first native desktop command center designed to eliminate context-switching and high memory fragmentation in software engineering workflows.</p>
+<p>Instead of running multiple disparate, heavy applications concurrently (VS Code, terminal emulators, Postman, Git desktop GUIs, database clients like DBeaver/pgAdmin, and process/port monitors), DevDesk unifies these operational surfaces into a single high-performance desktop application built with <strong>Electron</strong>, <strong>Next.js 16</strong>, <strong>React 19</strong>, <strong>Node.js/Express</strong>, and <strong>SQLite</strong>.</p>
+<h3>Core Guarantees:</h3>
+<ul><li><strong>100% Local & Offline</strong>: Operates strictly within the local loopback (<code>127.0.0.1</code>). Zero telemetry, zero analytics, zero remote server code transmission.</li></ul>
+<ul><li><strong>True Native OS Integration</strong>: Deep directory scanning, detached process group script execution, non-blocking TCP port inspection, and native macOS dialogs.</li></ul>
+<ul><li><strong>Hardware Efficiency</strong>: Consolidates 6 separate tool runtimes into a unified client-server desktop architecture, reducing idle developer RAM footprint from 4–6 GB down to ~350 MB.</li></ul>
+<hr />
+<h2>2. Problem Statement & Motivation</h2>
+<table>
+<thead><tr><th>Pain Point in Current Workflows</th><th>DevDesk Architectural Solution</th></tr></thead>
+<tbody>
+<tr><td>**High Context-Switching Latency**: Constantly toggling between 5+ separate windows disrupts developer flow state.</td><td>Unified single-window dashboard with universal keyboard shortcuts (`Cmd+1` to `Cmd+8`).</td></tr>
+<tr><td>**RAM & CPU Overhead**: Running multiple Electron/JVM tools (Slack, Postman, VS Code, DBeaver, Docker Desktop) consumes excessive system memory.</td><td>Single optimized Electron shell serving statically exported React views backed by an embedded Express microservice.</td></tr>
+<tr><td>**Port Conflicts & Zombie Processes**: Development servers crash or leave background processes holding ports (`3000`, `5000`, `8080`).</td><td>Automated TCP port detector (`lsof`) isolating DevDesk processes with one-click graceful termination.</td></tr>
+<tr><td>**Security & Privacy Risks**: Cloud-based API clients and database SaaS platforms sync proprietary tokens and queries to third-party clouds.</td><td>100% local persistence via SQLite; database credentials stored strictly in volatile RAM, never written to disk.</td></tr>
+</tbody></table>
+<hr />
+<h2>3. System Architecture & Tech Stack</h2>
+<pre><code>┌────────────────────────────────────────────────────────────────────────┐
+│                      ELECTRON DESKTOP SHELL (macOS)                    │
+│  - Main Process (desktop/src/main.ts)                                  │
+│  - Privileged app:// Protocol Handler (Zero web-server dependency)     │
+│  - Context-Isolated Typed IPC Bridge (desktop/src/preload.ts)         │
+│  - Lifecycle Manager (Spawns & monitors local Express backend)         │
+└──────────────────┬─────────────────────────────────┬───────────────────┘
+                   │ Typed IPC                       │ app://devdesk/
+                   ▼                                 ▼
+┌──────────────────────────────────────┐  ┌──────────────────────────────┐
+│       EXPRESS REST MICROSERVICE      │  │    STATIC NEXT.JS FRONTEND   │
+│  - Bound strictly to 127.0.0.1:5001  │  │  - Next.js 16 (App Router)   │
+│  - Project Scanner & Process Manager │  │  - React 19 UI Engine        │
+│  - Multi-Repo Git Engine             │  │  - TailwindCSS 4 Styling     │
+│  - SQL AST Security Parser           │  │  - Midnight Slate Design     │
+│  - Embedded SQLite (WAL Mode)        │  │  - Responsive Viewports      │
+└──────────────────┬───────────────────┘  └──────────────────────────────┘
+                   │ Native System Calls
+                   ▼
+┌────────────────────────────────────────────────────────────────────────┐
+│                      HOST OPERATING SYSTEM (macOS)                     │
+│  - Filesystem Scanner (4-level recursion, package manifests)           │
+│  - Child Process Engine (spawn, detached process groups, pipes)        │
+│  - TCP Port Inspector (lsof -iTCP -sTCP:LISTEN -n -P)                  │
+│  - SQLite Storage (~/Library/Application Support/DevDesk/devdesk.db)   │
+│  - Local Database Daemons (PostgreSQL, MySQL)                          │
+└────────────────────────────────────────────────────────────────────────┘
+</code></pre>
+<h3>Technology Matrix:</h3>
+<ul><li><strong>Desktop Runtime</strong>: Electron 44.4.4</li></ul>
+<ul><li><strong>Frontend Architecture</strong>: Next.js 16.3.8 (Static Export: <code>output: "export"</code>), React 19.2.8</li></ul>
+<ul><li><strong>Design Tokens</strong>: TailwindCSS 4.3.3 (<strong>Midnight Slate</strong> engineering color palette)</li></ul>
+<ul><li><strong>Backend Microservice</strong>: Express 5.2.1, Node.js 20+</li></ul>
+<ul><li><strong>Persistence Layer</strong>: SQLite 3 (<code>better-sqlite3</code> native C++ driver with <code>node:sqlite</code> fallback)</li></ul>
+<ul><li><strong>Database Drivers</strong>: <code>pg</code> 8.23.1 (PostgreSQL), <code>mysql2</code> 3.24.6 (MySQL)</li></ul>
+<ul><li><strong>SQL Parser</strong>: <code>node-sql-parser</code> 5.4.0 (AST syntax verification)</li></ul>
+<ul><li><strong>Monorepo Manager</strong>: <code>pnpm</code> 11.24.0 (Workspaces)</li></ul>
+<ul><li><strong>Packager</strong>: <code>electron-builder</code> 26.15.3 (macOS DMG & ZIP)</li></ul>
+<hr />
+<h2>4. Point-by-Point Technical Breakdown of Core Modules</h2>
+<h3>Module 1: Workspace & Recursive Project Discovery</h3>
+<ul><li><strong>What It Does</strong>: Scans any local folder on macOS, identifies all software projects (including nested microservices), detects frameworks and package managers, and provides one-click launching in VS Code or Finder.</li></ul>
+<ul><li><strong>How It Works (Technical Implementation)</strong>:</li></ul>
+<p>- Uses asynchronous recursive directory traversal up to 4 directory levels deep, filtering out <code>node_modules</code>, <code>.git</code>, and build outputs.</p>
+<p>- Distinguishes root projects (<code>isRoot: true</code>) from nested packages and maps accurate relative subpaths.</p>
+<p>- Inspects project manifests (<code>package.json</code>, <code>Cargo.toml</code>, <code>pyproject.toml</code>, <code>go.mod</code>) to detect tech stacks (Next.js, React, Express, Vite, Python, Go, Rust) and package managers (<code>pnpm</code>, <code>npm</code>, <code>yarn</code>, <code>bun</code>).</p>
+<p>- Integrates native macOS folder selection dialogs via Electron IPC (<code>dialog:select-directory</code>).</p>
+<p>- Persists discovered workspaces across restarts in local SQLite (<code>devdesk.db</code>).</p>
+<h3>Module 2: Child Process Script Runner & Streaming Terminal</h3>
+<ul><li><strong>What It Does</strong>: Inspects <code>package.json</code> scripts (<code>dev</code>, <code>build</code>, <code>test</code>, <code>start</code>, <code>lint</code>), displays them in a single-line horizontal scroll bar, and executes them with live colorized stdout/stderr log streaming.</li></ul>
+<ul><li><strong>How It Works (Technical Implementation)</strong>:</li></ul>
+<p>- Spawns child processes using Node <code>child_process.spawn</code> in detached process groups (<code>detached: true</code>).</p>
+<p>- Pipes process standard output and standard error streams into bounded, in-memory circular ring buffers (1,000 lines per process) to prevent memory leaks during long-running builds.</p>
+<p>- Tracks process lifecycles with state badges (<code>running</code>, <code>stopped</code>, <code>failed</code>) and process IDs (PID).</p>
+<p>- Guarantees clean process teardown on stop or application quit by sending <code>SIGTERM</code> / <code>SIGKILL</code> to negative PIDs (<code>process.kill(-pid)</code>), killing all nested child threads.</p>
+<h3>Module 3: Real-Time Process & TCP Port Detection</h3>
+<ul><li><strong>What It Does</strong>: Dynamically detects which TCP listening ports (e.g. <code>:3000</code>, <code>:5000</code>) are bound by DevDesk-managed processes, displays them in an interactive horizontal services bar, and allows one-click opening in the default system browser or in an in-app interactive web preview modal.</li></ul>
+<ul><li><strong>How It Works (Technical Implementation)</strong>:</li></ul>
+<p>- Periodically executes non-blocking OS inspection commands (<code>lsof -iTCP -sTCP:LISTEN -n -P</code>).</p>
+<p>- Employs strict process isolation: maps active network sockets strictly against PIDs spawned by DevDesk, preventing interference with system daemons or foreign user processes.</p>
+<p>- Dispatches browser opening requests to macOS default web browser via Electron <code>shell.openExternal</code>.</p>
+<p>- Embeds an in-app interactive browser preview with editable address bar, viewport switcher (<strong>Desktop</strong>, <strong>Tablet</strong>, <strong>Mobile</strong>), and refresh controls.</p>
+<h3>Module 4: Multi-Repository Git Control Suite</h3>
+<ul><li><strong>What It Does</strong>: Provides independent Git repository management across multi-project workspaces: branch status, uncommitted change counts, interactive staging, "Stage All & Commit", "Commit & Push 🚀", and side-by-side unified diffs.</li></ul>
+<ul><li><strong>How It Works (Technical Implementation)</strong>:</li></ul>
+<p>- Independently resolves the exact Git root of each selected project using <code>git rev-parse --show-toplevel</code>, preventing nested subdirectories from accidentally mutating parent repositories.</p>
+<p>- Automatically sanitizes and redacts embedded credentials from remote URLs in storage and UI (<code>https://<em><strong>:</strong></em>@github.com/...</code>).</p>
+<p>- Executes atomic Git CLI operations (<code>git status --porcelain</code>, <code>git diff</code>, <code>git add</code>, <code>git commit</code>, <code>git push</code>, <code>git pull</code>).</p>
+<p>- Parses raw Git diff outputs into structured additions (green) and deletions (red).</p>
+<h3>Module 5: Local HTTP API Tester</h3>
+<ul><li><strong>What It Does</strong>: Postman-style REST client built into the desktop app for testing local APIs across all HTTP verbs (<code>GET</code>, <code>POST</code>, <code>PUT</code>, <code>PATCH</code>, <code>DELETE</code>, <code>HEAD</code>, <code>OPTIONS</code>) with header and parameter editors.</li></ul>
+<ul><li><strong>How It Works (Technical Implementation)</strong>:</li></ul>
+<p>- Dispatches requests through a robust Node.js Axios execution engine on the local backend, bypassing browser CORS restrictions.</p>
+<p>- Provides synchronized key-value editors for URL query parameters and request headers.</p>
+<p>- Implements real-time JSON body syntax validation with formatting error indicators.</p>
+<p>- Enforces strict execution safety guards: 30-second cancellation timeout and 2 MB response body truncation caps to prevent UI freezes.</p>
+<h3>Module 6: Environment Variables Manager</h3>
+<ul><li><strong>What It Does</strong>: Safely inspects and edits <code>.env</code> files (<code>.env</code>, <code>.env.local</code>, <code>.env.production</code>) with automatic secret masking, visibility eye toggles, and lossless preservation of comments and formatting.</li></ul>
+<ul><li><strong>How It Works (Technical Implementation)</strong>:</li></ul>
+<p>- Multi-file pattern detection identifying all environment files in the project root.</p>
+<p>- Custom parser preserving section comments, empty spacer lines, and inline annotations.</p>
+<p>- Employs strict path traversal guards (<code>path.resolve</code>) to verify targeted files remain strictly inside the project root, blocking symlink escape attacks.</p>
+<p>- Executes atomic writes: creates timestamped <code>.bak</code> backup files prior to writing and writes to temporary files before renaming, eliminating file corruption risks.</p>
+<h3>Module 7: Relational Database Studio with AST SQL Safety</h3>
+<ul><li><strong>What It Does</strong>: Connects to PostgreSQL and MySQL databases, explores schemas, lists tables and views, previews column data types and primary keys, and executes read-only SQL queries.</li></ul>
+<ul><li><strong>How It Works (Technical Implementation)</strong>:</li></ul>
+<p>- Manages native connection pools using <code>pg</code> (PostgreSQL) and <code>mysql2</code> (MySQL).</p>
+<p>- Integrates <code>node-sql-parser</code> to construct an Abstract Syntax Tree (AST) for every submitted SQL query.</p>
+<p>- <strong>Read-Only Enforcement</strong>: Programmatically inspects the AST to permit only read queries (<code>SELECT</code>, <code>SHOW</code>, <code>DESCRIBE</code>, <code>EXPLAIN</code>). Automatically blocks all mutating and destructive operations (<code>INSERT</code>, <code>UPDATE</code>, <code>DELETE</code>, <code>DROP</code>, <code>ALTER</code>, <code>TRUNCATE</code>, <code>GRANT</code>, <code>REVOKE</code>, file dumps, and multi-statement queries).</p>
+<p>- <strong>Strict Credential Security</strong>: Database passwords are kept solely in volatile RAM in the active Express connection pool. Passwords are <strong>never saved to SQLite or written to disk</strong>.</p>
+<h3>Module 8: Production Standalone Packaging & Release Engineering</h3>
+<ul><li><strong>What It Does</strong>: Compiles the entire multi-tier monorepo into a single, self-contained macOS Apple Silicon installer (<code>.dmg</code>) that requires no pre-installed Node.js runtime or external cloud backend.</li></ul>
+<ul><li><strong>How It Works (Technical Implementation)</strong>:</li></ul>
+<p>- Solves the monorepo pnpm symlink dilemma via an automated packaging orchestrator (<code>scripts/prepare-packaging.mjs</code>).</p>
+<p>- Builds Next.js into a static client export (<code>frontend/out</code>) served directly through the privileged <code>app://devdesk/</code> protocol.</p>
+<p>- Deploys an isolated production backend bundle (<code>.packaging/backend</code>) containing all 129 production dependencies into <code>Contents/Resources/backend</code>.</p>
+<p>- Binds Electron main process to dynamically allocate ports and verify backend readiness before loading the user interface.</p>
+<hr />
+<h2>5. Non-Trivial Engineering Challenges & Solutions</h2>
+<table>
+<thead><tr><th>Challenge Encountered</th><th>Academic & Engineering Solution</th></tr></thead>
+<tbody>
+<tr><td>**Monorepo Symlink Packaging Failure**: `electron-builder` failed because `pnpm` workspace symlinks broke when copied into macOS app bundles.</td><td>Engineered `prepare-packaging.mjs` using `pnpm deploy --prod --ignore-scripts` to flatten all 129 production dependencies into a real isolated directory.</td></tr>
+<tr><td>**Accidental Database Mutation**: Developers accidentally executing mutating queries in inspection tools.</td><td>Implemented AST-level SQL validation via `node-sql-parser` to syntactically verify read-only statements rather than relying on flawed regex blacklists.</td></tr>
+<tr><td>**Zombie Process & Port Holding**: Dev servers remaining active in the background after quitting the application.</td><td>Grouped child processes in detached process groups (`setsid`) and implemented clean cascading teardown (`process.kill(-pid)`) on app exit.</td></tr>
+<tr><td>**Credential Security on Local Machines**: Risk of database credentials being exposed in local SQLite files.</td><td>Adopted a strict volatile-memory policy: database connection profiles persist without passwords; passwords exist strictly in active socket memory.</td></tr>
+<tr><td>**UI Freeze on Large Log / Response Payloads**: Long-running builds or large API payloads crashing the React renderer.</td><td>Implemented bounded 1,000-line circular ring buffers for terminal streaming and 2 MB truncation guards on HTTP response payloads.</td></tr>
+</tbody></table>
+<hr />
+<h2>6. Project Verification & Deliverables</h2>
+<p>1. <strong>Working macOS Disk Image (<code>.dmg</code>)</strong>:</p>
+<p>- Built for Apple Silicon (<code>arm64</code>), self-contained with embedded Node.js backend & SQLite storage (~140 MB).</p>
+<p>- Direct Download Link: <a href="https://drive.google.com/file/d/1TuhrkWh8yWVEEfLqJRypAuFlFmMr2_Jm/view?usp=sharing">Google Drive DevDesk DMG</a>.</p>
+<p>2. <strong>Open Source Codebase</strong>:</p>
+<p>- Fully typed TypeScript monorepo with clean commit history: <a href="https://github.com/MAYANKSHARMA01010/DevDesk">https://github.com/MAYANKSHARMA01010/DevDesk</a>.</p>
+<p>3. <strong>Comprehensive Documentation Suite</strong>:</p>
+<p>- <a href="ARCHITECTURE.md">System Architecture Specification (<code>docs/ARCHITECTURE.md</code>)</a></p>
+<p>- <a href="DEVELOPMENT_GUIDE.md">Developer Setup & Engineering Guide (<code>docs/DEVELOPMENT_GUIDE.md</code>)</a></p>
+<p>- <a href="PACKAGING_AND_RELEASES.md">Production Packaging Engineering (<code>docs/PACKAGING_AND_RELEASES.md</code>)</a></p>
+<p>- <a href="AI_DEVELOPMENT_HISTORY.md">Unabridged AI Development History (<code>docs/AI_DEVELOPMENT_HISTORY.md</code>)</a></p>
+
+</body>
+</html>
