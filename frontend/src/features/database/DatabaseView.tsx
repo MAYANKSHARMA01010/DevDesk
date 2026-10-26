@@ -44,6 +44,7 @@ export function DatabaseView() {
   const [tables, setTables] = useState<DatabaseTableItem[]>([]);
   const [selectedTable, setSelectedTable] = useState<string>("");
   const [tableSearchQuery, setTableSearchQuery] = useState<string>("");
+  const [refreshing, setRefreshing] = useState<boolean>(false);
 
   // Table Details
   const [tableTab, setTableTab] = useState<"columns" | "sample" | "query">("query");
@@ -141,6 +142,26 @@ export function DatabaseView() {
       }
     } catch {
       // Ignore status check errors
+    }
+  }
+
+  // Refresh all database profiles and active schema/tables
+  async function handleRefreshDatabase() {
+    setRefreshing(true);
+    setErrorMessage(null);
+    try {
+      await loadProfiles(selectedProfileId);
+      if (selectedProfileId) {
+        await checkStatus(selectedProfileId);
+      }
+      setSuccessMessage("Database connections and schemas refreshed.");
+      setTimeout(() => setSuccessMessage(null), 2500);
+    } catch (err: unknown) {
+      setErrorMessage(
+        err instanceof Error ? err.message : "Failed to refresh database data."
+      );
+    } finally {
+      setRefreshing(false);
     }
   }
 
@@ -438,6 +459,16 @@ export function DatabaseView() {
 
         <div className="flex items-center gap-2">
           <button
+            onClick={handleRefreshDatabase}
+            disabled={refreshing || loadingProfiles}
+            className="px-3 py-1.5 bg-[#272D38] hover:bg-[#303642] text-[#E8EBF1] border border-[#303642] rounded-md text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
+            title="Refresh database profiles, connection status, and schemas"
+          >
+            <span className={refreshing ? "animate-spin" : ""}>🔄</span>
+            <span>{refreshing ? "Refreshing..." : "Refresh"}</span>
+          </button>
+
+          <button
             onClick={openCreateProfileModal}
             className="px-3 py-1.5 bg-[#8CA9CF] hover:bg-[#A6BDE0] text-[#101216] rounded-md text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs cursor-pointer"
           >
@@ -611,6 +642,16 @@ export function DatabaseView() {
                           </option>
                         ))}
                       </select>
+                      <button
+                        onClick={() => {
+                          if (selectedProfileId) loadSchemasAndTables(selectedProfileId);
+                        }}
+                        disabled={loadingExplorer}
+                        className="p-1 text-[#7C8594] hover:text-[#E8EBF1] hover:bg-[#272D38] rounded text-xs transition-colors cursor-pointer"
+                        title="Reload tables for this schema"
+                      >
+                        <span className={loadingExplorer ? "animate-spin inline-block" : ""}>🔄</span>
+                      </button>
                     </div>
                   )}
 

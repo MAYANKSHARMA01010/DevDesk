@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { getDataDirectory, getDatabasePath } from "../config/database.js";
+import { getDataDirectory, getDatabasePath, resetLocalDatabase } from "../config/database.js";
 import { processManager } from "../services/processes/processManager.js";
 
 /**
@@ -38,3 +38,25 @@ export function getDiagnosticsController(
     res.status(500).json({ success: false, error: msg });
   }
 }
+
+/**
+ * Handles POST /api/diagnostics/reset-database
+ * Completely resets the local SQLite database to a clean state.
+ */
+export function resetDatabaseController(
+  _req: Request,
+  res: Response
+): void {
+  try {
+    const result = resetLocalDatabase();
+    if (result.success) {
+      res.status(200).json({ success: true, message: result.message });
+    } else {
+      res.status(500).json({ success: false, error: result.message });
+    }
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : "Failed to reset database";
+    res.status(500).json({ success: false, error: msg });
+  }
+}
+

@@ -241,6 +241,36 @@ export function closeDatabase(): void {
   }
 }
 
+/**
+ * Completely resets the local SQLite database.
+ * Closes the active database connection, removes the database and WAL files,
+ * and recreates a fresh clean schema.
+ */
+export function resetLocalDatabase(): { success: boolean; message: string } {
+  try {
+    closeDatabase();
+    const dbPath = getDatabasePath();
+    const walPath = `${dbPath}-wal`;
+    const shmPath = `${dbPath}-shm`;
+
+    if (fs.existsSync(dbPath)) fs.unlinkSync(dbPath);
+    if (fs.existsSync(walPath)) fs.unlinkSync(walPath);
+    if (fs.existsSync(shmPath)) fs.unlinkSync(shmPath);
+
+    // Re-initialize clean schema
+    initializeDatabase();
+    console.log("[Database] Local SQLite database successfully reset.");
+    return { success: true, message: "Local SQLite database was successfully reset to a clean state." };
+  } catch (err: unknown) {
+    const error = err as Error;
+    console.error("[Database] Failed to reset database:", error);
+    try {
+      initializeDatabase();
+    } catch {}
+    return { success: false, message: `Failed to reset database: ${error.message}` };
+  }
+}
+
 // Graceful cleanup on process exit
 process.on("exit", () => {
   closeDatabase();

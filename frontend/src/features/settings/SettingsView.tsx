@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { fetchDiagnostics, DiagnosticsData } from "@/services/diagnostics";
 import { BACKEND_URL, LOCAL_API_URL, HOSTED_API_URL, getBackendDisplayLabel } from "@/config/env";
+import { broadcastWorkspacesChanged } from "@/services/workspaceSync";
 
 export function SettingsView() {
   const [diagnostics, setDiagnostics] = useState<DiagnosticsData | null>(null);
@@ -10,8 +11,12 @@ export function SettingsView() {
   const [error, setError] = useState<string | null>(null);
   const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
+  const [revealedKey, setRevealedKey] = useState<string | null>(null);
   const [pingLatency, setPingLatency] = useState<number | null>(null);
   const [pinging, setPinging] = useState(false);
+  const [resettingDb, setResettingDb] = useState(false);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [resetFeedback, setResetFeedback] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   const [isDesktop, setIsDesktop] = useState(false);
   const [electronVersions, setElectronVersions] = useState<
@@ -80,9 +85,44 @@ export function SettingsView() {
     }, 2000);
   }
 
-  function handleReveal(targetPath: string) {
+  async function handleReveal(targetPath: string, key?: string) {
+    if (!targetPath || targetPath === "—") return;
     if (window.electron?.revealInFinder) {
-      window.electron.revealInFinder(targetPath);
+      await window.electron.revealInFinder(targetPath);
+      if (key) {
+        setRevealedKey(key);
+        setTimeout(() => setRevealedKey(null), 2000);
+      }
+    }
+  }
+
+  async function handleResetDatabase() {
+    setResettingDb(true);
+    setResetFeedback(null);
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/diagnostics/reset-database`, {
+        method: "POST",
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setResetFeedback({
+          type: "success",
+          text: data.message || "Local SQLite database was successfully reset to a clean state.",
+        });
+        setShowResetConfirm(false);
+        await loadDiagnostics();
+        broadcastWorkspacesChanged();
+      } else {
+        setResetFeedback({
+          type: "error",
+          text: data.error || "Failed to reset local database.",
+        });
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Network error resetting database";
+      setResetFeedback({ type: "error", text: msg });
+    } finally {
+      setResettingDb(false);
     }
   }
 
@@ -328,10 +368,11 @@ export function SettingsView() {
                     {isDesktop && (
                       <button
                         type="button"
-                        onClick={() => handleReveal(diagnostics.appDataDir)}
+                        onClick={() => handleReveal(diagnostics.appDataDir, "appDataDir")}
                         className="px-2 py-0.5 rounded text-[11px] bg-[#272D38] hover:bg-[#303642] text-[#E8EBF1] border border-[#303642] transition cursor-pointer"
+                        title="Open folder in macOS Finder"
                       >
-                        Reveal in Finder
+                        {revealedKey === "appDataDir" ? "✓ Opened" : "Open Folder"}
                       </button>
                     )}
                   </>
@@ -363,10 +404,11 @@ export function SettingsView() {
                     {isDesktop && (
                       <button
                         type="button"
-                        onClick={() => handleReveal(diagnostics.dbPath)}
+                        onClick={() => handleReveal(diagnostics.dbPath, "dbPath")}
                         className="px-2 py-0.5 rounded text-[11px] bg-[#272D38] hover:bg-[#303642] text-[#E8EBF1] border border-[#303642] transition cursor-pointer"
+                        title="Reveal and highlight devdesk.db in macOS Finder"
                       >
-                        Reveal in Finder
+                        {revealedKey === "dbPath" ? "✓ Revealed" : "Reveal in Finder"}
                       </button>
                     )}
                   </>
@@ -384,6 +426,71 @@ export function SettingsView() {
 
           <div className="text-[11px] text-[#7C8594] pt-1">
             Note: DevDesk stores workspace roots and project metadata locally via SQLite (WAL mode). Sensitive credentials, passwords, and tokens are never persisted in the SQLite database.
+          </div>
+
+          {/* Reset Local Database Action */}
+          <div className="mt-4 pt-4 border-t border-[#303642]/70">
+            <div className="p-3.5 rounded-lg bg-[#171A20] border border-[#303642] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm">🗄️</span>
+                  <span className="text-xs font-semibold text-[#E8EBF1]">Reset Local SQLite Database</span>
+                </div>
+                <p className="text-[11px] text-[#A5ADBA] mt-1 max-w-xl">
+                  Clears locally indexed workspaces, cached project records, and restores <code className="text-[#8CA9CF]">devdesk.db</code> to a fresh clean state. Your real project files and Git repositories on disk will not be touched.
+                </p>
+              </div>
+
+              {!showResetConfirm ? (
+                <button
+                  type="button"
+                  onClick={() => setShowResetConfirm(true)}
+                  disabled={resettingDb}
+                  className="px-3 py-1.5 rounded-md text-xs font-medium text-red-300 bg-red-950/40 border border-red-900/60 hover:bg-red-900/50 hover:text-red-200 transition-all cursor-pointer shrink-0 shadow-xs"
+                >
+                  Reset Local DB
+                </button>
+              ) : (
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={handleResetDatabase}
+                    disabled={resettingDb}
+                    className="px-3 py-1.5 rounded-md text-xs font-semibold text-white bg-red-600 hover:bg-red-700 disabled:opacity-50 transition-all cursor-pointer shadow-xs flex items-center gap-1.5"
+                  >
+                    {resettingDb && <span className="w-3 h-3 rounded-full border-2 border-white/40 border-t-white animate-spin" />}
+                    <span>Confirm & Reset</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowResetConfirm(false)}
+                    disabled={resettingDb}
+                    className="px-3 py-1.5 rounded-md text-xs font-medium text-[#A5ADBA] bg-[#272D38] border border-[#303642] hover:bg-[#303642] hover:text-[#E8EBF1] transition-all cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {resetFeedback && (
+              <div
+                className={`mt-2.5 p-2.5 rounded-md text-xs flex items-center justify-between ${
+                  resetFeedback.type === "success"
+                    ? "bg-[#77B58A]/15 border border-[#77B58A]/40 text-[#77B58A]"
+                    : "bg-[#E18B8B]/15 border border-[#E18B8B]/40 text-[#E18B8B]"
+                }`}
+              >
+                <span>{resetFeedback.text}</span>
+                <button
+                  type="button"
+                  onClick={() => setResetFeedback(null)}
+                  className="ml-2 hover:opacity-80 cursor-pointer"
+                >
+                  ✕
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>

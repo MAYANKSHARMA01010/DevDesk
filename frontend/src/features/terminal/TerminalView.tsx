@@ -856,10 +856,21 @@ export function TerminalView({ isActive, initialSelection }: TerminalViewProps =
 
     loadScripts();
 
-    return () => {
-      mounted = false;
-    };
   }, [activeTab?.projectId, projectScriptsCache]);
+
+  const handleRefreshScripts = async () => {
+    if (!activeTab?.projectId) return;
+    const projId = activeTab.projectId;
+    setLoadingScripts(true);
+    try {
+      const discovered = await fetchProjectScripts(projId);
+      setProjectScriptsCache((prev) => ({ ...prev, [projId]: discovered }));
+    } catch {
+      // Ignore refresh error
+    } finally {
+      setLoadingScripts(false);
+    }
+  };
 
   // 5. Global polling loop for ALL running processes across ALL tabs
   useEffect(() => {
@@ -1662,6 +1673,15 @@ export function TerminalView({ isActive, initialSelection }: TerminalViewProps =
                   <span className="text-[10px] font-mono px-1.5 py-0.2 rounded-full bg-[#272D38] text-[#8CA9CF] border border-[#303642]">
                     {scriptKeys.length}
                   </span>
+                  <button
+                    type="button"
+                    onClick={handleRefreshScripts}
+                    disabled={loadingScripts || isRunning}
+                    className="p-1 rounded text-[#7C8594] hover:text-[#E8EBF1] hover:bg-[#272D38] transition cursor-pointer"
+                    title="Reload scripts from package.json on disk"
+                  >
+                    <span className={loadingScripts ? "animate-spin inline-block text-xs" : "text-xs"}>🔄</span>
+                  </button>
                 </div>
 
                 {/* Horizontally scrollable container with smooth nudge controls */}

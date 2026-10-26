@@ -917,31 +917,39 @@ async function openInVSCode(projectPath: string): Promise<ActionResult> {
 }
 
 /**
- * Safely reveals the project directory in the OS file manager.
+ * Safely reveals a file or directory in the OS file manager.
+ * If target is a directory, opens the directory.
+ * If target is a file, selects and highlights the item in its folder.
  */
-async function revealInFinder(projectPath: string): Promise<ActionResult> {
-  if (!projectPath || typeof projectPath !== "string") {
-    return { success: false, error: "Invalid project path." };
+async function revealInFinder(targetPath: string): Promise<ActionResult> {
+  if (!targetPath || typeof targetPath !== "string") {
+    return { success: false, error: "Invalid path." };
   }
 
-  const resolved = path.resolve(projectPath);
+  const resolved = path.resolve(targetPath);
 
   try {
-    const stats = await fs.stat(resolved);
-    if (!stats.isDirectory()) {
-      return { success: false, error: `Path is not a directory: "${resolved}"` };
+    const exists = fsSync.existsSync(resolved);
+    if (!exists) {
+      // If the file doesn't exist yet, attempt opening the parent directory
+      const parentDir = path.dirname(resolved);
+      if (fsSync.existsSync(parentDir)) {
+        await shell.openPath(parentDir);
+        return { success: true };
+      }
+      return { success: false, error: `Path not found or inaccessible: "${resolved}"` };
     }
-  } catch (err: unknown) {
-    const error = err as NodeJS.ErrnoException;
-    return { success: false, error: `Directory not found or inaccessible: ${error.message}` };
-  }
 
-  try {
-    shell.showItemInFolder(resolved);
+    const stat = fsSync.statSync(resolved);
+    if (stat.isDirectory()) {
+      await shell.openPath(resolved);
+    } else {
+      shell.showItemInFolder(resolved);
+    }
     return { success: true };
   } catch (err: unknown) {
     const error = err as Error;
-    return { success: false, error: `Failed to reveal in Finder: ${error.message}` };
+    return { success: false, error: `Failed to open in Finder: ${error.message}` };
   }
 }
 

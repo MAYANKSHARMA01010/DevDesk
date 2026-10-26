@@ -426,9 +426,9 @@ export function ProjectsView({
   const [openMenuForPath, setOpenMenuForPath] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
 
-  // Card-level action states
   const [runningAction, setRunningAction] = useState<RunningAction | null>(null);
   const [actionError, setActionError] = useState<ActionFeedback | null>(null);
+  const [refreshingAll, setRefreshingAll] = useState<boolean>(false);
 
   const [, startTransition] = useTransition();
 
@@ -593,6 +593,38 @@ export function ProjectsView({
       }
     } finally {
       setScanningTarget("");
+    }
+  }
+
+  // 4b. Global Refresh: re-fetch all saved workspaces from SQLite and re-index active workspace
+  async function handleRefreshAll() {
+    setRefreshingAll(true);
+    setErrorMessage(null);
+    try {
+      const loaded = await fetchWorkspaces();
+      startTransition(() => {
+        setWorkspaces(loaded);
+        if (loaded.length > 0 && !activeWorkspaceId) {
+          setActiveWorkspaceId(loaded[0].id);
+        }
+      });
+      if (activeWorkspace) {
+        const rescanned = await scanAndSaveWorkspace(activeWorkspace.rootPath, {
+          maxDepth: scanDepth,
+        });
+        startTransition(() => {
+          setWorkspaces((prev) =>
+            prev.map((w) => (w.id === rescanned.id ? rescanned : w))
+          );
+        });
+        broadcastWorkspacesChanged();
+      }
+    } catch (err: unknown) {
+      setErrorMessage(
+        err instanceof Error ? err.message : "Failed to refresh workspaces."
+      );
+    } finally {
+      setRefreshingAll(false);
     }
   }
 
@@ -1153,6 +1185,16 @@ export function ProjectsView({
               </button>
 
               <button
+                onClick={handleRefreshAll}
+                disabled={status === "scanning" || status === "deleting" || refreshingAll || runningAction !== null}
+                className="px-3 py-1.5 rounded-md text-xs font-medium text-zinc-300 bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 hover:text-zinc-100 disabled:opacity-50 transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
+                title="Refresh all workspaces and re-index project files from disk"
+              >
+                <span className={status === "scanning" || refreshingAll ? "animate-spin" : ""}>🔄</span>
+                <span>{status === "scanning" || refreshingAll ? "Refreshing..." : "Refresh"}</span>
+              </button>
+
+              <button
                 onClick={() => setShowForgetConfirm(true)}
                 disabled={status === "scanning" || status === "deleting" || runningAction !== null}
                 className="px-3 py-1.5 rounded-md text-xs font-medium text-zinc-400 bg-zinc-900 border border-zinc-800 hover:bg-red-950/50 hover:border-red-900/60 hover:text-red-300 disabled:opacity-50 transition-all cursor-pointer"
@@ -1161,6 +1203,18 @@ export function ProjectsView({
                 Forget
               </button>
             </>
+          )}
+
+          {!activeWorkspace && (
+            <button
+              onClick={handleRefreshAll}
+              disabled={status === "scanning" || status === "deleting" || refreshingAll}
+              className="px-3 py-1.5 rounded-md text-xs font-medium text-zinc-300 bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 hover:text-zinc-100 disabled:opacity-50 transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
+              title="Refresh workspace list from database"
+            >
+              <span className={refreshingAll ? "animate-spin" : ""}>🔄</span>
+              <span>{refreshingAll ? "Refreshing..." : "Refresh"}</span>
+            </button>
           )}
 
           <button

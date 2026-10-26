@@ -795,10 +795,11 @@ export function EnvEditorPane({
                       }
                     }}
                     disabled={loadingContent}
-                    className="p-1.5 text-[#7C8594] hover:text-[#E8EBF1] hover:bg-[#272D38] rounded text-xs transition-colors cursor-pointer"
-                    title="Reload from disk"
+                    className="px-2 py-1 text-xs text-[#A5ADBA] hover:text-[#E8EBF1] hover:bg-[#272D38] border border-[#303642] rounded flex items-center gap-1.5 transition-colors cursor-pointer"
+                    title="Reload environment file content from disk"
                   >
-                    🔄
+                    <span className={loadingContent ? "animate-spin inline-block" : ""}>🔄</span>
+                    <span>Reload</span>
                   </button>
 
                   {/* Discard Changes */}
