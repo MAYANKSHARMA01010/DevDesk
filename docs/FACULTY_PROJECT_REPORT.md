@@ -4,7 +4,7 @@
 **Student Name**: Mayank Sharma  
 **Platform**: macOS Desktop App (Apple Silicon & Intel)  
 **GitHub Repository**: [https://github.com/MAYANKSHARMA01010/DevDesk](https://github.com/MAYANKSHARMA01010/DevDesk)  
-**Mac DMG Download Link**: [Google Drive DMG Link](https://drive.google.com/file/d/1TuhrkWh8yWVEEfLqJRypAuFlFmMr2_Jm/view?usp=sharing)  
+**Mac DMG Download Link**: [Google Drive DMG Link](https://drive.google.com/drive/folders/1raRV1BxgL3lI7Tz-kflxTMlECMHlPDvK?usp=sharing)  
 
 ---
 
@@ -106,7 +106,7 @@ Normally, when working on a project, a developer has to open:
 1. **Mac Application Installer (DMG)**:
    - Self-contained `.dmg` installer for Apple Silicon Macs (~140 MB).
    - Bundles all 129 production dependencies inside `Contents/Resources/backend` so it works out of the box without installing Node or running terminal commands.
-   - Download Link: [Google Drive DevDesk DMG Link](https://drive.google.com/file/d/1TuhrkWh8yWVEEfLqJRypAuFlFmMr2_Jm/view?usp=sharing)
+   - Download Link: [Google Drive DevDesk DMG Link](https://drive.google.com/drive/folders/1raRV1BxgL3lI7Tz-kflxTMlECMHlPDvK?usp=sharing)
 2. **GitHub Repository**:
    - Complete TypeScript source code: [https://github.com/MAYANKSHARMA01010/DevDesk](https://github.com/MAYANKSHARMA01010/DevDesk)
 3. **Documentation Suite**:

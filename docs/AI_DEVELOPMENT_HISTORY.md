@@ -17178,7 +17178,7 @@ The documentation has been overhauled to senior-engineer standards, the unwanted
 ### 1. Direct Public DMG Download Link
 The Google Drive download link is now featured prominently at the top of the [README.md](file:///Users/mayanksharma/Downloads/Pratice/APP_DEV/DevDesk/README.md):
 
-👉 **[⬇️ Download DevDesk v1.0.0 for macOS (Apple Silicon .dmg)](https://drive.google.com/file/d/1TuhrkWh8yWVEEfLqJRypAuFlFmMr2_Jm/view?usp=sharing)**  
+👉 **[⬇️ Download DevDesk v1.0.0 for macOS (Apple Silicon .dmg)](https://drive.google.com/drive/folders/1raRV1BxgL3lI7Tz-kflxTMlECMHlPDvK?usp=sharing)**  
 *(140 MB self-contained standalone DMG with embedded Express backend and SQLite engine).*
 
 ---

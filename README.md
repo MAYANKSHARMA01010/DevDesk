@@ -4,7 +4,7 @@
 > Effortlessly orchestrate workspaces, run project scripts with live logs, monitor processes and listening ports, manage Git repositories, test HTTP APIs, safely edit environment files, and query relational databases — all inside a single, high-performance desktop application.
 
 [![Version](https://img.shields.io/badge/version-1.0.0-blue.svg?style=flat-square)](package.json)
-[![Platform](https://img.shields.io/badge/platform-macOS%20Apple%20Silicon%20%28arm64%29-black.svg?style=flat-square&logo=apple)](https://drive.google.com/file/d/1TuhrkWh8yWVEEfLqJRypAuFlFmMr2_Jm/view?usp=sharing)
+[![Platform](https://img.shields.io/badge/platform-macOS%20Apple%20Silicon%20%28arm64%29-black.svg?style=flat-square&logo=apple)](https://drive.google.com/drive/folders/1raRV1BxgL3lI7Tz-kflxTMlECMHlPDvK?usp=sharing)
 [![Electron](https://img.shields.io/badge/electron-44.4.4-47848F.svg?style=flat-square&logo=electron)](desktop/package.json)
 [![Next.js](https://img.shields.io/badge/next.js-16.3.8-000000.svg?style=flat-square&logo=nextdotjs)](frontend/package.json)
 [![React](https://img.shields.io/badge/react-19.2.8-61DAFB.svg?style=flat-square&logo=react)](frontend/package.json)
@@ -23,11 +23,11 @@ DevDesk is available as a standalone, self-contained macOS installer with all de
     <td align="center" style="padding: 20px;">
       <h3>📦 macOS Apple Silicon (M1/M2/M3/M4)</h3>
       <p>Self-contained installer with embedded Node.js backend & SQLite engine (140 MB)</p>
-      <a href="https://drive.google.com/file/d/1TuhrkWh8yWVEEfLqJRypAuFlFmMr2_Jm/view?usp=sharing">
+      <a href="https://drive.google.com/drive/folders/1raRV1BxgL3lI7Tz-kflxTMlECMHlPDvK?usp=sharing">
         <img src="https://img.shields.io/badge/⬇️_Download_DevDesk_DMG-Google_Drive-4285F4?style=for-the-badge&logo=googledrive&logoColor=white" alt="Download DevDesk DMG" />
       </a>
       <br /><br />
-      <sub>Direct Drive Link: <a href="https://drive.google.com/file/d/1TuhrkWh8yWVEEfLqJRypAuFlFmMr2_Jm/view?usp=sharing">https://drive.google.com/file/d/1TuhrkWh8yWVEEfLqJRypAuFlFmMr2_Jm/view?usp=sharing</a></sub>
+      <sub>Direct Drive Link: <a href="https://drive.google.com/drive/folders/1raRV1BxgL3lI7Tz-kflxTMlECMHlPDvK?usp=sharing">https://drive.google.com/drive/folders/1raRV1BxgL3lI7Tz-kflxTMlECMHlPDvK?usp=sharing</a></sub>
     </td>
   </tr>
 </table>

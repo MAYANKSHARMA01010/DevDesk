@@ -2,7 +2,7 @@
 
 > **Target Platform**: macOS (Apple Silicon `arm64` & Intel `x64`)  
 > **Package Format**: Apple Disk Image (`.dmg`) & Standalone Application Bundle (`.app`)  
-> **Official Direct Download**: [Google Drive DMG Link](https://drive.google.com/file/d/1TuhrkWh8yWVEEfLqJRypAuFlFmMr2_Jm/view?usp=sharing)
+> **Official Direct Download**: [Google Drive DMG Link](https://drive.google.com/drive/folders/1raRV1BxgL3lI7Tz-kflxTMlECMHlPDvK?usp=sharing)
 
 ---
 
@@ -59,7 +59,7 @@ Upon completion, the distribution artifacts are generated in the `release/` dire
 ## 4. Installation & First Launch (macOS)
 
 1. **Download the Disk Image**:
-   Download the latest build from the [Google Drive DMG Link](https://drive.google.com/file/d/1TuhrkWh8yWVEEfLqJRypAuFlFmMr2_Jm/view?usp=sharing).
+   Download the latest build from the [Google Drive DMG Link](https://drive.google.com/drive/folders/1raRV1BxgL3lI7Tz-kflxTMlECMHlPDvK?usp=sharing).
 2. **Mount the DMG**: Double-click `DevDesk-1.0.0-arm64.dmg`.
 3. **Install**: Drag the **DevDesk** icon into the **Applications** folder shortcut.
 4. **Launch**: Open DevDesk from Spotlight, Launchpad, or `/Applications`.
