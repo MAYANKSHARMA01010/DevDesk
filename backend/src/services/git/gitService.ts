@@ -148,6 +148,15 @@ export function validateRelativeRepoPath(
   return relative.split(path.sep).join("/");
 }
 
+const repoRootCache = new Map<string, string>();
+
+/**
+ * Clears the in-memory repository root cache (e.g. on workspace reset).
+ */
+export function clearRepoRootCache(): void {
+  repoRootCache.clear();
+}
+
 /**
  * Resolves a saved project by ID from SQLite and determines its actual Git repository root.
  */
@@ -174,29 +183,34 @@ export async function resolveProjectRepository(projectId: string): Promise<{
     );
   }
 
-  // Determine the actual repository root (works for projects inside monorepos or subdirectories)
-  const revParse = await runGitCommand(project.path, [
-    "rev-parse",
-    "--show-toplevel",
-  ]);
+  let repositoryRoot = repoRootCache.get(project.path);
 
-  if (revParse.code !== 0) {
-    if (
-      revParse.stderr.includes("not found in system PATH") ||
-      revParse.code === 127
-    ) {
-      throw new Error("Git is not installed or not available in system PATH");
-    }
-    throw new Error(
-      `Project "${project.name}" is not inside a Git repository: "${project.path}"`
-    );
-  }
-
-  const repositoryRoot = revParse.stdout.trim();
   if (!repositoryRoot || !fs.existsSync(repositoryRoot)) {
-    throw new Error(
-      `Failed to resolve a valid Git repository root for project "${project.name}"`
-    );
+    // Determine the actual repository root (works for projects inside monorepos or subdirectories)
+    const revParse = await runGitCommand(project.path, [
+      "rev-parse",
+      "--show-toplevel",
+    ]);
+
+    if (revParse.code !== 0) {
+      if (
+        revParse.stderr.includes("not found in system PATH") ||
+        revParse.code === 127
+      ) {
+        throw new Error("Git is not installed or not available in system PATH");
+      }
+      throw new Error(
+        `Project "${project.name}" is not inside a Git repository: "${project.path}"`
+      );
+    }
+
+    repositoryRoot = revParse.stdout.trim();
+    if (!repositoryRoot || !fs.existsSync(repositoryRoot)) {
+      throw new Error(
+        `Failed to resolve a valid Git repository root for project "${project.name}"`
+      );
+    }
+    repoRootCache.set(project.path, repositoryRoot);
   }
 
   function toRealPath(p: string): string {
@@ -271,6 +285,8 @@ export class GitService {
     );
 
     const statusResult = await runGitCommand(repositoryRoot, [
+      "-c",
+      "core.preloadindex=true",
       "status",
       "--porcelain=v2",
       "--branch",
@@ -446,11 +462,19 @@ export class GitService {
   public async getBranches(projectId: string): Promise<GitBranchesResult> {
     const { repositoryRoot } = await resolveProjectRepository(projectId);
 
-    // List local branches with HEAD indicator: "%(refname:short)%00%(HEAD)"
-    const localResult = await runGitCommand(repositoryRoot, [
-      "branch",
-      "--list",
-      '--format=%(refname:short)%00%(HEAD)',
+    // Concurrently fetch local and remote branches in parallel
+    const [localResult, remoteResult] = await Promise.all([
+      runGitCommand(repositoryRoot, [
+        "branch",
+        "--list",
+        '--format=%(refname:short)%00%(HEAD)',
+      ]),
+      runGitCommand(repositoryRoot, [
+        "branch",
+        "-r",
+        "--list",
+        '--format=%(refname:short)',
+      ]),
     ]);
 
     let currentBranch: string | null = null;
@@ -496,14 +520,6 @@ export class GitService {
         }
       }
     }
-
-    // List remote branches
-    const remoteResult = await runGitCommand(repositoryRoot, [
-      "branch",
-      "-r",
-      "--list",
-      '--format=%(refname:short)',
-    ]);
 
     const remoteBranches: string[] = [];
     if (remoteResult.code === 0 && remoteResult.stdout.trim().length > 0) {
@@ -950,17 +966,6 @@ export class GitService {
   ): Promise<GitHistoryResult> {
     const { repositoryRoot } = await resolveProjectRepository(projectId);
 
-    // Verify repository has commits
-    const headCheck = await runGitCommand(repositoryRoot, [
-      "rev-parse",
-      "--verify",
-      "HEAD",
-    ]);
-
-    if (headCheck.code !== 0) {
-      return { commits: [], total: 0 };
-    }
-
     const boundedLimit = Math.max(1, Math.min(limit || 20, 100));
 
     // Format: hash, shortHash, authorName, authorEmail, isoDate, subject
@@ -971,7 +976,7 @@ export class GitService {
       '--pretty=format:%H%x00%h%x00%an%x00%ae%x00%aI%x00%s',
     ]);
 
-    if (logResult.code !== 0) {
+    if (logResult.code !== 0 || !logResult.stdout.trim()) {
       return { commits: [], total: 0 };
     }
 

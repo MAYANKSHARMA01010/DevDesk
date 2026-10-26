@@ -212,6 +212,7 @@ export function GitView({ isActive, initialSelection }: GitViewProps = {}) {
     gitProjects.find((p) => p.id === selectedProjectId) || null;
 
   // 2. Fetch all Git data for selected project
+  // 2. Fetch all Git data for selected project with progressive rendering
   async function loadGitData(projectId: string, isManualRefresh = false) {
     if (!projectId) {
       setGitStatus(null);
@@ -222,55 +223,75 @@ export function GitView({ isActive, initialSelection }: GitViewProps = {}) {
       return;
     }
 
-    if (isManualRefresh) setRefreshing(true);
-    else setLoadingGit(true);
+    // Only show full blocking loader on initial cold load when there is no existing status
+    if (isManualRefresh || gitStatus !== null) {
+      setRefreshing(true);
+    } else {
+      setLoadingGit(true);
+    }
 
     setErrorMessage(null);
 
     try {
-      const [statusData, branchesData, historyData] = await Promise.all([
-        fetchGitStatus(projectId),
-        fetchGitBranches(projectId).catch(() => null),
-        fetchGitHistory(projectId, 25).catch(() => ({ commits: [], total: 0 })),
-      ]);
+      // 1. Fetch status fast and render modified files immediately
+      const statusPromise = fetchGitStatus(projectId).then((statusData) => {
+        if (!isMountedRef.current) return statusData;
+        setGitStatus(statusData);
 
-      if (!isMountedRef.current) return;
+        if (statusData.files.length > 0) {
+          setSelectedFile((prev) => {
+            if (
+              prev &&
+              statusData.files.some(
+                (f) => f.path === prev.path && f.staged === prev.staged
+              )
+            ) {
+              return prev;
+            }
+            const firstStaged = statusData.stagedFiles[0];
+            if (firstStaged) return { path: firstStaged.path, staged: true };
+            const firstUnstaged = statusData.unstagedFiles[0] || statusData.untrackedFiles[0];
+            if (firstUnstaged) return { path: firstUnstaged.path, staged: false };
+            return null;
+          });
+        } else {
+          setSelectedFile(null);
+          setDiffResult(null);
+        }
+        return statusData;
+      });
 
-      setGitStatus(statusData);
-      setBranches(branchesData);
-      if (branchesData?.currentBranch) {
-        setSelectedBranch(branchesData.currentBranch);
-      }
-      setHistory(historyData.commits);
-
-      // Auto-select first changed file if none selected or selected file no longer exists
-      if (statusData.files.length > 0) {
-        setSelectedFile((prev) => {
-          if (
-            prev &&
-            statusData.files.some(
-              (f) => f.path === prev.path && f.staged === prev.staged
-            )
-          ) {
-            return prev;
+      // 2. Concurrently fetch branches in background
+      const branchesPromise = fetchGitBranches(projectId)
+        .then((branchesData) => {
+          if (!isMountedRef.current || !branchesData) return null;
+          setBranches(branchesData);
+          if (branchesData.currentBranch) {
+            setSelectedBranch(branchesData.currentBranch);
           }
-          const firstStaged = statusData.stagedFiles[0];
-          if (firstStaged) return { path: firstStaged.path, staged: true };
-          const firstUnstaged = statusData.unstagedFiles[0] || statusData.untrackedFiles[0];
-          if (firstUnstaged) return { path: firstUnstaged.path, staged: false };
-          return null;
-        });
-      } else {
+          return branchesData;
+        })
+        .catch(() => null);
+
+      // 3. Concurrently fetch commit history in background
+      const historyPromise = fetchGitHistory(projectId, 25)
+        .then((historyData) => {
+          if (!isMountedRef.current || !historyData) return { commits: [], total: 0 };
+          setHistory(historyData.commits || []);
+          return historyData;
+        })
+        .catch(() => ({ commits: [], total: 0 }));
+
+      await Promise.all([statusPromise, branchesPromise, historyPromise]);
+    } catch (err: unknown) {
+      if (!isMountedRef.current) return;
+      if (!gitStatus) {
+        setGitStatus(null);
+        setBranches(null);
+        setHistory([]);
         setSelectedFile(null);
         setDiffResult(null);
       }
-    } catch (err: unknown) {
-      if (!isMountedRef.current) return;
-      setGitStatus(null);
-      setBranches(null);
-      setHistory([]);
-      setSelectedFile(null);
-      setDiffResult(null);
       setErrorMessage(
         err instanceof Error ? err.message : "Failed to load Git repository data"
       );
@@ -282,13 +303,20 @@ export function GitView({ isActive, initialSelection }: GitViewProps = {}) {
     }
   }
 
+  // Ref to track last loaded project ID and prevent duplicate fetches on window focus
+  const lastLoadedProjectIdRef = useRef<string>("");
+
   // Reload Git data when selected project changes
   useEffect(() => {
     if (selectedProjectId) {
       const isGitProject = gitProjects.some((p) => p.id === selectedProjectId);
       if (isGitProject) {
-        loadGitData(selectedProjectId);
+        if (lastLoadedProjectIdRef.current !== selectedProjectId) {
+          lastLoadedProjectIdRef.current = selectedProjectId;
+          loadGitData(selectedProjectId);
+        }
       } else {
+        lastLoadedProjectIdRef.current = "";
         setSelectedProjectId("");
         setGitStatus(null);
         setBranches(null);
@@ -298,6 +326,7 @@ export function GitView({ isActive, initialSelection }: GitViewProps = {}) {
         setErrorMessage(null);
       }
     } else {
+      lastLoadedProjectIdRef.current = "";
       setGitStatus(null);
       setBranches(null);
       setHistory([]);

@@ -1091,12 +1091,12 @@ export function TerminalView({ isActive, initialSelection }: TerminalViewProps =
   }
 
   // Process Actions: Start, Stop, Restart, Clear Logs, Export Logs
-  async function handleStart(overrideScript?: string) {
+  async function handleStart(overrideScript?: string, overrideCommand?: string) {
     if (!activeTab || !activeTab.projectId) return;
 
-    const isCustomMode = activeTab.isCustom || !hasDetectedScripts;
-    const commandToRun = isCustomMode ? activeTab.customCommand.trim() : "";
-    const scriptToRun = overrideScript || (!isCustomMode ? activeTab.script : "");
+    const isCustomMode = Boolean(overrideCommand) || activeTab.isCustom || !hasDetectedScripts;
+    const commandToRun = (overrideCommand || (isCustomMode ? activeTab.customCommand : "")).trim();
+    const scriptToRun = !overrideCommand && (overrideScript || (!isCustomMode ? activeTab.script : ""));
 
     if (!commandToRun && !scriptToRun) {
       setErrorMessage(
@@ -1131,7 +1131,8 @@ export function TerminalView({ isActive, initialSelection }: TerminalViewProps =
       updateActiveTab({
         processId: proc.id,
         status: "starting",
-        script: scriptToRun || activeTab.script,
+        script: scriptToRun || (commandToRun ? commandToRun.slice(0, 24) : activeTab.script),
+        customCommand: commandToRun || activeTab.customCommand,
         latestSeqId: startLog.id,
         logs: [...activeTab.logs, startLog],
         title: label
@@ -1810,11 +1811,11 @@ export function TerminalView({ isActive, initialSelection }: TerminalViewProps =
                           <button
                             onClick={() => handleStart(activeTab.script)}
                             disabled={actionLoading}
-                            className="px-2.5 py-1 rounded text-xs font-semibold text-[#101216] bg-[#8CA9CF] hover:bg-[#A6BDE0] disabled:opacity-50 transition cursor-pointer flex items-center gap-1 shadow-xs"
-                            title="Execute this script in the project directory"
+                            className="px-2.5 py-1 rounded text-xs font-semibold text-[#101216] bg-[#8CA9CF] hover:bg-[#A6BDE0] disabled:opacity-50 transition cursor-pointer flex items-center gap-1 shadow-xs shrink-0"
+                            title="Execute this script directly in the project directory"
                           >
                             <span>▶</span>
-                            <span>Run {activeTab.script}</span>
+                            <span>Run Directly ({activeTab.script})</span>
                           </button>
                         ) : (
                           <button
@@ -1834,8 +1835,42 @@ export function TerminalView({ isActive, initialSelection }: TerminalViewProps =
               )}
             </div>
           ) : (
-            /* Custom Command Input */
-            <div className="space-y-2">
+            /* Custom Command Input with Quick Command Presets */
+            <div className="space-y-2.5">
+              {/* Quick Preset Commands Bar */}
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="text-[11px] text-[#7C8594] font-medium shrink-0 flex items-center gap-1">
+                  <span>⚡</span>
+                  <span>Quick Run:</span>
+                </span>
+                {[
+                  { label: "⚡ dev", cmd: `${activeProject?.packageManager || "npm"} run dev` },
+                  { label: "🔨 build", cmd: `${activeProject?.packageManager || "npm"} run build` },
+                  { label: "🧪 test", cmd: `${activeProject?.packageManager || "npm"} test` },
+                  { label: "⎇ git status", cmd: "git status" },
+                  { label: "📜 git log", cmd: "git log --oneline -n 5" },
+                  { label: "⬇️ git pull", cmd: "git pull" },
+                  { label: "📦 install", cmd: `${activeProject?.packageManager || "npm"} install` },
+                ].map((preset) => (
+                  <button
+                    key={preset.label}
+                    type="button"
+                    onClick={() => {
+                      updateActiveTab({ customCommand: preset.cmd });
+                      if (!isRunning && activeTab?.projectId) {
+                        handleStart(undefined, preset.cmd);
+                      }
+                    }}
+                    disabled={isRunning || !activeTab?.projectId}
+                    className="px-2 py-0.5 rounded text-[11px] font-mono bg-[#1D2129] hover:bg-[#35465E] text-[#8CA9CF] border border-[#303642] hover:border-[#8CA9CF]/60 transition cursor-pointer disabled:opacity-50"
+                    title={`Click to execute "${preset.cmd}" directly in project directory`}
+                  >
+                    {preset.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Command Input with Run Directly button */}
               <div className="flex items-center gap-2">
                 <span className="text-xs font-mono text-[#8CA9CF] font-bold">&gt;_</span>
                 <input
@@ -1848,10 +1883,19 @@ export function TerminalView({ isActive, initialSelection }: TerminalViewProps =
                     }
                   }}
                   disabled={isRunning}
-                  placeholder="Enter command to execute in project directory (e.g. pnpm test, python3 app.py, cargo run, git status)..."
+                  placeholder="Enter command to execute in project directory (e.g. pnpm run dev, pnpm test, git status, git pull)..."
                   className="flex-1 px-3 py-1.5 rounded-md bg-[#272D38] border border-[#303642] text-[#E8EBF1] placeholder-[#7C8594] text-xs font-mono focus:outline-none focus:border-[#8CA9CF] disabled:opacity-50"
                 />
-                <span className="text-[11px] text-[#7C8594] hidden sm:inline">Press Enter to run</span>
+                <button
+                  type="button"
+                  onClick={() => handleStart()}
+                  disabled={actionLoading || isRunning || !activeTab?.customCommand?.trim()}
+                  className="px-3 py-1.5 rounded-md text-xs font-semibold text-[#101216] bg-[#8CA9CF] hover:bg-[#A6BDE0] disabled:opacity-50 transition cursor-pointer flex items-center gap-1 shadow-xs shrink-0"
+                  title="Execute this command directly in the project directory"
+                >
+                  <span>▶</span>
+                  <span>Run Directly</span>
+                </button>
               </div>
             </div>
           )}
