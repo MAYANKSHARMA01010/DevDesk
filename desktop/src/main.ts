@@ -3,7 +3,8 @@ import * as path from "path";
 import * as fs from "fs/promises";
 import * as fsSync from "fs";
 import * as http from "http";
-import { spawn, ChildProcess } from "child_process";
+import * as netSocket from "net";
+import { spawn, execSync, ChildProcess } from "child_process";
 import { pathToFileURL } from "url";
 import type { ActionResult } from "./types";
 
@@ -326,9 +327,40 @@ function getBackendErrorHtml(title: string, message: string, suggestion: string)
 /**
  * Checks if port is occupied and verifies whether an existing DevDesk service is running.
  */
-function checkPortOccupied(port: number): Promise<{ occupied: boolean; isDevDesk: boolean }> {
-  return new Promise((resolve) => {
-    const req = http.get(`http://127.0.0.1:${port}/api/diagnostics`, { timeout: 1000 }, (res) => {
+async function checkPortOccupied(port: number): Promise<{ occupied: boolean; isDevDesk: boolean }> {
+  // 1. Quick check against /health (instant, returns status: "ok")
+  const isHealthy = await new Promise<boolean>((resolve) => {
+    const req = http.get(`http://127.0.0.1:${port}/health`, { timeout: 2000 }, (res) => {
+      let data = "";
+      res.on("data", (chunk) => {
+        data += chunk;
+      });
+      res.on("end", () => {
+        try {
+          const parsed = JSON.parse(data);
+          if (parsed && (parsed.status === "ok" || parsed.app === "DevDesk")) {
+            resolve(true);
+            return;
+          }
+        } catch {}
+        resolve(false);
+      });
+    });
+
+    req.on("error", () => resolve(false));
+    req.on("timeout", () => {
+      req.destroy();
+      resolve(false);
+    });
+  });
+
+  if (isHealthy) {
+    return { occupied: true, isDevDesk: true };
+  }
+
+  // 2. Secondary check against /api/diagnostics
+  const isDiag = await new Promise<boolean>((resolve) => {
+    const req = http.get(`http://127.0.0.1:${port}/api/diagnostics`, { timeout: 2000 }, (res) => {
       let data = "";
       res.on("data", (chunk) => {
         data += chunk;
@@ -342,28 +374,42 @@ function checkPortOccupied(port: number): Promise<{ occupied: boolean; isDevDesk
               parsed.appName === "DevDesk" ||
               parsed.data?.app === "DevDesk")
           ) {
-            resolve({ occupied: true, isDevDesk: true });
+            resolve(true);
             return;
           }
-        } catch {
-          // not valid json
-        }
-        resolve({ occupied: true, isDevDesk: false });
+        } catch {}
+        resolve(false);
       });
     });
 
-    req.on("error", (err: NodeJS.ErrnoException) => {
-      if (err.code === "ECONNREFUSED") {
-        resolve({ occupied: false, isDevDesk: false });
-      } else {
-        resolve({ occupied: true, isDevDesk: false });
-      }
-    });
-
+    req.on("error", () => resolve(false));
     req.on("timeout", () => {
       req.destroy();
+      resolve(false);
+    });
+  });
+
+  if (isDiag) {
+    return { occupied: true, isDevDesk: true };
+  }
+
+  // 3. Raw TCP check to see if port is open
+  return new Promise((resolve) => {
+    const socket = new netSocket.Socket();
+    socket.setTimeout(800);
+    socket.on("connect", () => {
+      socket.destroy();
       resolve({ occupied: true, isDevDesk: false });
     });
+    socket.on("timeout", () => {
+      socket.destroy();
+      resolve({ occupied: false, isDevDesk: false });
+    });
+    socket.on("error", () => {
+      socket.destroy();
+      resolve({ occupied: false, isDevDesk: false });
+    });
+    socket.connect(port, "127.0.0.1");
   });
 }
 
@@ -412,19 +458,59 @@ async function startProductionBackend(): Promise<{
     }
   })();
 
-  // 1. Port conflict check
-  const portCheck = await checkPortOccupied(targetPort);
+  // 1. Port conflict check & automatic zombie cleanup
+  let portCheck = await checkPortOccupied(targetPort);
   if (portCheck.occupied) {
     if (portCheck.isDevDesk) {
       console.log(`[DevDesk] Found existing healthy DevDesk backend on port ${targetPort}. Attaching...`);
       return { success: true };
     }
-    return {
-      success: false,
-      error: `Port ${targetPort} is already in use by another application on your Mac.`,
-      suggestion:
-        `Please identify and close the process using port ${targetPort} (e.g., run 'lsof -i :${targetPort}' in terminal), then click Retry Startup.`,
-    };
+
+    // Port is occupied by something that is NOT responding to DevDesk health check.
+    // On macOS, check if it is a stale orphaned node / DevDesk zombie and clear it.
+    console.warn(`[DevDesk] Port ${targetPort} is occupied by an unresponsive process. Attempting recovery...`);
+    try {
+      const pidStr = execSync(`lsof -ti :${targetPort}`, { encoding: "utf8" }).trim();
+      if (pidStr) {
+        const pids = pidStr
+          .split(/\s+/)
+          .map((p) => parseInt(p, 10))
+          .filter((p) => !isNaN(p) && p > 0 && p !== process.pid);
+        for (const p of pids) {
+          try {
+            process.kill(p, "SIGTERM");
+          } catch {}
+        }
+        await new Promise((r) => setTimeout(r, 600));
+
+        // Re-check
+        portCheck = await checkPortOccupied(targetPort);
+        if (!portCheck.occupied) {
+          console.log(`[DevDesk] Successfully freed port ${targetPort}.`);
+        } else if (portCheck.isDevDesk) {
+          return { success: true };
+        } else {
+          // Force kill
+          for (const p of pids) {
+            try {
+              process.kill(p, "SIGKILL");
+            } catch {}
+          }
+          await new Promise((r) => setTimeout(r, 400));
+          portCheck = await checkPortOccupied(targetPort);
+        }
+      }
+    } catch {
+      // lsof not available or exited with error
+    }
+
+    if (portCheck.occupied && !portCheck.isDevDesk) {
+      return {
+        success: false,
+        error: `Port ${targetPort} is in use by another application on your Mac.`,
+        suggestion: `Please identify and close the process using port ${targetPort} (e.g., run 'lsof -i :${targetPort}' in terminal), then click Retry Startup.`,
+      };
+    }
   }
 
   // 2. Resolve backend entry point
@@ -508,10 +594,19 @@ async function startProductionBackend(): Promise<{
 }
 
 function cleanupBackendProcess(): void {
-  if (backendChild && !backendChild.killed) {
+  if (backendChild) {
     console.log("[DevDesk] Gracefully shutting down backend child process...");
     try {
-      backendChild.kill("SIGTERM");
+      const pid = backendChild.pid;
+      if (pid) {
+        try {
+          process.kill(-pid, "SIGTERM");
+        } catch {
+          backendChild.kill("SIGTERM");
+        }
+      } else {
+        backendChild.kill("SIGTERM");
+      }
     } catch (err) {
       console.warn("[DevDesk] Failed to send SIGTERM to backend:", err);
     }
@@ -911,43 +1006,57 @@ function registerIpcHandlers(): void {
   console.log("[DevDesk] IPC handlers registered");
 }
 
-// App lifecycle
-app.whenReady().then(() => {
-  const frontendDir = isDev
-    ? path.resolve(__dirname, "../../frontend/out")
-    : path.join(process.resourcesPath, "frontend");
+// Ensure single application instance
+const gotTheLock = app.requestSingleInstanceLock();
 
-  protocol.handle("app", (req) => {
-    const url = new URL(req.url);
-    const decodedPath = decodeURIComponent(url.pathname);
-    const filePath = path.join(frontendDir, decodedPath === "/" ? "index.html" : decodedPath);
-    return net.fetch(pathToFileURL(filePath).toString());
-  });
-
-  registerIpcHandlers();
-  createWindow();
-
-  app.on("activate", () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
-      createWindow();
+if (!gotTheLock) {
+  console.log("[DevDesk] Another instance is already running. Quitting duplicate instance.");
+  app.quit();
+} else {
+  app.on("second-instance", () => {
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.focus();
     }
   });
-});
 
-app.on("before-quit", cleanupBackendProcess);
-app.on("will-quit", cleanupBackendProcess);
-process.on("exit", cleanupBackendProcess);
-process.on("SIGINT", () => {
-  cleanupBackendProcess();
-  process.exit(0);
-});
-process.on("SIGTERM", () => {
-  cleanupBackendProcess();
-  process.exit(0);
-});
+  // App lifecycle
+  app.whenReady().then(() => {
+    const frontendDir = isDev
+      ? path.resolve(__dirname, "../../frontend/out")
+      : path.join(process.resourcesPath, "frontend");
 
-app.on("window-all-closed", () => {
-  if (process.platform !== "darwin") {
+    protocol.handle("app", (req) => {
+      const url = new URL(req.url);
+      const decodedPath = decodeURIComponent(url.pathname);
+      const filePath = path.join(frontendDir, decodedPath === "/" ? "index.html" : decodedPath);
+      return net.fetch(pathToFileURL(filePath).toString());
+    });
+
+    registerIpcHandlers();
+    createWindow();
+
+    app.on("activate", () => {
+      if (BrowserWindow.getAllWindows().length === 0) {
+        createWindow();
+      }
+    });
+  });
+
+  app.on("before-quit", cleanupBackendProcess);
+  app.on("will-quit", cleanupBackendProcess);
+  process.on("exit", cleanupBackendProcess);
+  process.on("SIGINT", () => {
+    cleanupBackendProcess();
+    process.exit(0);
+  });
+  process.on("SIGTERM", () => {
+    cleanupBackendProcess();
+    process.exit(0);
+  });
+
+  app.on("window-all-closed", () => {
+    cleanupBackendProcess();
     app.quit();
-  }
-});
+  });
+}

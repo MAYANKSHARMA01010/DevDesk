@@ -15,7 +15,7 @@
     "build:backend": "pnpm --filter backend run build",
     "build:desktop": "pnpm --filter desktop run build",
     "prepare:package": "node scripts/prepare-packaging.mjs",
-    "package:mac": "node scripts/prepare-packaging.mjs && ./desktop/node_modules/.bin/electron-builder --project desktop --config electron-builder.yml --mac --arm64 && rm -rf .packaging",
+    "package:mac": "node scripts/prepare-packaging.mjs && ./desktop/node_modules/.bin/electron-builder --project desktop --config electron-builder.yml --mac --arm64",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],

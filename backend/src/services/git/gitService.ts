@@ -29,14 +29,24 @@ interface GitCommandResult {
 export function runGitCommand(
   cwd: string,
   args: string[],
-  timeoutMs: number = 8000
+  timeoutMs: number = 25000
 ): Promise<GitCommandResult> {
   return new Promise((resolve) => {
     try {
+      const envPath = process.env.PATH || "";
+      const augmentedPath = `/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:${envPath}`;
+
       const child = spawn("git", args, {
         cwd,
         shell: false,
         stdio: ["ignore", "pipe", "pipe"],
+        env: {
+          ...process.env,
+          PATH: augmentedPath,
+          GIT_TERMINAL_PROMPT: "0",
+          GIT_OPTIONAL_LOCKS: "0",
+          LC_ALL: "C",
+        },
       });
 
       let stdout = "";
@@ -264,7 +274,7 @@ export class GitService {
       "status",
       "--porcelain=v2",
       "--branch",
-      "-uall",
+      "-unormal",
     ]);
 
     if (statusResult.code !== 0) {

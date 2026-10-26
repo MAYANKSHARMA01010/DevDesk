@@ -15,7 +15,7 @@ execSync("node scripts/sync-env.mjs", { cwd: rootDir, stdio: "inherit" });
 
 // 1. Build Frontend static export
 console.log("\n[1/5] Building Frontend static export (Next.js)...");
-execSync("./frontend/node_modules/.bin/next build frontend", { cwd: rootDir, stdio: "inherit" });
+execSync("pnpm --filter frontend run build", { cwd: rootDir, stdio: "inherit" });
 
 const frontendOut = path.join(rootDir, "frontend/out");
 if (!fs.existsSync(frontendOut)) {
@@ -40,16 +40,25 @@ console.log("\n[3/5] Packaging standalone local backend...");
 execSync("./desktop/node_modules/.bin/tsc -p backend/tsconfig.json", { cwd: rootDir, stdio: "inherit" });
 const backendDist = path.join(rootDir, "backend/dist");
 const backendDeployDir = path.join(rootDir, ".packaging/backend");
-if (fs.existsSync(backendDeployDir)) {
-  fs.rmSync(backendDeployDir, { recursive: true, force: true });
+
+if (!fs.existsSync(path.join(backendDeployDir, "node_modules"))) {
+  if (fs.existsSync(backendDeployDir)) {
+    fs.rmSync(backendDeployDir, { recursive: true, force: true });
+  }
+  fs.mkdirSync(backendDeployDir, { recursive: true });
+  execSync(`pnpm --filter=backend deploy "${backendDeployDir}" --prod --legacy --node-linker=hoisted --ignore-scripts`, {
+    cwd: rootDir,
+    stdio: "inherit",
+  });
+  // Restore workspace devDependencies in case pnpm deploy touched root
+  execSync("pnpm install --prod=false", { cwd: rootDir, stdio: "inherit" });
 }
-fs.mkdirSync(backendDeployDir, { recursive: true });
-execSync(`pnpm --filter=backend deploy "${backendDeployDir}" --prod --legacy --node-linker=hoisted --ignore-scripts`, {
-  cwd: rootDir,
-  stdio: "inherit",
-});
+
 const deployDistDir = path.join(backendDeployDir, "dist");
 fs.cpSync(backendDist, deployDistDir, { recursive: true });
+try {
+  fs.copyFileSync(path.join(rootDir, "backend/package.json"), path.join(backendDeployDir, "package.json"));
+} catch {}
 
 // Copy prebuilt sqlite addon if present
 const prebuiltSqlite = path.join(rootDir, "node_modules/.pnpm/better-sqlite3@11.10.0/node_modules/better-sqlite3/build");
