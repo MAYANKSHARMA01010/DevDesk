@@ -176,7 +176,7 @@ export async function testDatabaseConnection(
     throw new Error(`Cannot connect to DevDesk backend (${errorMsg}).`);
   }
 
-  let json: any;
+  let json: { success: boolean; data?: { serverVersion: string; message: string }; error?: string };
   try {
     json = await response.json();
   } catch {

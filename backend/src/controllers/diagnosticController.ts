@@ -1,6 +1,9 @@
+import { readFileSync } from "node:fs";
 import { Request, Response } from "express";
 import { getDataDirectory, getDatabasePath, resetLocalDatabase } from "../config/database.js";
 import { processManager } from "../services/processes/processManager.js";
+
+const { version } = JSON.parse(readFileSync(new URL("../../package.json", import.meta.url), "utf8")) as { version: string };
 
 /**
  * Handles GET /api/diagnostics
@@ -17,7 +20,7 @@ export function getDiagnosticsController(
     res.status(200).json({
       success: true,
       data: {
-        version: "1.0.0",
+        version,
         appName: "DevDesk",
         platform: process.platform,
         arch: process.arch,

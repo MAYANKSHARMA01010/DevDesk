@@ -36,6 +36,7 @@ function parseEnv(filePath) {
 }
 
 const rootEnv = parseEnv(rootEnvPath);
+const appVersion = JSON.parse(fs.readFileSync(path.join(rootDir, "package.json"), "utf8")).version;
 
 // Dual Backend URLs (Hosted and Local API)
 const hostedApiUrl =
@@ -70,6 +71,7 @@ const frontendContent = `# Auto-synced from root .env
 NEXT_PUBLIC_HOSTED_API_URL=${hostedApiUrl}
 NEXT_PUBLIC_API_URL=${localApiUrl}
 NEXT_PUBLIC_PORT=${frontendPort}
+NEXT_PUBLIC_APP_VERSION=${appVersion}
 `;
 fs.writeFileSync(frontendEnvPath, frontendContent);
 console.log("✓ Synced frontend/.env");

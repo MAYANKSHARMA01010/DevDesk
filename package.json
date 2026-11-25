@@ -1,6 +1,6 @@
 {
   "name": "DevDesk",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Desktop Developer Command Center built with Electron, Next.js, React, TypeScript, Node.js, Express, and SQLite",
   "main": "index.js",
   "scripts": {
@@ -11,17 +11,22 @@
     "dev:backend": "node scripts/sync-env.mjs && node scripts/ensure-ports.mjs 8300 && pnpm --filter backend dev",
     "dev:desktop": "node scripts/sync-env.mjs && pnpm --filter desktop dev",
     "free:ports": "node scripts/ensure-ports.mjs",
-    "build": "pnpm install -y && pnpm --filter frontend run build && pnpm --filter backend run build && pnpm --filter desktop run build",
+    "build": "pnpm run build:frontend && pnpm run build:backend && pnpm run build:desktop",
     "build:frontend": "pnpm --filter frontend run build",
     "build:backend": "pnpm --filter backend run build",
     "build:desktop": "pnpm --filter desktop run build",
     "prepare:package": "node scripts/prepare-packaging.mjs",
     "package:mac": "node scripts/prepare-packaging.mjs && ./desktop/node_modules/.bin/electron-builder --project desktop --config electron-builder.yml --mac --arm64",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "version:check": "node scripts/version.mjs check",
+    "version:bump": "node scripts/version.mjs",
+    "check": "pnpm run version:check && pnpm --filter backend typecheck && pnpm --filter desktop typecheck && pnpm --filter frontend lint",
+    "test:packaged": "node scripts/test-packaged.mjs"
   },
   "keywords": [],
   "author": "",
-  "license": "ISC",
+  "license": "MIT",
   "packageManager": "pnpm@11.24.0",
-  "type": "module"
+  "type": "module",
+  "private": true
 }

@@ -1,103 +1,131 @@
-# DevDesk — Production Packaging & Release Engineering 📦🚀
+# Packaging and testing DevDesk
 
-> **Target Platform**: macOS (Apple Silicon `arm64` & Intel `x64`)  
-> **Package Format**: Apple Disk Image (`.dmg`) & Standalone Application Bundle (`.app`)  
-> **Official Direct Download**: [Google Drive DMG Link](https://drive.google.com/drive/folders/1raRV1BxgL3lI7Tz-kflxTMlECMHlPDvK?usp=sharing)
+This repository currently builds DevDesk 1.0.1 for **Apple Silicon macOS (arm64)**.
+The DMG is a local evaluation build without Developer ID signing or notarization.
+Intel, Windows, and Linux packages are not configured or verified.
 
----
+## Build
 
-## 1. Packaging Architecture Overview
-
-Unlike standard web applications, DevDesk operates as a **100% self-contained desktop system**. When packaged for production distribution, the application bundle contains:
-
-1. **Native Electron Runtime**: Chromium display engine + Node.js runtime.
-2. **Static Frontend UI**: Next.js App Router pre-compiled to static HTML, CSS, and client-side JavaScript, served via the privileged `app://devdesk/` protocol.
-3. **Isolated Standalone Backend**: A production-ready Express service bundled with all 129 production dependencies in `Resources/backend`, completely decoupled from pnpm symlinks.
-4. **Embedded SQLite Engine**: Zero cloud database requirement; initializes `devdesk.db` in macOS `Application Support`.
-
----
-
-## 2. Resolving the Monorepo Packaging Challenge
-
-In a `pnpm` monorepo, dependencies are stored in a centralized content-addressable store and linked into workspace packages via symbolic links. 
-
-Naive packaging via standard `electron-builder` fails in monorepos because:
-- Symbolic links outside the package directory are broken when copied into `.app/Contents/Resources`.
-- Native C++ addons (like `better-sqlite3`) fail to locate dynamic libraries inside `app.asar`.
-- Monorepo package manifests contain workspace protocol references (`workspace:*`) which cause Node resolution failures at runtime.
-
-### The Solution: `prepare-packaging.mjs` Orchestrator
-To solve this, DevDesk utilizes an automated pre-packaging pipeline (`scripts/prepare-packaging.mjs`) that executes prior to `electron-builder`:
-
-1. **Frontend Static Compilation**: Invokes `next build` inside `frontend/` to output static assets directly to `frontend/out/`.
-2. **Backend TypeScript Compilation**: Emits compiled JavaScript to `backend/dist/`.
-3. **Isolated Production Deployment**: Runs `pnpm --filter=backend deploy --prod --ignore-scripts .packaging/backend` to resolve and flatten all 129 production dependencies into a real, non-symlinked directory.
-4. **Asset Synchronization**: Copies `backend/dist` into `.packaging/backend/dist` and ensures valid `package.json` manifests.
-5. **Electron Builder ExtraResources**: Maps `.packaging/backend` to `Contents/Resources/backend` and `frontend/out` to `Contents/Resources/frontend` in the final DMG.
-
----
-
-## 3. Building the Production Package
-
-Run the automated packaging pipeline from the workspace root:
+On an Apple Silicon Mac with Node.js 22 LTS or newer and pnpm 11.24.0:
 
 ```bash
+pnpm install --frozen-lockfile
 pnpm run package:mac
 ```
 
-### Generated Artifacts
-Upon completion, the distribution artifacts are generated in the `release/` directory:
+Run from the repository root. Do not use the desktop package's packaging command
+alone after source changes: it does not prepare the frontend or backend.
+Installation and packaging may download dependencies, Electron, and builder tools;
+there is no offline-build guarantee.
 
-| Artifact | Architecture | File Size | Description |
-| :--- | :---: | :---: | :--- |
-| **`DevDesk-1.0.0-arm64.dmg`** | Apple Silicon (`arm64`) | `~140 MB` | macOS Disk Image with Applications drag-and-drop installer. |
-| **`DevDesk-1.0.0-arm64-mac.zip`** | Apple Silicon (`arm64`) | `~140 MB` | Compressed ZIP archive for direct extraction. |
-| **`DevDesk.app`** | Apple Silicon (`arm64`) | Directory | Unpacked macOS application bundle (`release/mac-arm64/`). |
+The root packaging script:
 
----
+1. Synchronizes development configuration.
+2. Builds the Next.js static export, explicitly targeting the bundled API at
+   `http://127.0.0.1:8300` and overriding hosted frontend URLs.
+3. Compiles the Electron and backend TypeScript.
+4. Recreates `.packaging/backend` using a production-only pnpm deployment.
+5. Removes top-level environment files and database state from that staging area;
+   electron-builder additionally excludes environment and database files.
+6. Includes the backend and `frontend/out` as application resources. The after-pack
+   hook copies production dependencies and removes dangling CLI symlinks.
+7. Generates the macOS app, DMG, ZIP, and blockmaps with electron-builder.
 
-## 4. Installation & First Launch (macOS)
+Native SQLite binaries built for host Node are not copied. The packaged runtime
+can use its built-in `node:sqlite` fallback. No Node.js or pnpm installation is
+required merely to launch the finished app. Running workspace scripts still needs
+the project's usual tools on the test Mac.
 
-1. **Download the Disk Image**:
-   Download the latest build from the [Google Drive DMG Link](https://drive.google.com/drive/folders/1raRV1BxgL3lI7Tz-kflxTMlECMHlPDvK?usp=sharing).
-2. **Mount the DMG**: Double-click `DevDesk-1.0.0-arm64.dmg`.
-3. **Install**: Drag the **DevDesk** icon into the **Applications** folder shortcut.
-4. **Launch**: Open DevDesk from Spotlight, Launchpad, or `/Applications`.
+## Outputs
 
----
+| Path | Purpose |
+| --- | --- |
+| `release/DevDesk-1.0.1-arm64.dmg` | Installer with Applications shortcut |
+| `release/DevDesk-1.0.1-arm64-mac.zip` | Zipped application bundle |
+| `release/mac-arm64/DevDesk.app` | Unpacked app for diagnostics |
 
-## 5. Handling macOS Gatekeeper & Unsigned Builds
+Sizes depend on the build. These paths are generated and ignored by Git.
+`release/SHA256SUMS.txt`, when generated during verification, records checksums
+for the current DMG and ZIP. Recreate it whenever rebuilding artifacts.
 
-Because this release is built for developer evaluation and has not been notarized with a commercial paid Apple Developer certificate, macOS Gatekeeper may present a security prompt on first launch:
+## Install
 
-> *"DevDesk.app cannot be opened because the developer cannot be verified."*
+1. Quit any earlier DevDesk instance and source backend using port 8300.
+2. Double-click the DMG.
+3. Drag DevDesk into Applications. Replace an earlier copy only if intended.
+4. Eject the DMG and launch `/Applications/DevDesk.app`.
 
-### Standard Resolution Methods
+The bundled backend listens on `127.0.0.1:8300`. Startup may reuse a healthy
+DevDesk backend already there, so stop source servers when checking that the app
+is self-contained. An unrelated listener produces a conflict error; the app does
+not kill it or select a dynamic port.
 
-#### Method A: Finder Right-Click (GUI)
-1. Open Finder and navigate to `/Applications`.
-2. **Right-click** (or `Control`-click) on **DevDesk.app**.
-3. Select **Open** from the context menu.
-4. In the confirmation dialog, click **Open**. macOS will store this approval permanently.
+## First launch
 
-#### Method B: Terminal Quarantine Clear (CLI)
-To remove the quarantine flag directly from the terminal:
+If macOS blocks this local, unnotarized build, attempt opening it once, then use
+**System Settings → Privacy & Security → Open Anyway** if that option is offered.
+Control-click → Open may also work depending on the macOS version. Only allow the
+copy you built or otherwise trust. Successful ad-hoc signature verification does
+not imply Apple notarization or Gatekeeper approval.
+
+## Verify the artifact
+
 ```bash
-xattr -cr /Applications/DevDesk.app
+hdiutil verify release/DevDesk-1.0.1-arm64.dmg
+codesign --verify --deep --strict --verbose=2 release/mac-arm64/DevDesk.app
+shasum -a 256 release/DevDesk-1.0.1-arm64.dmg release/DevDesk-1.0.1-arm64-mac.zip
 ```
-DevDesk will subsequently launch normally.
 
----
+Mount the DMG read-only and verify it contains the app plus `/Applications` link.
+Launch a copy outside the repository with no source servers running and check:
 
-## 6. Pre-Release Verification Protocol
+```bash
+curl --fail http://127.0.0.1:8300/health
+curl --fail http://127.0.0.1:8300/api/workspaces
+```
 
-Before publishing a release, verify:
-- [x] Packaging runs completely offline without requiring internet access.
-- [x] Clean install in `/Applications` launches without requiring any existing dev servers.
-- [x] Backend automatically initializes on `127.0.0.1:5001` or fallback port.
-- [x] Native folder picker (`dialog:select-directory`) opens correctly.
-- [x] Script execution streams live logs in the Terminal view.
-- [x] Process and port detector identifies active TCP listeners.
-- [x] Git staging, committing, and pushing execute without errors.
-- [x] API Tester sends requests and formats responses.
-- [x] SQLite database creates cleanly in `~/Library/Application Support/DevDesk/`.
+An automated startup check should use a temporary `DEVDESK_DATA_DIR`, so it cannot
+change your saved workspaces. These commands alone do not verify rendering or
+feature behavior.
+
+## Manual acceptance checklist
+
+The following are tasks to perform on the installed build, not claims that all
+features have been verified:
+
+- [ ] Launch from Applications after ejecting the DMG, with source servers stopped.
+- [ ] Confirm the main interface loads and Settings reports a healthy local API.
+- [ ] Pick a disposable workspace and confirm projects and scripts are detected.
+- [ ] Run a harmless script; inspect logs, then stop it and check its listener closes.
+- [ ] Confirm Finder/editor actions work with the tools installed on your Mac.
+- [ ] Inspect Git changes in a disposable repository; test commits/remotes separately.
+- [ ] Send an API request to a test endpoint and inspect the response.
+- [ ] Edit a disposable `.env` file and verify its backup.
+- [ ] Connect to a test database using a read-only account and inspect table data.
+- [ ] Quit and relaunch; confirm workspace persistence and managed-service cleanup.
+
+SQLite data lives under `~/Library/Application Support/DevDesk/`. Back it up before
+resetting state. For current build-specific results, see `release/TEST_RESULTS.md`
+when present. Historical reports and old download folders are not evidence for
+the current artifact.
+
+## Versioning and publishing
+
+Versions follow `major.minor.patch`: major for incompatible changes, minor for
+backward-compatible features, patch for compatible fixes. The current 1.0.1 release
+contains fixes to the existing 1.0.0 app. Render and Neon are not needed to share
+the standalone installer.
+
+```bash
+pnpm run version:bump patch   # or minor / major, chosen from the actual change
+pnpm run version:check
+pnpm run check
+pnpm run package:mac
+```
+
+The bump command updates all four workspace manifests. Build-time frontend version
+and backend diagnostics read their package version; Electron reads the desktop
+manifest. Update this guide's artifact filenames and the changelog when bumping.
+Publish the tested commit as Git tag `v<version>` and a GitHub release carrying
+the DMG, ZIP, checksums, and test results. Never silently overwrite an existing tag
+or published artifact; publish another patch version for subsequent fixes.

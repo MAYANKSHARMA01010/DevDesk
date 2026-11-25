@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffectEvent, useEffect, useRef, useState } from "react";
 import {
   fetchProcesses,
   fetchSystemPorts,
@@ -48,7 +48,7 @@ export function ProcessesView({
   const [searchQuery, setSearchQuery] = useState<string>("");
 
   // Ticking state for live duration updates
-  const [, setTick] = useState<number>(0);
+  const [now, setNow] = useState(0);
 
   const isMountedRef = useRef<boolean>(true);
   const isFetchingRef = useRef<boolean>(false);
@@ -86,28 +86,31 @@ export function ProcessesView({
     }
   }
 
+  const onPoll = useEffectEvent(() => loadData());
+
   // 2. Initial fetch & background polling loop (2.5s)
   useEffect(() => {
     isMountedRef.current = true;
-    loadData();
+    const initialRefresh = setTimeout(() => onPoll(), 100);
 
     const interval = setInterval(() => {
       // Re-fetch automatically
-      loadData();
-      setTick((t) => t + 1);
+      onPoll();
+      setNow(Date.now());
     }, 2500);
 
     return () => {
       isMountedRef.current = false;
+      clearTimeout(initialRefresh);
       clearInterval(interval);
     };
   }, []);
 
   // 3. Immediately refresh when switching to Processes tab
   useEffect(() => {
-    if (isActive) {
-      loadData();
-    }
+    if (!isActive) return;
+    const timer = setTimeout(() => onPoll(), 100);
+    return () => clearTimeout(timer);
   }, [isActive]);
 
   // 4. Managed Process actions: Stop and Restart
@@ -179,7 +182,7 @@ export function ProcessesView({
   // Formatting helpers
   function formatDuration(startedAt: string, stoppedAt?: string): string {
     const start = new Date(startedAt).getTime();
-    const end = stoppedAt ? new Date(stoppedAt).getTime() : Date.now();
+    const end = stoppedAt ? new Date(stoppedAt).getTime() : now || start;
     const diffSec = Math.max(0, Math.floor((end - start) / 1000));
 
     if (diffSec < 60) return `${diffSec}s`;

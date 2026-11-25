@@ -59,7 +59,8 @@ function loadEnvironment(): void {
   }
 }
 
-loadEnvironment();
+// Packaged builds use their bundled local service, never a working-directory .env.
+if (!app.isPackaged) loadEnvironment();
 
 const HOSTED_API_URL = (
   process.env.NEXT_PUBLIC_HOSTED_API_URL ||
@@ -466,44 +467,7 @@ async function startProductionBackend(): Promise<{
       return { success: true };
     }
 
-    // Port is occupied by something that is NOT responding to DevDesk health check.
-    // On macOS, check if it is a stale orphaned node / DevDesk zombie and clear it.
-    console.warn(`[DevDesk] Port ${targetPort} is occupied by an unresponsive process. Attempting recovery...`);
-    try {
-      const pidStr = execSync(`lsof -ti :${targetPort}`, { encoding: "utf8" }).trim();
-      if (pidStr) {
-        const pids = pidStr
-          .split(/\s+/)
-          .map((p) => parseInt(p, 10))
-          .filter((p) => !isNaN(p) && p > 0 && p !== process.pid);
-        for (const p of pids) {
-          try {
-            process.kill(p, "SIGTERM");
-          } catch {}
-        }
-        await new Promise((r) => setTimeout(r, 600));
-
-        // Re-check
-        portCheck = await checkPortOccupied(targetPort);
-        if (!portCheck.occupied) {
-          console.log(`[DevDesk] Successfully freed port ${targetPort}.`);
-        } else if (portCheck.isDevDesk) {
-          return { success: true };
-        } else {
-          // Force kill
-          for (const p of pids) {
-            try {
-              process.kill(p, "SIGKILL");
-            } catch {}
-          }
-          await new Promise((r) => setTimeout(r, 400));
-          portCheck = await checkPortOccupied(targetPort);
-        }
-      }
-    } catch {
-      // lsof not available or exited with error
-    }
-
+    // An unrelated listener belongs to the user; never terminate it on app startup.
     if (portCheck.occupied && !portCheck.isDevDesk) {
       return {
         success: false,
@@ -539,7 +503,7 @@ async function startProductionBackend(): Promise<{
         PORT: String(targetPort),
         HOST: "127.0.0.1",
         NODE_ENV: "production",
-        DEVDESK_DATA_DIR: path.join(app.getPath("appData"), "DevDesk"),
+        DEVDESK_DATA_DIR: process.env.DEVDESK_DATA_DIR || path.join(app.getPath("appData"), "DevDesk"),
       },
       stdio: ["ignore", "pipe", "pipe"],
     });

@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffectEvent, useEffect, useRef, useState, useCallback } from "react";
 import { fetchDiagnostics, DiagnosticsData } from "@/services/diagnostics";
-import { BACKEND_URL, LOCAL_API_URL, HOSTED_API_URL, getBackendDisplayLabel } from "@/config/env";
+import { APP_VERSION, BACKEND_URL, LOCAL_API_URL, HOSTED_API_URL, getBackendDisplayLabel } from "@/config/env";
+import { useClientReady } from "@/hooks/useClientReady";
 import { broadcastWorkspacesChanged } from "@/services/workspaceSync";
 
 export function SettingsView() {
@@ -18,46 +19,43 @@ export function SettingsView() {
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [resetFeedback, setResetFeedback] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
-  const [isDesktop, setIsDesktop] = useState(false);
-  const [electronVersions, setElectronVersions] = useState<
-    { node: string; chrome: string; electron: string } | undefined
-  >(undefined);
-  const [isMac, setIsMac] = useState(false);
-
-  useEffect(() => {
-    const desktop = typeof window !== "undefined" && Boolean(window.electron);
-    setIsDesktop(desktop);
-    if (desktop && window.electron?.versions) {
-      setElectronVersions(window.electron.versions);
-    }
-    const mac =
-      typeof window !== "undefined" &&
-      (window.electron?.platform === "darwin" ||
-        (typeof navigator !== "undefined" &&
-          navigator.platform.toUpperCase().indexOf("MAC") >= 0));
-    setIsMac(mac);
-  }, []);
+  const clientReady = useClientReady();
+  const isDesktop = clientReady && Boolean(window.electron);
+  const electronVersions = clientReady ? window.electron?.versions : undefined;
+  const isMac = clientReady && (window.electron?.platform === "darwin" || navigator.platform.toUpperCase().includes("MAC"));
 
   const modKey = isMac ? "⌘" : "Ctrl+";
 
+  const diagnosticsRequest = useRef<AbortController | null>(null);
   const loadDiagnostics = useCallback(async () => {
+    diagnosticsRequest.current?.abort();
+    const controller = new AbortController();
+    diagnosticsRequest.current = controller;
     setLoading(true);
     setError(null);
     try {
-      const data = await fetchDiagnostics();
+      const data = await fetchDiagnostics(controller.signal);
+      if (controller.signal.aborted) return;
+      setError(null);
       setDiagnostics(data);
       setLastRefreshed(new Date());
     } catch (err: unknown) {
+      if (controller.signal.aborted) return;
       const msg = err instanceof Error ? err.message : "Failed to load diagnostics";
       setError(msg);
     } finally {
-      setLoading(false);
+      if (!controller.signal.aborted) setLoading(false);
     }
   }, []);
 
+  const onInitialDiagnostics = useEffectEvent(() => loadDiagnostics());
   useEffect(() => {
-    loadDiagnostics();
-  }, [loadDiagnostics]);
+    const timer = setTimeout(() => onInitialDiagnostics(), 100);
+    return () => {
+      clearTimeout(timer);
+      diagnosticsRequest.current?.abort();
+    };
+  }, []);
 
   async function handleTestPing() {
     setPinging(true);
@@ -159,7 +157,7 @@ export function SettingsView() {
           <h1 className="text-xl font-semibold tracking-tight text-[#E8EBF1] flex items-center gap-2.5">
             Settings & Diagnostics
             <span className="text-xs px-2 py-0.5 rounded-md bg-[#272D38] border border-[#303642] text-[#A5ADBA] font-mono">
-              v{diagnostics?.version || "1.0.0"}
+              v{diagnostics?.version || APP_VERSION}
             </span>
           </h1>
           <p className="text-xs text-[#A5ADBA] mt-1">
@@ -189,6 +187,7 @@ export function SettingsView() {
             type="button"
             onClick={loadDiagnostics}
             disabled={loading}
+            aria-busy={loading}
             className="px-3 py-1.5 rounded-md bg-[#8CA9CF] hover:bg-[#A6BDE0] text-xs font-medium text-[#101216] border border-transparent transition flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
           >
             {loading ? (
@@ -214,7 +213,7 @@ export function SettingsView() {
           <span className="font-bold">!</span>
           <div className="flex-1">
             <span className="font-semibold">Backend Unreachable: </span>
-            {error}
+            <span role="alert">{error}</span>
           </div>
         </div>
       )}

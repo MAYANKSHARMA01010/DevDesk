@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useMemo, useRef, useState, useCallback } from "react";
+import { useEffectEvent, useEffect, useId, useMemo, useRef, useState, useCallback } from "react";
 import {
   cancelApiRequest,
   executeApiRequest,
@@ -23,11 +23,8 @@ import { BACKEND_URL } from "@/config/env";
 import { ApiCatalogSidebar } from "./ApiCatalogSidebar";
 import { ApiEndpointDetailsModal } from "./ApiEndpointDetailsModal";
 import {
-  resolveSampleUrl,
   generateRealisticRequestBody,
   generateRealisticResponseExample,
-  generateRealisticQueryParams,
-  generateRealisticHeaders,
   generateCompleteApiExample,
 } from "./apiExampleGenerator";
 
@@ -161,7 +158,7 @@ export function ApiTesterView({ initialSelection }: ApiTesterViewProps = {}) {
   const [copyFeedback, setCopyFeedback] = useState<boolean>(false);
 
   // Expected Response Example state & Mode
-  const [expectedResponse, setExpectedResponse] = useState<{
+  const [customExpectedResponse, setExpectedResponse] = useState<{
     statusCode: number;
     statusText: string;
     headers: Record<string, string>;
@@ -171,12 +168,9 @@ export function ApiTesterView({ initialSelection }: ApiTesterViewProps = {}) {
   });
   const [responseViewMode, setResponseViewMode] = useState<"example" | "live">("example");
 
-  // Synchronize expected response when method or URL changes without a live response
-  useEffect(() => {
-    if (!response) {
-      setExpectedResponse(generateRealisticResponseExample(method, url));
-    }
-  }, [method, url, response]);
+  const expectedResponse = !response
+    ? generateRealisticResponseExample(method, url)
+    : customExpectedResponse;
 
   // 1. Initial Load: Workspaces & Restoring Selection
   useEffect(() => {
@@ -248,7 +242,7 @@ export function ApiTesterView({ initialSelection }: ApiTesterViewProps = {}) {
 
   const activeWorkspace =
     workspaces.find((w) => w.id === selectedWorkspaceId) || null;
-  const availableProjects = activeWorkspace?.projects || [];
+  const availableProjects = useMemo(() => activeWorkspace?.projects || [], [activeWorkspace]);
 
   // Filter projects to only those that have discovered APIs if filterOnlyWithApis is active
   const displayedProjects = useMemo(() => {
@@ -283,21 +277,10 @@ export function ApiTesterView({ initialSelection }: ApiTesterViewProps = {}) {
   const activeProject =
     availableProjects.find((p) => p.id === selectedProjectId) || null;
 
-  // Reconcile project when displayed projects change
-  useEffect(() => {
-    if (displayedProjects.length > 0) {
-      if (
-        !selectedProjectId ||
-        !displayedProjects.some((p) => p.id === selectedProjectId)
-      ) {
-        setSelectedProjectId(displayedProjects[0].id);
-      }
-    } else if (availableProjects.length > 0 && !filterOnlyWithApis) {
-      setSelectedProjectId(availableProjects[0].id);
-    } else {
-      setSelectedProjectId("");
-    }
-  }, [displayedProjects, availableProjects, filterOnlyWithApis, selectedProjectId]);
+  const validProjectId = displayedProjects.some((p) => p.id === selectedProjectId)
+    ? selectedProjectId
+    : displayedProjects[0]?.id || "";
+  if (validProjectId !== selectedProjectId) setSelectedProjectId(validProjectId);
 
   // Persist last selected workspace and project
   useEffect(() => {
@@ -367,14 +350,14 @@ export function ApiTesterView({ initialSelection }: ApiTesterViewProps = {}) {
     [activeProject]
   );
 
+  const onScanProject = useEffectEvent((projectId: string) => scanProjectApis(projectId));
+
   // Trigger scan whenever selected project changes
   useEffect(() => {
-    if (selectedProjectId) {
-      scanProjectApis(selectedProjectId);
-    } else {
-      setDiscoveredEndpoints([]);
-    }
-  }, [selectedProjectId, scanProjectApis]);
+    if (!selectedProjectId) return;
+    const timer = setTimeout(() => onScanProject(selectedProjectId), 100);
+    return () => clearTimeout(timer);
+  }, [selectedProjectId, activeProject]);
 
   // 3. One-Click Load Endpoint into Tester with Complete Example (URL, Params, Headers, Body, Expected Response)
   const handleLoadEndpointIntoTester = useCallback(

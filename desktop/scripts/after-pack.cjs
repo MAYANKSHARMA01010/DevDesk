@@ -60,6 +60,6 @@ exports.default = async function (context) {
 
     console.log("[DevDesk afterPack] Successfully bundled backend node_modules!");
   } else {
-    console.warn("[DevDesk afterPack] WARNING: backend node_modules not found in candidates:", candidates);
+    throw new Error("Backend production node_modules not found; run pnpm run prepare:package first.");
   }
 };

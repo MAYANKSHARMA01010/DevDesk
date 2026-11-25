@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffectEvent, useEffect, useId, useRef, useState } from "react";
 import {
   connectDatabase,
   createDatabaseConnection,
@@ -81,7 +81,7 @@ export function DatabaseView() {
   // General Loading & Status Feedback
   const [loadingProfiles, setLoadingProfiles] = useState<boolean>(true);
   const [loadingExplorer, setLoadingExplorer] = useState<boolean>(false);
-  const [loadingTableDetails, setLoadingTableDetails] = useState<boolean>(false);
+  const [, setLoadingTableDetails] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
@@ -91,15 +91,6 @@ export function DatabaseView() {
   const isConnected = Boolean(
     selectedProfileId && connectionStatuses[selectedProfileId]?.connected
   );
-
-  // 1. Initial Load: Connection Profiles
-  useEffect(() => {
-    isMountedRef.current = true;
-    loadProfiles();
-    return () => {
-      isMountedRef.current = false;
-    };
-  }, []);
 
   async function loadProfiles(preferredSelectId?: string) {
     try {
@@ -165,19 +156,6 @@ export function DatabaseView() {
     }
   }
 
-  // When selectedProfileId changes, refresh status and explorer
-  useEffect(() => {
-    if (selectedProfileId) {
-      checkStatus(selectedProfileId);
-    } else {
-      setSchemas([]);
-      setTables([]);
-      setSelectedTable("");
-      setColumns([]);
-      setSampleData(null);
-    }
-  }, [selectedProfileId]);
-
   // Load Schemas and Tables
   async function loadSchemasAndTables(profileId: string) {
     try {
@@ -212,6 +190,36 @@ export function DatabaseView() {
         setLoadingExplorer(false);
       }
     }
+  }
+
+  const onInitialProfiles = useEffectEvent(() => loadProfiles());
+  const onProfileStatus = useEffectEvent((id: string) => checkStatus(id));
+
+  // 1. Initial Load: Connection Profiles
+  useEffect(() => {
+    isMountedRef.current = true;
+    const timer = setTimeout(() => onInitialProfiles(), 100);
+    return () => {
+      clearTimeout(timer);
+      isMountedRef.current = false;
+    };
+  }, []);
+
+  // When selectedProfileId changes, refresh status and explorer
+  useEffect(() => {
+    if (!selectedProfileId) return;
+    const timer = setTimeout(() => onProfileStatus(selectedProfileId), 100);
+    return () => clearTimeout(timer);
+  }, [selectedProfileId]);
+
+  const [previousProfileId, setPreviousProfileId] = useState(selectedProfileId);
+  if (previousProfileId !== selectedProfileId) {
+    setPreviousProfileId(selectedProfileId);
+    setSchemas([]);
+    setTables([]);
+    setSelectedTable("");
+    setColumns([]);
+    setSampleData(null);
   }
 
   // Handle schema change
@@ -674,7 +682,7 @@ export function DatabaseView() {
                       </div>
                     ) : filteredTables.length === 0 ? (
                       <div className="p-4 text-center text-[#7C8594] text-xs">
-                        No tables found in schema "{selectedSchema}".
+                        No tables found in schema &quot;{selectedSchema}&quot;.
                       </div>
                     ) : (
                       filteredTables.map((tbl) => {
@@ -822,7 +830,7 @@ export function DatabaseView() {
                   <div className="flex-1 overflow-auto">
                     {!queryResult ? (
                       <div className="p-8 text-center text-[#7C8594] text-xs">
-                        Enter a SELECT query above and click "Run Query" to inspect results.
+                        Enter a SELECT query above and click &quot;Run Query&quot; to inspect results.
                       </div>
                     ) : queryResult.rows.length === 0 ? (
                       <div className="p-8 text-center text-[#7C8594] text-xs font-mono">

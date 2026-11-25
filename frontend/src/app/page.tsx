@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffectEvent, useEffect, useRef, useState } from "react";
+import { useStoredPreference } from "@/hooks/useStoredPreference";
 import { NavItemId } from "@/types/navigation";
 import { Header } from "@/components/layout/Header";
 import { Sidebar } from "@/components/layout/Sidebar";
@@ -19,26 +20,10 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState<NavItemId>("projects");
   const [backendConnected, setBackendConnected] = useState<boolean>(true);
   const [runningProcessesCount, setRunningProcessesCount] = useState<number>(0);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(false);
-
-  // Restore sidebar collapse preference from localStorage after mount
-  useEffect(() => {
-    try {
-      const savedCollapsed = localStorage.getItem("devdesk_sidebar_collapsed");
-      if (savedCollapsed !== null) {
-        setSidebarCollapsed(savedCollapsed === "true");
-      }
-    } catch {}
-  }, []);
+  const [sidebarCollapsed, setSidebarCollapsed] = useStoredPreference("devdesk_sidebar_collapsed", false);
 
   function handleToggleCollapse() {
-    setSidebarCollapsed((prev) => {
-      const next = !prev;
-      try {
-        localStorage.setItem("devdesk_sidebar_collapsed", String(next));
-      } catch {}
-      return next;
-    });
+    setSidebarCollapsed((previous) => !previous);
   }
 
   const [terminalSelection, setTerminalSelection] = useState<{
@@ -85,6 +70,8 @@ export default function Home() {
     };
   }, []);
 
+  const onToggleSidebar = useEffectEvent(() => handleToggleCollapse());
+
   // Global keyboard shortcuts (Cmd/Ctrl + 1-7, Cmd/Ctrl + ,)
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
@@ -105,7 +92,7 @@ export default function Home() {
       // Cmd/Ctrl + B to toggle sidebar collapse
       if (e.key.toLowerCase() === "b") {
         e.preventDefault();
-        handleToggleCollapse();
+        onToggleSidebar();
         return;
       }
 
@@ -168,38 +155,6 @@ export default function Home() {
     setActiveTab("git");
   }
 
-  function renderMainContent() {
-    switch (activeTab) {
-      case "projects":
-        return (
-          <ProjectsView
-            onNavigateToTerminal={handleNavigateToTerminal}
-            onNavigateToGit={handleNavigateToGit}
-          />
-        );
-      case "terminal":
-        return <TerminalView initialSelection={terminalSelection} />;
-      case "processes":
-        return (
-          <ProcessesView
-            onNavigateToTerminal={handleNavigateToTerminal}
-            onNavigateToProjects={() => setActiveTab("projects")}
-          />
-        );
-      case "git":
-        return <GitView initialSelection={gitSelection} />;
-      case "api-tester":
-        return <ApiTesterView />;
-      case "database":
-        return <DatabaseView />;
-      case "env":
-        return <EnvEditorView />;
-      case "settings":
-        return <SettingsView />;
-      default:
-        return <ProjectsView />;
-    }
-  }
 
   return (
     <div className="flex flex-col h-screen w-screen overflow-hidden bg-[#101216] text-[#E8EBF1] font-sans">

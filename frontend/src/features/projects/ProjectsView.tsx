@@ -1,5 +1,6 @@
 "use client";
 
+import { useStoredPreference } from "@/hooks/useStoredPreference";
 import { useEffect, useRef, useState, useTransition } from "react";
 import {
   fetchWorkspaces,
@@ -292,23 +293,7 @@ export function ProjectsView({
   };
 
   // Multi-Level Sort Rules State
-  const [sortRules, setSortRules] = useState<SortRule[]>(DEFAULT_SORT_RULES);
-
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("devdesk_projects_multi_sort_rules");
-      if (saved) {
-        try {
-          const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            setSortRules(parsed);
-          }
-        } catch {
-          // ignore
-        }
-      }
-    }
-  }, []);
+  const [sortRules, setSortRules] = useStoredPreference<SortRule[]>("devdesk_projects_multi_sort_rules", DEFAULT_SORT_RULES);
 
   const [showSortManager, setShowSortManager] = useState<boolean>(false);
   const sortManagerRef = useRef<HTMLDivElement | null>(null);
@@ -331,9 +316,6 @@ export function ProjectsView({
 
   const handleSetSortRules = (rules: SortRule[]) => {
     setSortRules(rules);
-    if (typeof window !== "undefined") {
-      localStorage.setItem("devdesk_projects_multi_sort_rules", JSON.stringify(rules));
-    }
   };
 
   const toggleRuleDirection = (ruleId: string) => {
@@ -385,33 +367,18 @@ export function ProjectsView({
   };
 
   // Configurable Scan Depth (1, 2, 3, 4, 5, 8, 10, 15, 20, 0=max/unlimited)
-  const [scanDepth, setScanDepth] = useState<number>(5);
-
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("devdesk_scan_depth");
-      if (saved !== null) {
-        const parsed = parseInt(saved, 10);
-        if (!isNaN(parsed) && parsed >= 0) setScanDepth(parsed);
-      }
-    }
-  }, []);
+  const [scanDepth, setScanDepth] = useStoredPreference<number>("devdesk_scan_depth", 5);
 
   const handleSetScanDepth = (depth: number) => {
     setScanDepth(depth);
-    if (typeof window !== "undefined") {
-      localStorage.setItem("devdesk_scan_depth", depth.toString());
-    }
   };
 
   const [scanningTarget, setScanningTarget] = useState<string>("");
-  const [scanElapsedSeconds, setScanElapsedSeconds] = useState<number>(0);
+  const [elapsedSeconds, setScanElapsedSeconds] = useState<number>(0);
+  const scanElapsedSeconds = status === "scanning" ? elapsedSeconds : 0;
 
   useEffect(() => {
-    if (status !== "scanning") {
-      setScanElapsedSeconds(0);
-      return;
-    }
+    if (status !== "scanning") return;
 
     const startTime = Date.now();
     const interval = setInterval(() => {
@@ -422,7 +389,7 @@ export function ProjectsView({
   }, [status]);
 
   // IDE states
-  const [defaultIde, setDefaultIde] = useState<string>("vscode");
+  const [defaultIde, setDefaultIde] = useStoredPreference("devdesk_default_ide", "vscode");
   const [openMenuForPath, setOpenMenuForPath] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
 
@@ -654,21 +621,8 @@ export function ProjectsView({
     }
   }
 
-  // Load default IDE preference from localStorage
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("devdesk_default_ide");
-      if (saved && AVAILABLE_IDES.some((i) => i.id === saved)) {
-        setDefaultIde(saved);
-      }
-    }
-  }, []);
-
   function handleSetDefaultIde(ideId: string) {
     setDefaultIde(ideId);
-    if (typeof window !== "undefined") {
-      localStorage.setItem("devdesk_default_ide", ideId);
-    }
   }
 
   // Close IDE dropdown when clicking outside

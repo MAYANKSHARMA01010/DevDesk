@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useClientReady } from "@/hooks/useClientReady";
 import { getBackendDisplayLabel } from "@/config/env";
 
 interface StatusBarProps {
@@ -14,13 +14,10 @@ export function StatusBar({
   statusText,
   backendConnected = true,
   runningProcessesCount = 0,
-  port = 3000,
+  port = 8200,
 }: StatusBarProps) {
-  const [isDesktop, setIsDesktop] = useState(false);
-
-  useEffect(() => {
-    setIsDesktop(typeof window !== "undefined" && Boolean(window.electron));
-  }, []);
+  const clientReady = useClientReady();
+  const isDesktop = clientReady && Boolean(window.electron);
 
   const displayStatus =
     statusText ||

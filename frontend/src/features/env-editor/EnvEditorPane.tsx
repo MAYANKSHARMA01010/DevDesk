@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffectEvent, useEffect, useId, useRef, useState } from "react";
 import {
   createEnvFile,
   fetchEnvFiles,
@@ -62,7 +62,6 @@ export function EnvEditorPane({
   initialFilename,
   workspaces,
   loadingWorkspaces,
-  isActivePane,
   isSplit,
   onDirtyChange,
   onMetaChange,
@@ -119,7 +118,7 @@ export function EnvEditorPane({
   const [conflictErrorMessage, setConflictErrorMessage] = useState<string>("");
 
   // Loading & Feedback
-  const [loadingFiles, setLoadingFiles] = useState<boolean>(false);
+  const [, setLoadingFiles] = useState<boolean>(false);
   const [loadingContent, setLoadingContent] = useState<boolean>(false);
   const [savingFile, setSavingFile] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -131,25 +130,14 @@ export function EnvEditorPane({
     onDirtyChange(tabId, isDirty);
   }, [tabId, isDirty, onDirtyChange]);
 
-  // Handle Workspace reconciliation when workspaces change
-  useEffect(() => {
-    if (workspaces.length === 0) return;
-
-    if (!selectedWorkspaceId || !workspaces.some((w) => w.id === selectedWorkspaceId)) {
-      const fallbackWs = workspaces[0];
-      setSelectedWorkspaceId(fallbackWs.id);
-      if (fallbackWs.projects.length > 0 && !selectedProjectId) {
-        setSelectedProjectId(fallbackWs.projects[0].id);
-      }
-    }
-  }, [workspaces, selectedWorkspaceId, selectedProjectId]);
+  if (workspaces.length > 0 && !workspaces.some((w) => w.id === selectedWorkspaceId)) {
+    setSelectedWorkspaceId(workspaces[0].id);
+    if (!selectedProjectId) setSelectedProjectId(workspaces[0].projects[0]?.id || "");
+  }
 
   // Load projects with .env files whenever workspace changes
   useEffect(() => {
-    if (!selectedWorkspaceId) {
-      setProjectsWithEnv([]);
-      return;
-    }
+    if (!selectedWorkspaceId) return;
 
     let isEffectMounted = true;
     async function loadEnvProjects() {
@@ -183,19 +171,9 @@ export function EnvEditorPane({
   const activeProject =
     availableProjects.find((p) => p.id === selectedProjectId) || null;
 
-  // Validate project belongs to active workspace
-  useEffect(() => {
-    if (activeWorkspace && activeWorkspace.projects.length > 0) {
-      if (
-        selectedProjectId &&
-        !activeWorkspace.projects.some((p) => p.id === selectedProjectId)
-      ) {
-        setSelectedProjectId(activeWorkspace.projects[0].id);
-      }
-    } else {
-      setSelectedProjectId("");
-    }
-  }, [selectedWorkspaceId, activeWorkspace, selectedProjectId]);
+  if (activeWorkspace && selectedProjectId && !activeWorkspace.projects.some((p) => p.id === selectedProjectId)) {
+    setSelectedProjectId(activeWorkspace.projects[0]?.id || "");
+  }
 
   // Inform parent about meta changes (title, project, workspace, filename)
   useEffect(() => {
@@ -217,20 +195,6 @@ export function EnvEditorPane({
     activeProject,
     onMetaChange,
   ]);
-
-  // Load Supported Env Files when Selected Project Changes
-  useEffect(() => {
-    if (!selectedProjectId) {
-      setEnvFiles([]);
-      setVariables([]);
-      setRawContent("");
-      setIsDirty(false);
-      return;
-    }
-
-    loadFilesForProject(selectedProjectId, selectedFilename);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedProjectId]);
 
   async function loadFilesForProject(
     projectId: string,
@@ -286,6 +250,18 @@ export function EnvEditorPane({
   }
 
   // Load File Content
+  const onProjectFiles = useEffectEvent((projectId: string) => loadFilesForProject(projectId, selectedFilename));
+
+  // Load Supported Env Files when Selected Project Changes
+  useEffect(() => {
+    if (!selectedProjectId) {
+      return;
+    }
+
+    const timer = setTimeout(() => onProjectFiles(selectedProjectId), 100);
+    return () => clearTimeout(timer);
+  }, [selectedProjectId]);
+
   async function loadFileContent(projectId: string, filename: string) {
     try {
       setLoadingContent(true);
@@ -862,7 +838,7 @@ export function EnvEditorPane({
                 📄
               </div>
               <h3 className="text-sm font-semibold text-[#E8EBF1]">
-                "{selectedFilename}" does not exist in {activeProject?.name}
+                &quot;{selectedFilename}&quot; does not exist in {activeProject?.name}
               </h3>
               <p className="text-xs text-[#7C8594] mt-1 max-w-sm">
                 Create this file to configure environment variables for this deployment stage.

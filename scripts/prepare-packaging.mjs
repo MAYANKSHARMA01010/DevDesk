@@ -6,6 +6,9 @@ import { fileURLToPath } from "url";
 const __filename = fileURLToPath(import.meta.url);
 const rootDir = path.resolve(path.dirname(__filename), "..");
 
+execSync("node scripts/version.mjs check", { cwd: rootDir, stdio: "inherit" });
+const appVersion = JSON.parse(fs.readFileSync(path.join(rootDir, "package.json"), "utf8")).version;
+
 console.log("=== DevDesk Packaging Preparation ===");
 console.log("Root directory:", rootDir);
 
@@ -15,7 +18,21 @@ execSync("node scripts/sync-env.mjs", { cwd: rootDir, stdio: "inherit" });
 
 // 1. Build Frontend static export
 console.log("\n[1/5] Building Frontend static export (Next.js)...");
-execSync("pnpm --filter frontend run build", { cwd: rootDir, stdio: "inherit" });
+execSync("pnpm --filter frontend run build", {
+  cwd: rootDir,
+  stdio: "inherit",
+  // A local testing installer must not embed a developer's hosted API URL.
+  env: {
+    ...process.env,
+    NEXT_PUBLIC_HOSTED_API_URL: "",
+    NEXT_PUBLIC_HOSTED_BACKEND_URL: "",
+    HOSTED_API_URL: "",
+    HOSTED_BACKEND_URL: "",
+    NEXT_PUBLIC_API_URL: "http://127.0.0.1:8300",
+    NEXT_PUBLIC_PORT: "8200",
+    NEXT_PUBLIC_APP_VERSION: appVersion,
+  },
+});
 
 const frontendOut = path.join(rootDir, "frontend/out");
 if (!fs.existsSync(frontendOut)) {
@@ -41,17 +58,19 @@ execSync("./desktop/node_modules/.bin/tsc -p backend/tsconfig.json", { cwd: root
 const backendDist = path.join(rootDir, "backend/dist");
 const backendDeployDir = path.join(rootDir, ".packaging/backend");
 
-if (!fs.existsSync(path.join(backendDeployDir, "node_modules"))) {
-  if (fs.existsSync(backendDeployDir)) {
-    fs.rmSync(backendDeployDir, { recursive: true, force: true });
+// Always deploy from the current lockfile; a previous bundle may contain stale dependencies.
+fs.rmSync(backendDeployDir, { recursive: true, force: true });
+execSync(`pnpm --filter=backend deploy "${backendDeployDir}" --prod --legacy --node-linker=hoisted --ignore-scripts`, {
+  cwd: rootDir,
+  stdio: "inherit",
+});
+// pnpm legacy deploy can change workspace install state; restore development tools.
+execSync("pnpm install --prod=false --frozen-lockfile", { cwd: rootDir, stdio: "inherit" });
+// Local configuration and user data never belong in the installer.
+for (const entry of fs.readdirSync(backendDeployDir)) {
+  if (entry.startsWith(".env") || /\.db(?:-(?:wal|shm))?$/.test(entry)) {
+    fs.rmSync(path.join(backendDeployDir, entry), { recursive: true, force: true });
   }
-  fs.mkdirSync(backendDeployDir, { recursive: true });
-  execSync(`pnpm --filter=backend deploy "${backendDeployDir}" --prod --legacy --node-linker=hoisted --ignore-scripts`, {
-    cwd: rootDir,
-    stdio: "inherit",
-  });
-  // Restore workspace devDependencies in case pnpm deploy touched root
-  execSync("pnpm install --prod=false", { cwd: rootDir, stdio: "inherit" });
 }
 
 const deployDistDir = path.join(backendDeployDir, "dist");
@@ -60,14 +79,8 @@ try {
   fs.copyFileSync(path.join(rootDir, "backend/package.json"), path.join(backendDeployDir, "package.json"));
 } catch {}
 
-// Copy prebuilt sqlite addon if present
-const prebuiltSqlite = path.join(rootDir, "node_modules/.pnpm/better-sqlite3@11.10.0/node_modules/better-sqlite3/build");
-const deploySqliteBuild = path.join(backendDeployDir, "node_modules/better-sqlite3/build");
-if (fs.existsSync(prebuiltSqlite) && !fs.existsSync(deploySqliteBuild)) {
-  try {
-    fs.cpSync(prebuiltSqlite, deploySqliteBuild, { recursive: true });
-  } catch {}
-}
+// Native addons built for the host Node ABI are intentionally not copied.
+// The bundled Electron runtime provides node:sqlite when better-sqlite3 is unavailable.
 console.log("✓ Standalone production backend deployed to .packaging/backend");
 
 // 4. Ensure application icon

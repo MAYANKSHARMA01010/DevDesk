@@ -1,4 +1,4 @@
-import { BACKEND_URL as BACKEND_BASE_URL } from "@/config/env";
+import { APP_VERSION, BACKEND_URL as BACKEND_BASE_URL } from "@/config/env";
 
 export interface DiagnosticsData {
   status: string;
@@ -23,12 +23,12 @@ export interface DiagnosticsResponse {
  * Retrieves application diagnostic data and system health from backend.
  * Calls GET http://localhost:5001/api/diagnostics
  */
-export async function fetchDiagnostics(): Promise<DiagnosticsData> {
+export async function fetchDiagnostics(signal?: AbortSignal): Promise<DiagnosticsData> {
   const queryUrl = `${BACKEND_BASE_URL}/api/diagnostics`;
 
   let response: Response;
   try {
-    response = await fetch(queryUrl, { cache: "no-store" });
+    response = await fetch(queryUrl, { cache: "no-store", signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(5000)]) : AbortSignal.timeout(5000) });
   } catch (err: unknown) {
     const errorMsg = err instanceof Error ? err.message : "Network error";
     throw new Error(
@@ -55,7 +55,7 @@ export async function fetchDiagnostics(): Promise<DiagnosticsData> {
   return {
     status: typeof raw.status === "string" ? raw.status : "ok",
     app: typeof raw.appName === "string" ? raw.appName : typeof raw.app === "string" ? raw.app : "DevDesk",
-    version: typeof raw.version === "string" ? raw.version : "1.0.0",
+    version: typeof raw.version === "string" ? raw.version : APP_VERSION,
     platform: typeof raw.platform === "string" ? (raw.arch ? `${raw.platform} (${raw.arch})` : raw.platform) : "—",
     nodeVersion: typeof raw.nodeVersion === "string" ? raw.nodeVersion : "—",
     uptime: Number(raw.uptime ?? raw.uptimeSeconds ?? 0),

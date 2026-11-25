@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.0.1] - 2026-11-25
+
+### Fixed
+
+- Resolved frontend lint errors and warnings without disabling the checks.
+- Read desktop capabilities and saved preferences safely across static export hydration.
+- Debounce project refreshes, cancel stale script loads, and preserve the intended terminal tab.
+- Derive example responses and selection state; update relative times from a clock tick.
+- Cancel stale diagnostics requests and bound their network timeout.
+- Synchronize workspace versions with `version:bump` and verify them with `version:check`.
+
+- Updated setup, architecture, frontend, and release documentation to match current ports,
+  Apple Silicon packaging, MIT licensing, and local API limitations.
+- Recreate production backend dependencies for each packaging run and restore workspace
+  development dependencies after pnpm deployment.
+- Build local installers against the bundled API and exclude developer environment/data files.
+- Ad-hoc sign the macOS application so its modified resources have a valid signature.
+- Preserve unrelated processes when the packaged backend port is occupied.
+- Allow `DEVDESK_DATA_DIR` to isolate packaged-app test data.
+
 ## [1.0.0] - 2026-10-21
 
 ### Initial Production Release — Developer Command Center

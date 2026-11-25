@@ -64,4 +64,4 @@ export function getBackendDisplayLabel(): string {
 }
 
 export const APP_NAME: string = process.env.NEXT_PUBLIC_APP_NAME || "DevDesk";
-export const APP_VERSION: string = process.env.NEXT_PUBLIC_APP_VERSION || "1.0.0";
+export const APP_VERSION: string = process.env.NEXT_PUBLIC_APP_VERSION || "development";

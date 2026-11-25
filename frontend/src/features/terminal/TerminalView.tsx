@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, useTransition } from "react";
+import { useEffectEvent, useCallback, useEffect, useRef, useState } from "react";
 import { fetchWorkspaces } from "@/services/projects";
 import {
   fetchProcesses,
@@ -436,7 +436,6 @@ export function TerminalView({ isActive, initialSelection }: TerminalViewProps =
 
   const terminalScrollRef = useRef<HTMLDivElement>(null);
   const pollingRef = useRef<boolean>(false);
-  const [, startTransition] = useTransition();
 
   // Horizontal scrolling state for detected scripts row
   const scriptsScrollRef = useRef<HTMLDivElement>(null);
@@ -602,7 +601,9 @@ export function TerminalView({ isActive, initialSelection }: TerminalViewProps =
     }
   }, [checkServicesScroll, activeTab?.logs]);
 
-  // 1. Initialize workspaces, restore tabs from localStorage, and handle initialSelection
+  const [mountSelection] = useState(initialSelection);
+
+  // 1. Initialize workspaces, restore tabs from localStorage, and handle mountSelection
   useEffect(() => {
     let mounted = true;
 
@@ -678,10 +679,10 @@ export function TerminalView({ isActive, initialSelection }: TerminalViewProps =
           // ignore
         }
 
-        // If an initialSelection was provided from outside (e.g. ProjectsView)
-        if (initialSelection?.workspaceId && initialSelection?.projectId) {
-          const targetWs = loadedWorkspaces.find((w) => w.id === initialSelection.workspaceId);
-          const targetProj = targetWs?.projects.find((p) => p.id === initialSelection.projectId);
+        // If an mountSelection was provided from outside (e.g. ProjectsView)
+        if (mountSelection?.workspaceId && mountSelection?.projectId) {
+          const targetWs = loadedWorkspaces.find((w) => w.id === mountSelection.workspaceId);
+          const targetProj = targetWs?.projects.find((p) => p.id === mountSelection.projectId);
 
           if (targetWs && targetProj) {
             const projLabel = targetProj.displayName || targetProj.name;
@@ -689,7 +690,7 @@ export function TerminalView({ isActive, initialSelection }: TerminalViewProps =
             const existingTab = restoredTabs.find(
               (t) =>
                 t.projectId === targetProj.id &&
-                (!initialSelection.script || t.script === initialSelection.script)
+                (!mountSelection.script || t.script === mountSelection.script)
             );
 
             if (existingTab) {
@@ -698,12 +699,12 @@ export function TerminalView({ isActive, initialSelection }: TerminalViewProps =
               // Create a dedicated tab for this selected project
               const newTab: TerminalTab = {
                 ...createDefaultTab(restoredTabs.length + 1),
-                title: `${projLabel}: ${initialSelection.script || "term"}`,
+                title: `${projLabel}: ${mountSelection.script || "term"}`,
                 workspaceId: targetWs.id,
                 projectId: targetProj.id,
                 projectName: targetProj.name,
                 projectDisplayName: projLabel,
-                script: initialSelection.script || "",
+                script: mountSelection.script || "",
               };
               restoredTabs.push(newTab);
               initialActiveId = newTab.id;
@@ -765,10 +766,11 @@ export function TerminalView({ isActive, initialSelection }: TerminalViewProps =
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [mountSelection]);
 
-  // 2. Handle external initialSelection updates when view is already mounted
-  useEffect(() => {
+  // An external navigation request reads the latest tabs without reopening tabs
+  // whenever the user changes their local terminal selection.
+  const onExternalSelection = useEffectEvent(() => {
     if (!initialSelection?.workspaceId || !initialSelection?.projectId || workspaces.length === 0) {
       return;
     }
@@ -801,6 +803,10 @@ export function TerminalView({ isActive, initialSelection }: TerminalViewProps =
       setTabs((prev) => [...prev, newTab]);
       setActiveTabId(newTab.id);
     }
+  });
+  useEffect(() => {
+    const timer = setTimeout(() => onExternalSelection(), 100);
+    return () => clearTimeout(timer);
   }, [initialSelection, workspaces]);
 
   // 3. Save tabs to localStorage whenever tabs or active tab changes
@@ -821,6 +827,16 @@ export function TerminalView({ isActive, initialSelection }: TerminalViewProps =
     }
   }, [tabs, activeTabId]);
 
+  const onDefaultScript = useEffectEvent((projectId: string, scripts: Record<string, string>) => {
+    const keys = Object.keys(scripts);
+    setTabs((previous) => previous.map((tab) => {
+      if (tab.projectId !== projectId) return tab;
+      if (keys.length === 0) return { ...tab, isCustom: true };
+      if (tab.script) return tab;
+      return { ...tab, script: keys.find((key) => ["dev", "start", "serve", "test"].includes(key)) || keys[0] };
+    }));
+  });
+
   // 4. Fetch available scripts for active project when projectId changes
   useEffect(() => {
     if (!activeTab?.projectId) return;
@@ -838,23 +854,18 @@ export function TerminalView({ isActive, initialSelection }: TerminalViewProps =
         const discovered = await fetchProjectScripts(projId);
         if (!mounted) return;
         setProjectScriptsCache((prev) => ({ ...prev, [projId]: discovered }));
-        const keys = Object.keys(discovered);
-        if (keys.length === 0) {
-          updateActiveTab({ isCustom: true });
-        } else if (!activeTab?.script && keys.length > 0) {
-          const preferred = keys.find((k) => ["dev", "start", "serve", "test"].includes(k)) || keys[0];
-          updateActiveTab({ script: preferred });
-        }
+        onDefaultScript(projId, discovered);
       } catch {
         if (!mounted) return;
         setProjectScriptsCache((prev) => ({ ...prev, [projId]: {} }));
-        updateActiveTab({ isCustom: true });
+        onDefaultScript(projId, {});
       } finally {
         if (mounted) setLoadingScripts(false);
       }
     }
 
     loadScripts();
+    return () => { mounted = false; };
 
   }, [activeTab?.projectId, projectScriptsCache]);
 
@@ -1196,7 +1207,7 @@ export function TerminalView({ isActive, initialSelection }: TerminalViewProps =
         prev.map((t) => (t.id === tabId ? { ...t, status: updated.status } : t))
       );
       setRunningProcesses((prev) => ({ ...prev, [updated.id]: updated }));
-    } catch (err: unknown) {
+    } catch {
       setTabs((prev) =>
         prev.map((t) => (t.id === tabId ? { ...t, status: "stopped" } : t))
       );
@@ -2314,7 +2325,7 @@ export function TerminalView({ isActive, initialSelection }: TerminalViewProps =
                 <p className="text-sm font-medium text-[#A5ADBA]">No matching logs</p>
                 <p className="text-xs text-[#7C8594] mt-1">
                   No log entries matched stream: <strong className="text-[#E8EBF1]">{streamFilter}</strong>
-                  {searchQuery && <> and query: <strong className="text-[#8CA9CF]">"{searchQuery}"</strong></>}
+                  {searchQuery && <> and query: <strong className="text-[#8CA9CF]">&quot;{searchQuery}&quot;</strong></>}
                 </p>
                 <button
                   onClick={() => {

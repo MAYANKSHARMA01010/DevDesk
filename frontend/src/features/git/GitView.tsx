@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffectEvent, useEffect, useMemo, useRef, useState } from "react";
 import { fetchWorkspaces } from "@/services/projects";
 import {
   checkoutBranch,
@@ -20,7 +20,6 @@ import {
   GitBranchesResult,
   GitCommitItem,
   GitDiffResult,
-  GitFileChange,
   GitStatusResult,
 } from "@/types/git";
 
@@ -306,26 +305,8 @@ export function GitView({ isActive, initialSelection }: GitViewProps = {}) {
   // Ref to track last loaded project ID and prevent duplicate fetches on window focus
   const lastLoadedProjectIdRef = useRef<string>("");
 
-  // Reload Git data when selected project changes
-  useEffect(() => {
-    if (selectedProjectId) {
-      const isGitProject = gitProjects.some((p) => p.id === selectedProjectId);
-      if (isGitProject) {
-        if (lastLoadedProjectIdRef.current !== selectedProjectId) {
-          lastLoadedProjectIdRef.current = selectedProjectId;
-          loadGitData(selectedProjectId);
-        }
-      } else {
-        lastLoadedProjectIdRef.current = "";
-        setSelectedProjectId("");
-        setGitStatus(null);
-        setBranches(null);
-        setHistory([]);
-        setSelectedFile(null);
-        setDiffResult(null);
-        setErrorMessage(null);
-      }
-    } else {
+  const onProjectRefresh = useEffectEvent((projectId: string) => {
+    if (!projectId || !gitProjects.some((project) => project.id === projectId)) {
       lastLoadedProjectIdRef.current = "";
       setGitStatus(null);
       setBranches(null);
@@ -333,15 +314,21 @@ export function GitView({ isActive, initialSelection }: GitViewProps = {}) {
       setSelectedFile(null);
       setDiffResult(null);
       setErrorMessage(null);
+      return;
     }
+    if (lastLoadedProjectIdRef.current !== projectId) {
+      lastLoadedProjectIdRef.current = projectId;
+      void loadGitData(projectId);
+    }
+  });
+  useEffect(() => {
+    const timer = setTimeout(() => onProjectRefresh(selectedProjectId), 100);
+    return () => clearTimeout(timer);
   }, [selectedProjectId, gitProjects]);
 
   // 3. Load diff when selectedFile changes
   useEffect(() => {
-    if (!selectedProjectId || !selectedFile) {
-      setDiffResult(null);
-      return;
-    }
+    if (!selectedProjectId || !selectedFile) return;
 
     let mounted = true;
 
@@ -355,7 +342,7 @@ export function GitView({ isActive, initialSelection }: GitViewProps = {}) {
         );
         if (!mounted) return;
         setDiffResult(result);
-      } catch (err: unknown) {
+      } catch {
         if (!mounted) return;
         setDiffResult(null);
       } finally {
@@ -551,6 +538,13 @@ export function GitView({ isActive, initialSelection }: GitViewProps = {}) {
     }
   }
 
+  const [now, setNow] = useState(0);
+  useEffect(() => {
+    const updateClock = () => setNow(Date.now());
+    const timer = setInterval(updateClock, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
   // Helper formatting methods
   function getWorkspaceLabel(rootPath: string): string {
     const parts = rootPath.split(/[/\\]/).filter(Boolean);
@@ -560,7 +554,7 @@ export function GitView({ isActive, initialSelection }: GitViewProps = {}) {
   function formatRelativeDate(isoDate: string): string {
     try {
       const d = new Date(isoDate);
-      const diffSecs = Math.max(0, Math.floor((Date.now() - d.getTime()) / 1000));
+      const diffSecs = Math.max(0, Math.floor(((now || d.getTime()) - d.getTime()) / 1000));
       if (diffSecs < 60) return "just now";
       const mins = Math.floor(diffSecs / 60);
       if (mins < 60) return `${mins}m ago`;
@@ -1209,10 +1203,11 @@ export function GitView({ isActive, initialSelection }: GitViewProps = {}) {
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            handleStage(file.path);
+                            void handleStage(e.currentTarget.dataset.path || "");
                           }}
                           disabled={actionLoading}
                           className="px-1.5 py-0.5 rounded text-[11px] font-bold text-zinc-400 hover:text-emerald-300 hover:bg-zinc-700/60 cursor-pointer transition-colors"
+                          data-path={file.path}
                           title="Stage this file"
                         >
                           +
