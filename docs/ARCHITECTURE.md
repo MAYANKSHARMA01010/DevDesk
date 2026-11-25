@@ -1,6 +1,6 @@
 # DevDesk architecture
 
-DevDesk 1.0.1 is a pnpm workspace with an Electron desktop shell, a statically
+DevDesk 1.0.2 is a pnpm workspace with an Electron desktop shell, a statically
 exported Next.js frontend, and an Express API backed by SQLite.
 
 ## Runtime
@@ -25,9 +25,10 @@ It starts `Resources/backend/dist/index.js` using its own executable with
 `ELECTRON_RUN_AS_NODE=1`, so a separate Node installation is unnecessary. It waits
 for `/health` before loading the main screen. The local test installer compiles
 its frontend for `127.0.0.1:8300`; packaged startup ignores working-directory `.env`
-files. It may attach to an existing healthy service on that port, otherwise it
-starts its own. An unrelated listener causes a startup error. There is no dynamic
-port fallback.
+files. It reclaims that port before starting a fresh bundled backend: listeners receive
+SIGTERM, then SIGKILL if they do not stop. Recovery verifies the port is free and
+protects DevDesk and its launcher ancestors. Permission failures or a continuously
+restarting listener can still prevent startup. There is no dynamic port fallback.
 
 ## Desktop bridge
 

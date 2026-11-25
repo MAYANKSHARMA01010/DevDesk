@@ -2,10 +2,9 @@ import { app, BrowserWindow, dialog, ipcMain, net, protocol, shell } from "elect
 import * as path from "path";
 import * as fs from "fs/promises";
 import * as fsSync from "fs";
-import * as http from "http";
-import * as netSocket from "net";
 import { spawn, execSync, ChildProcess } from "child_process";
 import { pathToFileURL } from "url";
+import { freeBackendPort } from "./backendPort";
 import type { ActionResult } from "./types";
 
 // Register custom privileged scheme before app ready
@@ -326,95 +325,6 @@ function getBackendErrorHtml(title: string, message: string, suggestion: string)
 }
 
 /**
- * Checks if port is occupied and verifies whether an existing DevDesk service is running.
- */
-async function checkPortOccupied(port: number): Promise<{ occupied: boolean; isDevDesk: boolean }> {
-  // 1. Quick check against /health (instant, returns status: "ok")
-  const isHealthy = await new Promise<boolean>((resolve) => {
-    const req = http.get(`http://127.0.0.1:${port}/health`, { timeout: 2000 }, (res) => {
-      let data = "";
-      res.on("data", (chunk) => {
-        data += chunk;
-      });
-      res.on("end", () => {
-        try {
-          const parsed = JSON.parse(data);
-          if (parsed && (parsed.status === "ok" || parsed.app === "DevDesk")) {
-            resolve(true);
-            return;
-          }
-        } catch {}
-        resolve(false);
-      });
-    });
-
-    req.on("error", () => resolve(false));
-    req.on("timeout", () => {
-      req.destroy();
-      resolve(false);
-    });
-  });
-
-  if (isHealthy) {
-    return { occupied: true, isDevDesk: true };
-  }
-
-  // 2. Secondary check against /api/diagnostics
-  const isDiag = await new Promise<boolean>((resolve) => {
-    const req = http.get(`http://127.0.0.1:${port}/api/diagnostics`, { timeout: 2000 }, (res) => {
-      let data = "";
-      res.on("data", (chunk) => {
-        data += chunk;
-      });
-      res.on("end", () => {
-        try {
-          const parsed = JSON.parse(data);
-          if (
-            parsed &&
-            (parsed.data?.appName === "DevDesk" ||
-              parsed.appName === "DevDesk" ||
-              parsed.data?.app === "DevDesk")
-          ) {
-            resolve(true);
-            return;
-          }
-        } catch {}
-        resolve(false);
-      });
-    });
-
-    req.on("error", () => resolve(false));
-    req.on("timeout", () => {
-      req.destroy();
-      resolve(false);
-    });
-  });
-
-  if (isDiag) {
-    return { occupied: true, isDevDesk: true };
-  }
-
-  // 3. Raw TCP check to see if port is open
-  return new Promise((resolve) => {
-    const socket = new netSocket.Socket();
-    socket.setTimeout(800);
-    socket.on("connect", () => {
-      socket.destroy();
-      resolve({ occupied: true, isDevDesk: false });
-    });
-    socket.on("timeout", () => {
-      socket.destroy();
-      resolve({ occupied: false, isDevDesk: false });
-    });
-    socket.on("error", () => {
-      socket.destroy();
-      resolve({ occupied: false, isDevDesk: false });
-    });
-    socket.connect(port, "127.0.0.1");
-  });
-}
-
-/**
  * Polls backend readiness endpoint until 200 OK or timeout.
  */
 async function waitForBackendReady(timeoutMs = 12000): Promise<boolean> {
@@ -459,24 +369,6 @@ async function startProductionBackend(): Promise<{
     }
   })();
 
-  // 1. Port conflict check & automatic zombie cleanup
-  let portCheck = await checkPortOccupied(targetPort);
-  if (portCheck.occupied) {
-    if (portCheck.isDevDesk) {
-      console.log(`[DevDesk] Found existing healthy DevDesk backend on port ${targetPort}. Attaching...`);
-      return { success: true };
-    }
-
-    // An unrelated listener belongs to the user; never terminate it on app startup.
-    if (portCheck.occupied && !portCheck.isDevDesk) {
-      return {
-        success: false,
-        error: `Port ${targetPort} is in use by another application on your Mac.`,
-        suggestion: `Please identify and close the process using port ${targetPort} (e.g., run 'lsof -i :${targetPort}' in terminal), then click Retry Startup.`,
-      };
-    }
-  }
-
   // 2. Resolve backend entry point
   let backendPath = path.join(process.resourcesPath, "backend/dist/index.js");
   if (!fsSync.existsSync(backendPath)) {
@@ -490,6 +382,18 @@ async function startProductionBackend(): Promise<{
         suggestion: "Please reinstall or rebuild DevDesk.",
       };
     }
+  }
+
+  // Reclaim the configured port instead of attaching to an old backend or failing.
+  try {
+    await freeBackendPort(targetPort);
+  } catch (error) {
+    console.error("[DevDesk] Backend port recovery failed:", error);
+    return {
+      success: false,
+      error: `Port ${targetPort} is in use by another application on your Mac.`,
+      suggestion: `Please identify and close the process using port ${targetPort} (e.g., run 'lsof -i :${targetPort}' in terminal), then click Retry Startup.`,
+    };
   }
 
   console.log("[DevDesk] Launching packaged backend at:", backendPath);

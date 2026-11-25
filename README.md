@@ -10,14 +10,16 @@ one desktop window.
 The current packaging command produces an **Apple Silicon (arm64)** installer.
 Intel, Windows, and Linux installers are not configured or verified.
 
-1. Download the [v1.0.1 installer](https://github.com/MAYANKSHARMA01010/DevDesk/releases/download/v1.0.1/DevDesk-1.0.1-arm64.dmg),
-   or build `release/DevDesk-1.0.1-arm64.dmg` locally.
+1. Download the [v1.0.2 installer](https://github.com/MAYANKSHARMA01010/DevDesk/releases/download/v1.0.2/DevDesk-1.0.2-arm64.dmg),
+   or build `release/DevDesk-1.0.2-arm64.dmg` locally.
 2. Open the DMG and drag **DevDesk.app** onto **Applications**.
 3. Eject the installer, then launch DevDesk from Applications.
 
 The app includes its frontend, backend, Electron runtime, and SQLite support.
 Node.js, pnpm, and running development servers are not required on the test Mac.
 This is a local developer build without Developer ID signing or Apple notarization.
+Starting the app automatically stops other TCP listeners on its backend port
+(default 8300) so the bundled backend can use it.
 If macOS blocks it, follow [first-launch troubleshooting](docs/PACKAGING_AND_RELEASES.md#first-launch).
 
 ## Features
@@ -71,8 +73,8 @@ pnpm run package:mac
 The command builds all three packages, creates a fresh production backend bundle,
 and runs electron-builder. It emits:
 
-- `release/DevDesk-1.0.1-arm64.dmg` — drag-to-Applications installer.
-- `release/DevDesk-1.0.1-arm64-mac.zip` — zipped application.
+- `release/DevDesk-1.0.2-arm64.dmg` — drag-to-Applications installer.
+- `release/DevDesk-1.0.2-arm64-mac.zip` — zipped application.
 - `release/mac-arm64/DevDesk.app` — unpacked application.
 
 The installer targets the bundled local API at `127.0.0.1:8300`, regardless of a

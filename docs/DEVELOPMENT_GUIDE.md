@@ -76,6 +76,7 @@ pnpm run build
 pnpm --filter backend typecheck
 pnpm --filter desktop typecheck
 pnpm --filter frontend lint
+pnpm run test:backend-port
 ```
 
 The root and backend `test` scripts are placeholders that exit with failure;
@@ -91,8 +92,10 @@ the production launch path for `output: "export"`.
 ## Troubleshooting
 
 Inspect ports with `lsof -nP -iTCP:8300 -sTCP:LISTEN` or the equivalent for 8200.
-Close only the process you recognize. Packaged startup reports a conflict for an
-unrelated listener; it does not choose a dynamic fallback port.
+Close only the process you recognize. Packaged startup automatically reclaims its
+configured port using SIGTERM and then SIGKILL if necessary. It verifies release
+and starts its own backend; there is no dynamic fallback port. It never signals
+DevDesk itself or its launcher ancestors.
 
 SQLite data defaults to `~/Library/Application Support/DevDesk/devdesk.db`.
 `DEVDESK_DATA_DIR=/absolute/test/path` isolates backend test data. Quit the app and

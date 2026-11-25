@@ -1,6 +1,6 @@
 # Packaging and testing DevDesk
 
-This repository currently builds DevDesk 1.0.1 for **Apple Silicon macOS (arm64)**.
+This repository currently builds DevDesk 1.0.2 for **Apple Silicon macOS (arm64)**.
 The DMG is a local evaluation build without Developer ID signing or notarization.
 Intel, Windows, and Linux packages are not configured or verified.
 
@@ -40,8 +40,8 @@ the project's usual tools on the test Mac.
 
 | Path | Purpose |
 | --- | --- |
-| `release/DevDesk-1.0.1-arm64.dmg` | Installer with Applications shortcut |
-| `release/DevDesk-1.0.1-arm64-mac.zip` | Zipped application bundle |
+| `release/DevDesk-1.0.2-arm64.dmg` | Installer with Applications shortcut |
+| `release/DevDesk-1.0.2-arm64-mac.zip` | Zipped application bundle |
 | `release/mac-arm64/DevDesk.app` | Unpacked app for diagnostics |
 
 Sizes depend on the build. These paths are generated and ignored by Git.
@@ -55,10 +55,12 @@ for the current DMG and ZIP. Recreate it whenever rebuilding artifacts.
 3. Drag DevDesk into Applications. Replace an earlier copy only if intended.
 4. Eject the DMG and launch `/Applications/DevDesk.app`.
 
-The bundled backend listens on `127.0.0.1:8300`. Startup may reuse a healthy
-DevDesk backend already there, so stop source servers when checking that the app
-is self-contained. An unrelated listener produces a conflict error; the app does
-not kill it or select a dynamic port.
+The bundled backend listens on `127.0.0.1:8300`. Startup automatically stops existing TCP listeners on
+that configured port, including older DevDesk services, before starting its own
+bundled backend. It tries SIGTERM before escalating to SIGKILL and verifies that
+the port is free. DevDesk and its launcher ancestors are protected. Processes the
+current user cannot terminate, or persistent automatic restarts, can still produce
+a startup error. It does not select a dynamic port.
 
 ## First launch
 
@@ -71,9 +73,9 @@ not imply Apple notarization or Gatekeeper approval.
 ## Verify the artifact
 
 ```bash
-hdiutil verify release/DevDesk-1.0.1-arm64.dmg
+hdiutil verify release/DevDesk-1.0.2-arm64.dmg
 codesign --verify --deep --strict --verbose=2 release/mac-arm64/DevDesk.app
-shasum -a 256 release/DevDesk-1.0.1-arm64.dmg release/DevDesk-1.0.1-arm64-mac.zip
+shasum -a 256 release/DevDesk-1.0.2-arm64.dmg release/DevDesk-1.0.2-arm64-mac.zip
 ```
 
 Mount the DMG read-only and verify it contains the app plus `/Applications` link.
@@ -112,8 +114,8 @@ the current artifact.
 ## Versioning and publishing
 
 Versions follow `major.minor.patch`: major for incompatible changes, minor for
-backward-compatible features, patch for compatible fixes. The current 1.0.1 release
-contains fixes to the existing 1.0.0 app. Render and Neon are not needed to share
+backward-compatible features, patch for compatible fixes. The current 1.0.2 release
+fixes backend port conflicts in the existing app. Render and Neon are not needed to share
 the standalone installer.
 
 ```bash

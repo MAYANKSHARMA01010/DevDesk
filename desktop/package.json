@@ -1,6 +1,6 @@
 {
   "name": "desktop",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "DevDesk Electron Desktop Shell",
   "main": "dist/main.js",
   "scripts": {

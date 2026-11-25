@@ -1,6 +1,6 @@
 {
   "name": "DevDesk",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Desktop Developer Command Center built with Electron, Next.js, React, TypeScript, Node.js, Express, and SQLite",
   "main": "index.js",
   "scripts": {
@@ -21,7 +21,8 @@
     "version:check": "node scripts/version.mjs check",
     "version:bump": "node scripts/version.mjs",
     "check": "pnpm run version:check && pnpm --filter backend typecheck && pnpm --filter desktop typecheck && pnpm --filter frontend lint",
-    "test:packaged": "node scripts/test-packaged.mjs"
+    "test:packaged": "node scripts/test-packaged.mjs",
+    "test:backend-port": "pnpm --filter desktop build && node --test scripts/test-backend-port.mjs"
   },
   "keywords": [],
   "author": "",

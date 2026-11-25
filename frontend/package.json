@@ -1,6 +1,6 @@
 {
   "name": "frontend",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "DevDesk Desktop Frontend Application",
   "private": true,
   "scripts": {

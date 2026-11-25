@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.0.2] - 2026-11-25
+
+### Fixed
+
+- Reclaim the configured local backend port automatically before starting the bundled backend.
+- Send SIGTERM first, escalate to SIGKILL for stubborn listeners, and verify port release.
+- Protect DevDesk and its launcher ancestors; bound recovery attempts and handle permission failures.
+- Start a fresh bundled backend instead of attaching to an older or misidentified service.
+- Add regression tests for port isolation, graceful termination, forced termination, and protected processes.
+
 ## [1.0.1] - 2026-11-25
 
 ### Fixed

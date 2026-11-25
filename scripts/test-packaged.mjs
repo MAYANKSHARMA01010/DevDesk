@@ -22,6 +22,18 @@ for (const port of [18300, 19222]) {
   });
   await new Promise(resolve => server.close(resolve));
 }
+let conflict;
+if (process.argv.includes("--port-conflict")) {
+  conflict = spawn(process.execPath, ["-e", `
+    const server=require('node:http').createServer((req,res)=>res.end(JSON.stringify({status:'ok',app:'OtherApp'})));
+    process.on('SIGTERM',()=>{});
+    server.listen(18300,'127.0.0.1',()=>console.log('ready'));
+  `], {stdio:["ignore","pipe","inherit"]});
+  await new Promise((resolve,reject) => {
+    conflict.once("error",reject);
+    conflict.stdout.once("data",resolve);
+  });
+}
 const logs=[];
 const env={...process.env,NEXT_PUBLIC_API_URL:api,NEXT_PUBLIC_HOSTED_API_URL:'',HOSTED_API_URL:'',DEVDESK_DATA_DIR:path.join(temp,'data')};
 delete env.ELECTRON_RUN_AS_NODE;
@@ -30,8 +42,9 @@ app.stdout.on('data',b=>logs.push(b.toString()));app.stderr.on('data',b=>logs.pu
 let ws;
 try {
  let health;
- for(let i=0;i<100;i++){try{health=await (await fetch(api+'/health')).json();break;}catch{} await sleep(200);}
+ for(let i=0;i<100;i++){try{const observed=await (await fetch(api+'/health')).json();if(observed.app==='DevDesk'){health=observed;break;}}catch{} await sleep(200);}
  assert.equal(health?.app,'DevDesk');
+ if(conflict) assert.equal(conflict.signalCode,'SIGKILL','occupied backend port reclaimed');
  const request=async (route,body)=>{const r=await fetch(api+route,body?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}:{});assert.ok(r.ok,route+' '+r.status); return r.json();};
  const initial=await request('/api/workspaces'); assert.deepEqual(initial.data,[]);
  const project=path.join(temp,'fixture');await mkdir(project);
@@ -72,14 +85,31 @@ try {
  assert.match(await evaluate('document.body.innerText'),new RegExp('v'+version.replaceAll('.','\\.')));
  const settings=await send('Page.captureScreenshot',{format:'png'});
  await writeFile(path.join(outputDir,'TEST_SETTINGS.png'),Buffer.from(settings.data,'base64'));
- // Read the legacy string preference format, then verify serialized updates survive hydration.
- await evaluate(`localStorage.setItem('devdesk_default_ide','cursor');localStorage.setItem('devdesk_sidebar_collapsed','true')`);
- await send('Page.reload',{ignoreCache:true});await sleep(2000);
- assert.equal(await evaluate(`document.querySelector('aside').getBoundingClientRect().width<100`),true,'restore sidebar preference');
+ // Exercise the actual preference action before reloading, including its subscription notification.
+ await evaluate(`localStorage.setItem('devdesk_default_ide','cursor');document.querySelector('aside button[title^="Collapse Sidebar"]').click()`);
+ for(let attempt=0;attempt<50;attempt++) {
+   if(await evaluate(`localStorage.getItem('devdesk_sidebar_collapsed')==='true' && document.querySelector('aside').getBoundingClientRect().width<100`))break;
+   await sleep(200);
+ }
+ assert.equal(await evaluate(`localStorage.getItem('devdesk_sidebar_collapsed')`),'true','collapse action saves preference');
+ await send('Page.reload',{ignoreCache:true});
+ let restored=false;
+ for(let attempt=0;attempt<50;attempt++) {
+   restored=await evaluate(`Boolean(document.querySelector('aside') && document.querySelector('aside').getBoundingClientRect().width<100)`);
+   if(restored)break;
+   await sleep(200);
+ }
+ if(!restored) {
+   const debug=await evaluate(`JSON.stringify({stored:localStorage.getItem('devdesk_sidebar_collapsed'),aside:document.querySelector('aside')?.outerHTML.slice(0,200),width:document.querySelector('aside')?.getBoundingClientRect().width,text:document.body.innerText.slice(0,700)})`);
+   await writeFile(path.join(outputDir,'hydration-debug.json'),debug);
+   const capture=await send('Page.captureScreenshot',{format:'png'});
+   await writeFile(path.join(outputDir,'hydration-debug.png'),Buffer.from(capture.data,'base64'));
+ }
+ assert.equal(restored,true,'restore sidebar preference');
  assert.equal(exceptions.length,0,'all views render without exceptions');
- console.log(JSON.stringify({pass:true,version,health:health.app,workspaceCount:saved.data.length,renderedProject:true,rendererExceptions:exceptions,sqlite:true,nativeIpc:true,managedScriptLogs:true,allViews:true,preferenceHydration:true,isolatedBackendPort:18300},null,2));
+ console.log(JSON.stringify({pass:true,version,health:health.app,workspaceCount:saved.data.length,renderedProject:true,rendererExceptions:exceptions,sqlite:true,nativeIpc:true,managedScriptLogs:true,allViews:true,preferenceHydration:true,isolatedBackendPort:18300,portConflictRecovery:Boolean(conflict)},null,2));
 } finally {
- if(ws)ws.close();app.kill('SIGTERM');await sleep(1200);await writeFile(path.join(outputDir,'smoke-runtime.log'),logs.join(''));
+ if(ws)ws.close();app.kill('SIGTERM');if(conflict && conflict.signalCode===null)conflict.kill('SIGKILL');await sleep(1200);await writeFile(path.join(outputDir,'smoke-runtime.log'),logs.join(''));
  let stillListening=false;try{stillListening=(await fetch(api+'/health')).ok;}catch{}
  assert.equal(stillListening,false,'owned backend stops on app quit');
 }
